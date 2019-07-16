@@ -1,4 +1,8 @@
 pandas
+matplotlib
 seaborn
 pytest
 numpy
+pyarrow
+datashader
+bokeh
