@@ -30,7 +30,9 @@ def example_sed():
         'Ks_vista', 
         'J_ukidss',
         'H_ukidss',
-        'K_ukidss'
+        'K_ukidss',
+        'WISE_1',
+        'WISE_2'
     ]
     mag_trend = np.linspace(-15., -16., len(mag_cols))
     noise = np.random.normal(loc=0., scale=0.05, size=len(mag_cols))

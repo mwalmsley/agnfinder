@@ -6,3 +6,4 @@ numpy
 pyarrow
 datashader
 bokeh
+scipy
