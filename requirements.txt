@@ -7,3 +7,7 @@ pyarrow
 datashader
 bokeh
 scipy
+emcee
+corner
+pymultinest
+pydelfi  # not yet used

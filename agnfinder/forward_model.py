@@ -5,13 +5,13 @@ import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 
 
-def interpolate_templates(templates, mag_col, **kwargs):
+def interpolate_templates(templates, mag_col, var_cols=['EB_V', 'z'], **kwargs):
     # https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.RegularGridInterpolator.html#scipy.interpolate.RegularGridInterpolator
-    axes, grid = construct_grid(templates, mag_col)
+    axes, grid = construct_grid(templates, mag_col, var_cols)
     return RegularGridInterpolator(axes, grid, **kwargs)
 
 
-def construct_grid(df, mag_col, var_cols=['EB_V', 'z']):
+def construct_grid(df, mag_col, var_cols):
     # operates on 1 model template (filtered to df)
 
     index_value_mapping = OrderedDict()

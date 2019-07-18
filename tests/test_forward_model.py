@@ -30,7 +30,7 @@ def axes():
     return ([1., 2.], [1., 2., 3.])
 
 def test_construct_grid(templates, mag_col):
-    axes, grid = forward_model.construct_grid(templates, mag_col)
+    axes, grid = forward_model.construct_grid(templates, mag_col, ['EB_V', 'z'])
     assert grid.shape == (2, 2)
     assert grid[0, 0] == 12
     assert grid[1, 1] == 15
