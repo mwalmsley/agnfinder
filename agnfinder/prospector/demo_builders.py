@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import sedpy
 from prospect.sources import CSPSpecBasis
@@ -157,7 +158,9 @@ def build_sps(zcontinuous=1, **extras):
         have a continuous metallicity parameter (`logzsol`)
         See python-FSPS documentation for details
     """
+    logging.info('attempting to build CSPSpec')
     sps = CSPSpecBasis(zcontinuous=zcontinuous)
+    logging.info('CSPSpec built')
     return sps
 
 if __name__ == '__main__':

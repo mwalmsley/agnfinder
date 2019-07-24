@@ -1,9 +1,19 @@
-import sedpy
+import logging
+from collections import namedtuple
+
 import numpy as np
+import pandas as pd
+from sedpy import observate
+
 from prospect.utils.obsutils import fix_obs
 from prospect.models.templates import TemplateLibrary
 from prospect.models import priors
 from prospect.models.sedmodel import SedModel
+
+from prospect.sources import CSPSpecBasis, SSPBasis
+
+Filter = namedtuple('Filter', ['bandpass_file', 'mag_col', 'error_col'])
+
 
 def build_cpz_obs(galaxy, snr=10, **extras):
     """Build a dictionary of photometry (and eventually spectra?)
@@ -42,33 +52,92 @@ def build_cpz_obs(galaxy, snr=10, **extras):
 
 def load_maggies_from_galaxy(galaxy, snr):
 
-    # TODO redo unified columns to preserve original filters
-    # For now, let's just use a bunch of sdss unified columns
-    galaxy_filter_cols = ['u', 'g', 'r', 'i', 'z', 'w1', 'w2', 'w3','w4']
+    # Pairs of (filter name in sedpy, filter name in dataframe)
+    galex = [
+        Filter(
+            bandpass_file='{}_galex'.format(b),
+            mag_col='mag_auto_galex_{}_dr67'.format(b.lower()),
+            error_col='magerr_auto_galex_{}_dr67'.format(b.lower())
+        )
+        for b in ['NUV', 'FUV']]
+    # cfht awkward due to i filter renaming - for now, am using i=i_new
+    cfht = [
+        Filter(
+            bandpass_file='{}_cfhtl'.format(b),
+            mag_col='mag_auto_cfhtwide_{}_dr7'.format(b),
+            error_col='magerr_auto_cfhtwide_{}_dr7'.format(b)
+        )
+        for b in ['g', 'i', 'r', 'u', 'z']]
+    kids = [
+        Filter(
+            bandpass_file='{}_kids'.format(b),
+            mag_col='mag_auto_kids_{}_dr2'.format(b),
+            error_col='magerr_auto_kids_{}_dr2'.format(b))
+        for b in ['i', 'r']]
+    vista = [
+        Filter(
+            bandpass_file='VISTA_{}'.format(b),
+            mag_col='mag_auto_viking_{}_dr2'.format(b.lower().strip('s')),
+            error_col='magerr_auto_viking_{}_dr2'
+        )
+        for b in ['H', 'J', 'Ks', 'Y', 'Z']]  # is k called ks in df? TODO
+    sdss = [
+        Filter(
+            bandpass_file='{}_sloan'.format(b),
+            mag_col='mag_auto_sdss_{}_dr12'.format(b),
+            error_col='magerr_auto_sdss_{}_dr12'.format(b))
+        for b in ['u', 'g', 'r', 'i', 'z']]
+    wise = [
+        Filter(
+            bandpass_file='wise_{}'.format(x),
+            mag_col='mag_auto_AllWISE_{}'.format(x.upper()),
+            error_col='magerr_auto_AllWISE_{}'.format(x.upper())
+        )
+        for x in ['w1', 'w2', 'w3']] # exclude w4 due to bad error
 
-    #  'y', 'j', 'h', 'k',
+    filters = galex + sdss+ cfht + kids + vista + wise
+    valid_filters = [f for f in filters if filter_has_valid_data(galaxy[f.mag_col])]
+    logging.info(valid_filters)
 
-    # These are the names of the relevant filters, 
-    # in the same order as the photometric data (see below)
-    sdss = ['sdss_{0}0'.format(b) for b in ['u', 'g', 'r', 'i', 'z']]
-    # vvvv = ['y', 'j', 'h', 'k']
-    wise = ['wise_{}'.format(x) for x in ['w1', 'w2', 'w3', 'w4']]
-
-    filternames = sdss + wise
-    # And here we instantiate the `Filter()` objects using methods in `sedpy`
-    filters = sedpy.observate.load_filters(filternames)
+    # Instantiate the `Filter()` objects using methods in `sedpy`
+    filters = observate.load_filters([f.bandpass_file for f in valid_filters])
 
     # Now we store the measured fluxes for a single object, **in the same order as "filters"**
     # These should be in apparent AB magnitudes
     # The units of the fluxes need to be maggies (Jy/3631) so we will do the conversion here too.
-    mags = np.array(galaxy[galaxy_filter_cols].values).astype(float)
+    mags = np.array(galaxy[[f.mag_col for f in valid_filters]].values).astype(float)
+    logging.info(mags)
     maggies = 10**(-0.4*mags)
+    logging.info(maggies)
 
-    # And now we store the uncertainties (again in units of maggies)
-    # In this example we are going to fudge the uncertainties based on the supplied `snr` meta-parameter.
-    maggies_unc = (1./snr) * maggies
+    mag_errors = np.array(galaxy[[f.error_col for f in valid_filters]].values).astype(float) * 2.  # being skeptical...
+    
+    logging.info(mag_errors)
+
+    maggies_unc = []
+    for i in range(len(mags)):
+        maggies_unc.append(calculate_maggie_uncertainty(mag_errors[i], maggies[i], snr=snr))
+    maggies_unc = np.array(maggies_unc).astype(float)
+
+
+    logging.info(maggies_unc)
+
 
     return filters, maggies, maggies_unc
+
+
+def calculate_maggie_uncertainty(mag_error, maggie, snr):
+    # http://slittlefair.staff.shef.ac.uk/teaching/phy217/lectures/stats/L18/index.html#magnitudes
+    maggies_unc = maggie * mag_error / 1.09
+    if np.isnan(maggies_unc):  # nan uncertainty recorded
+        # fudge the uncertainties based on the specified snr.
+        return (1./snr) * maggie
+    else:
+        return maggies_unc
+
+
+def filter_has_valid_data(filter_value):
+    return not pd.isnull(filter_value) and filter_value > -98 and filter_value < 98
 
 
 
@@ -182,7 +251,7 @@ def build_model(redshift=None, fixed_metallicity=None, dust=False,
 
     # Get (a copy of) one of the prepackaged model set dictionaries.
     # This is, somewhat confusingly, a dictionary of dictionaries, keyed by parameter name
-    model_params = TemplateLibrary["continuity_flex_sfh"]
+    model_params = TemplateLibrary["parametric_sfh"]
     
    # Now add the lumdist parameter by hand as another entry in the dictionary.
    # This will control the distance since we are setting the redshift to zero.  
@@ -219,11 +288,11 @@ def build_model(redshift=None, fixed_metallicity=None, dust=False,
         model_params["logzsol"]['init'] = fixed_metallicity 
 
     if redshift is None:
-        # make sure zred is fixed
+        # Set redshift as free
         model_params["zred"]['isfree'] = True
     else:
+        # Set redshift as fixed to  keyword value
         model_params["zred"]['isfree'] = False
-        # And set the value to the redshift keyword
         model_params["zred"]['init'] = redshift
 
     if dust:
@@ -238,3 +307,32 @@ def build_model(redshift=None, fixed_metallicity=None, dust=False,
     model = SedModel(model_params)
 
     return model
+
+
+
+
+class SSPBasisAGN(SSPBasis):
+    """ 
+    Uses SSPBasis to implement get_spectrum(), which calls get_galaxy_spectrum and 
+     - applies observational effects
+     - normalises by mass
+    """
+
+    def get_galaxy_spectrum(self, **params):
+        """Update parameters, then multiply SSP weights by SSP spectra and
+        stellar masses, and sum.
+        :returns wave:
+            Wavelength in angstroms.
+        :returns spectrum:
+            Spectrum in units of Lsun/Hz/solar masses formed.
+        :returns mass_fraction:
+            Fraction of the formed stellar mass that still exists.
+        """
+        self.update(**params)
+
+        # call the original get_galaxy_spectrum method
+        wave, spectrum, mass_frac = super(SSPBasisAGN, self).get_galaxy_spectrum(**params)
+        # TODO will insert AGN template here into wave and spectrum
+        return wave, spectrum, mass_frac
+
+

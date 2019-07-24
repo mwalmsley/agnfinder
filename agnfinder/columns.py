@@ -5,19 +5,6 @@ cpz_cols = {}
 cpz_cols['metadata'] = ['id', 'alpha', 'delta', 'redshift', 'hclass', 'hquality',
        'survey_quality', 'survey_comment', 'sp_survey']
 
-
-
-cpz_cols['case'] = ['CASE_I_a0_01', 'CASE_I_a0_001', 'CASE_I_a0', 'CASE_II_a0_05',
-       'CASE_II_a0_01', 'CASE_II_a0_001', 'CASE_II_a0', 'CASE_II_b0_05',
-       'CASE_II_b0_01', 'CASE_II_b0_001', 'CASE_II_b0', 'CASE_III_a0_05',
-       'CASE_III_a0_01', 'CASE_III_a0_001', 'CASE_III_a0',
-       'CASE_III_b0_05', 'CASE_III_b0_01', 'CASE_III_b0_001',
-       'CASE_III_b0', 'CASE_III_c0_05', 'CASE_III_c0_01',
-       'CASE_III_c0_001', 'CASE_III_c0', 'CASE_III_d0_05',
-       'CASE_III_d0_01', 'CASE_III_d0_001', 'CASE_III_d0']
-
-
-
 cpz_cols['unified'] = ['fuv', 'nuv',
        'u', 'g', 'r', 'i', 'z', 'y', 'j', 'h', 'k', 'w1', 'w2', 'w3',
        'w4', 'fuv3', 'nuv3', 'u3', 'g3', 'r3', 'i3', 'z3', 'y3', 'j3',
@@ -28,7 +15,45 @@ cpz_cols['unified'] = ['fuv', 'nuv',
        'h3_err', 'k3_err', 'u_hlr', 'g_hlr', 'r_hlr', 'i_hlr', 'z_hlr',
        'y_hlr', 'j_hlr', 'h_hlr', 'k_hlr']  # what is hlr?
 
+cpz_cols['case'] = ['CASE_I_a0_01', 'CASE_I_a0_001', 'CASE_I_a0', 'CASE_II_a0_05',
+       'CASE_II_a0_01', 'CASE_II_a0_001', 'CASE_II_a0', 'CASE_II_b0_05',
+       'CASE_II_b0_01', 'CASE_II_b0_001', 'CASE_II_b0', 'CASE_III_a0_05',
+       'CASE_III_a0_01', 'CASE_III_a0_001', 'CASE_III_a0',
+       'CASE_III_b0_05', 'CASE_III_b0_01', 'CASE_III_b0_001',
+       'CASE_III_b0', 'CASE_III_c0_05', 'CASE_III_c0_01',
+       'CASE_III_c0_001', 'CASE_III_c0', 'CASE_III_d0_05',
+       'CASE_III_d0_01', 'CASE_III_d0_001', 'CASE_III_d0']
 
+cpz_cols['sdss'] = ['id_sdss_u_dr12',
+       'tile_name_sdss_u_dr12', 'alpha_sdss_u_dr12', 'delta_sdss_u_dr12',
+       'flags_sdss_u_dr12', 'flux_radius_sdss_u_dr12', 'fwhm_sdss_u_dr12',
+       'mag_auto_sdss_u_dr12', 'magerr_auto_sdss_u_dr12',
+       'mag_aper2_sdss_u_dr12', 'magerr_aper2_sdss_u_dr12',
+       'mag_aper3_sdss_u_dr12', 'magerr_aper3_sdss_u_dr12',
+       'id_sdss_g_dr12', 'tile_name_sdss_g_dr12', 'alpha_sdss_g_dr12',
+       'delta_sdss_g_dr12', 'flags_sdss_g_dr12',
+       'flux_radius_sdss_g_dr12', 'fwhm_sdss_g_dr12',
+       'mag_auto_sdss_g_dr12', 'magerr_auto_sdss_g_dr12',
+       'mag_aper2_sdss_g_dr12', 'magerr_aper2_sdss_g_dr12',
+       'mag_aper3_sdss_g_dr12', 'magerr_aper3_sdss_g_dr12',
+       'id_sdss_r_dr12', 'tile_name_sdss_r_dr12', 'alpha_sdss_r_dr12',
+       'delta_sdss_r_dr12', 'flags_sdss_r_dr12',
+       'flux_radius_sdss_r_dr12', 'fwhm_sdss_r_dr12',
+       'mag_auto_sdss_r_dr12', 'magerr_auto_sdss_r_dr12',
+       'mag_aper2_sdss_r_dr12', 'magerr_aper2_sdss_r_dr12',
+       'mag_aper3_sdss_r_dr12', 'magerr_aper3_sdss_r_dr12',
+       'id_sdss_i_dr12', 'tile_name_sdss_i_dr12', 'alpha_sdss_i_dr12',
+       'delta_sdss_i_dr12', 'flags_sdss_i_dr12',
+       'flux_radius_sdss_i_dr12', 'fwhm_sdss_i_dr12',
+       'mag_auto_sdss_i_dr12', 'magerr_auto_sdss_i_dr12',
+       'mag_aper2_sdss_i_dr12', 'magerr_aper2_sdss_i_dr12',
+       'mag_aper3_sdss_i_dr12', 'magerr_aper3_sdss_i_dr12',
+       'id_sdss_z_dr12', 'tile_name_sdss_z_dr12', 'alpha_sdss_z_dr12',
+       'delta_sdss_z_dr12', 'flags_sdss_z_dr12',
+       'flux_radius_sdss_z_dr12', 'fwhm_sdss_z_dr12',
+       'mag_auto_sdss_z_dr12', 'magerr_auto_sdss_z_dr12',
+       'mag_aper2_sdss_z_dr12', 'magerr_aper2_sdss_z_dr12',
+       'mag_aper3_sdss_z_dr12', 'magerr_aper3_sdss_z_dr12']
 
 cpz_cols['cfht'] = ['id_cfhtwide_u_dr7', 'tile_name_cfhtwide_u_dr7',
        'alpha_cfhtwide_u_dr7', 'delta_cfhtwide_u_dr7',
@@ -153,7 +178,7 @@ cpz_cols['galex'] = ['id_GALEX_DR67', 'alpha_GALEX_DR67', 'delta_galex_dr67',
        'mag_aper3_galex_fuv_dr67', 'magerr_aper3_galex_fuv_dr67',
        'mag_auto_galex_fuv_dr67', 'magerr_auto_galex_fuv_dr67']
 
-cpz_cols['allwise'] = ['id_AllWISE', 'alpha_AllWISE', 'delta_AllWISE',
+cpz_cols['wise'] = ['id_AllWISE', 'alpha_AllWISE', 'delta_AllWISE',
        'mag_auto_AllWISE_W1', 'mag_auto_AllWISE_W2',
        'mag_auto_AllWISE_W3', 'mag_auto_AllWISE_W4',
        'magerr_auto_AllWISE_W1', 'magerr_auto_AllWISE_W2',

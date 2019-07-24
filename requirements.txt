@@ -10,4 +10,16 @@ scipy
 emcee
 corner
 pymultinest
-pydelfi  # not yet used
+dynesty
+# pydelfi  # not yet used
+pytest
+h5py
+pyfits
+astropy
+
+# ./sedpy
+# ./python-fsps
+# ./prospector
+
+# from here:
+# pip install -e .
