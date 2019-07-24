@@ -1,9 +1,7 @@
 import logging
-from collections import namedtuple
 
 import numpy as np
 import pandas as pd
-from sedpy import observate
 
 from prospect.utils.obsutils import fix_obs
 from prospect.models.templates import TemplateLibrary
@@ -12,8 +10,7 @@ from prospect.models.sedmodel import SedModel
 from prospect.sources import CSPSpecBasis, SSPBasis
 
 from agnfinder import quasar_template, agn_models
-
-Filter = namedtuple('Filter', ['bandpass_file', 'mag_col', 'error_col'])
+from agnfinder.prospector import load_photometry
 
 
 def build_cpz_obs(galaxy, snr=10, **extras):
@@ -27,7 +24,7 @@ def build_cpz_obs(galaxy, snr=10, **extras):
         A dictionary of observational data to use in the fit.
     """
     obs = {}
-    obs["filters"], obs["maggies"], obs['maggies_unc'] = load_maggies_from_galaxy(galaxy, snr)
+    obs["filters"], obs["maggies"], obs['maggies_unc'] = load_photometry.load_maggies_from_galaxy(galaxy, snr)
     # Now we need a mask, which says which flux values to consider in the likelihood.
     # IMPORTANT: the mask is *True* for values that you *want* to fit
     obs["phot_mask"] = np.array([True for _ in obs['filters']])
@@ -49,97 +46,6 @@ def build_cpz_obs(galaxy, snr=10, **extras):
     obs = fix_obs(obs)
 
     return obs
-
-
-def load_maggies_from_galaxy(galaxy, snr):
-
-    # Pairs of (filter name in sedpy, filter name in dataframe)
-    galex = [
-        Filter(
-            bandpass_file='{}_galex'.format(b),
-            mag_col='mag_auto_galex_{}_dr67'.format(b.lower()),
-            error_col='magerr_auto_galex_{}_dr67'.format(b.lower())
-        )
-        for b in ['NUV', 'FUV']]
-    # cfht awkward due to i filter renaming - for now, am using i=i_new
-    cfht = [
-        Filter(
-            bandpass_file='{}_cfhtl'.format(b),
-            mag_col='mag_auto_cfhtwide_{}_dr7'.format(b),
-            error_col='magerr_auto_cfhtwide_{}_dr7'.format(b)
-        )
-        for b in ['g', 'i', 'r', 'u', 'z']]
-    kids = [
-        Filter(
-            bandpass_file='{}_kids'.format(b),
-            mag_col='mag_auto_kids_{}_dr2'.format(b),
-            error_col='magerr_auto_kids_{}_dr2'.format(b))
-        for b in ['i', 'r']]
-    vista = [
-        Filter(
-            bandpass_file='VISTA_{}'.format(b),
-            mag_col='mag_auto_viking_{}_dr2'.format(b.lower().strip('s')),
-            error_col='magerr_auto_viking_{}_dr2'
-        )
-        for b in ['H', 'J', 'Ks', 'Y', 'Z']]  # is k called ks in df? TODO
-    sdss = [
-        Filter(
-            bandpass_file='{}_sloan'.format(b),
-            mag_col='mag_auto_sdss_{}_dr12'.format(b),
-            error_col='magerr_auto_sdss_{}_dr12'.format(b))
-        for b in ['u', 'g', 'r', 'i', 'z']]
-    wise = [
-        Filter(
-            bandpass_file='wise_{}'.format(x),
-            mag_col='mag_auto_AllWISE_{}'.format(x.upper()),
-            error_col='magerr_auto_AllWISE_{}'.format(x.upper())
-        )
-        for x in ['w1', 'w2', 'w3']] # exclude w4 due to bad error
-
-    filters = galex + sdss+ cfht + kids + vista + wise
-    valid_filters = [f for f in filters if filter_has_valid_data(galaxy[f.mag_col])]
-    logging.info(valid_filters)
-
-    # Instantiate the `Filter()` objects using methods in `sedpy`
-    filters = observate.load_filters([f.bandpass_file for f in valid_filters])
-
-    # Now we store the measured fluxes for a single object, **in the same order as "filters"**
-    # These should be in apparent AB magnitudes
-    # The units of the fluxes need to be maggies (Jy/3631) so we will do the conversion here too.
-    mags = np.array(galaxy[[f.mag_col for f in valid_filters]].values).astype(float)
-    logging.info(mags)
-    maggies = 10**(-0.4*mags)
-    logging.info(maggies)
-
-    mag_errors = np.array(galaxy[[f.error_col for f in valid_filters]].values).astype(float) * 2.  # being skeptical...
-    
-    logging.info(mag_errors)
-
-    maggies_unc = []
-    for i in range(len(mags)):
-        maggies_unc.append(calculate_maggie_uncertainty(mag_errors[i], maggies[i], snr=snr))
-    maggies_unc = np.array(maggies_unc).astype(float)
-
-
-    logging.info(maggies_unc)
-
-
-    return filters, maggies, maggies_unc
-
-
-def calculate_maggie_uncertainty(mag_error, maggie, snr):
-    # http://slittlefair.staff.shef.ac.uk/teaching/phy217/lectures/stats/L18/index.html#magnitudes
-    maggies_unc = maggie * mag_error / 1.09
-    if np.isnan(maggies_unc):  # nan uncertainty recorded
-        # fudge the uncertainties based on the specified snr.
-        return (1./snr) * maggie
-    else:
-        return maggies_unc
-
-
-def filter_has_valid_data(filter_value):
-    return not pd.isnull(filter_value) and filter_value > -98 and filter_value < 98
-
 
 
 def build_model_demo_style(object_redshift=None, ldist=10.0, fixed_metallicity=None, add_duste=False, 
@@ -310,6 +216,8 @@ def build_model(redshift=None, fixed_metallicity=None, dust=False, agn_fraction=
         if agn_fraction:
             logging.info('AGN fraction will be free parameter')
             model_params['agn_fraction'] = {'N': 1, 'isfree': True, 'init': 0.1, 'prior': priors.TopHat(mini=0.0, maxi=1.0)}  # units?
+        else:
+            raise ValueError('agn_fraction set to False - use None instead!')
     elif isinstance(agn_fraction, float):
         logging.info('AGN fraction will be fixed at {}'.format(agn_fraction))
         model_params['agn_fraction'] = {'N': 1, 'isfree': False, 'init': agn_fraction}  # units?
@@ -330,12 +238,12 @@ def build_sps(zcontinuous=1, agn_fraction=None, **extras):
         have a continuous metallicity parameter (`logzsol`)
         See python-FSPS documentation for details
     """
-    if agn_fraction is None:
+    if agn_fraction:  # True if either =True or =float, False if =None or =False
+        logging.info('Building custom CSPSpecBasisAGN as agn_fraction is {}'.format(agn_fraction))
+        sps = CSPSpecBasisAGN(zcontinuous=zcontinuous, agn_fraction=agn_fraction)
+    else:
         logging.info('Building standard CSPSpec')
         sps = CSPSpecBasis(zcontinuous=zcontinuous)
-    else:
-        logging.info('Building custom CSPSpecBasisAGN')
-        sps = CSPSpecBasisAGN(zcontinuous=zcontinuous, agn_fraction=agn_fraction)
     return sps
 
 
@@ -358,7 +266,7 @@ class CSPSpecBasisAGN(CSPSpecBasis):
         :returns mass_fraction:
             Fraction of the formed stellar mass that still exists.
         """
-        logging.warning('Using custom get_galaxy_spectrum with params {}'.format(params))
+        logging.debug('Using custom get_galaxy_spectrum with params {}'.format(params))
         self.update(**params)
         try:
             self.params['agn_fraction']
@@ -372,5 +280,7 @@ class CSPSpecBasisAGN(CSPSpecBasis):
         interp = quasar_template.load_interpolated_quasar_template()
         normalised_quasar_flux = quasar_template.eval_quasar_template(wave, interp)
         quasar_flux = agn_models.scale_quasar_to_agn_fraction(initial_quasar_flux=normalised_quasar_flux, galaxy_flux=spectrum, agn_fraction=self.params['agn_fraction'])
+
+        # TODO 
 
         return wave, spectrum + quasar_flux, mass_frac

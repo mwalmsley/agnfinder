@@ -24,27 +24,6 @@ from prospect.io import write_results as writer
 from agnfinder.prospector import demo_builders, cpz_builders, visualise, fitting
 from agnfinder import columns
 
-logging.info('Loading complete')
-
-# re-defining plotting defaults
-# from matplotlib.font_manager import FontProperties
-# from matplotlib import gridspec
-# plt.rcParams.update({'xtick.major.pad': '7.0'})
-# plt.rcParams.update({'xtick.major.size': '7.5'})
-# plt.rcParams.update({'xtick.major.width': '1.5'})
-# plt.rcParams.update({'xtick.minor.pad': '7.0'})
-# plt.rcParams.update({'xtick.minor.size': '3.5'})
-# plt.rcParams.update({'xtick.minor.width': '1.0'})
-# plt.rcParams.update({'ytick.major.pad': '7.0'})
-# plt.rcParams.update({'ytick.major.size': '7.5'})
-# plt.rcParams.update({'ytick.major.width': '1.5'})
-# plt.rcParams.update({'ytick.minor.pad': '7.0'})
-# plt.rcParams.update({'ytick.minor.size': '3.5'})
-# plt.rcParams.update({'ytick.minor.width': '1.0'})
-# plt.rcParams.update({'xtick.color': 'k'})
-# plt.rcParams.update({'ytick.color': 'k'})
-# plt.rcParams.update({'font.size': 30})
-# logging.info('Matplotlib update complete')
 
 def load_galaxy(index=0):  # temp
     try:
@@ -59,7 +38,8 @@ def load_galaxy(index=0):  # temp
     cols = columns.cpz_cols['metadata'] + columns.cpz_cols['unified'] + columns.cpz_cols['galex'] + columns.cpz_cols['sdss'] + columns.cpz_cols['cfht'] + columns.cpz_cols['kids'] + columns.cpz_cols['vvv'] + columns.cpz_cols['wise']
     df = pd.read_parquet(parquet_loc, columns=cols)
     logging.info('parquet loaded')
-    return df.iloc[index]
+    df_with_spectral_z = df[~pd.isnull(df['redshift'])].query('redshift > 1e-2').query('redshift < 4').reset_index()  # TODO check not -99
+    return df_with_spectral_z.iloc[index]
 
 
 def construct_problem(galaxy, redshift, agn_fraction):
@@ -79,7 +59,7 @@ def construct_problem(galaxy, redshift, agn_fraction):
 
     run_params["verbose"] = False
 
-    logging.debug('Run params defined')
+    logging.info('Run params: {}'.format(run_params))
 
     obs = cpz_builders.build_cpz_obs(galaxy, snr=10.)
     logging.debug('obs built')
@@ -104,13 +84,12 @@ def fit_galaxy(run_params, obs, model, sps):
     run_params["nmin"] = 5
 
     # model.initial_theta
-    logging.warning('Begin minimisation')
+    logging.info('Begin minimisation')
     output = fit_model(obs=obs, model=model, sps=sps, lnprobfn=lnprobfn, **run_params)  # careful, modifies model in-place: model['optimization'], model['theta']
     
     time_elapsed = output["optimization"][1]
     log_string = "Done optimization in {}s".format(time_elapsed)
-    logging.warning(log_string)
-    print(log_string)
+    logging.info(log_string)
     
     logging.info('model theta: {}'.format(model.theta))
     best_theta = fitting.get_best_theta(model, output)
@@ -131,27 +110,19 @@ def mcmc_galaxy(run_params, obs, model, sps, initial_theta=None, test=False):
     # before sampling begins and the "optmization" entry of the output
     # will be populated.
 
-    # model = model.copy()
     if initial_theta is not None:
         model.set_parameters(initial_theta)
-
-    # ndim = len(model.theta)
-    # ndim = len(initial_theta)
+        logging.info('Setting initial params: {}'.format(dict(zip(model.free_params, initial_theta))))
 
     if test:
         logging.warning('Running emcee in test mode')
-        nwalkers = 128
-        niter = 256
-        nburn = [16]  # about 2.5 minutes, nearly all from initialising FSPS model (judging from very slow first likelihood eval)
-        # nsteps = 1000
+        nwalkers = 16
+        niter = 8
+        nburn = [16]
     else:
         nwalkers = 128
-        niter = 64   # 128 * 16 walkers took about 5 minutes, 64 walkers about 15ish
-        nburn = [16, 32, 64]
-        # nsteps = 10000
-
-    print(initial_theta)
-    # print(ndim)
+        niter = 256
+        nburn = [16]
 
     run_params["optimize"] = False
     run_params["emcee"] = True
@@ -165,18 +136,39 @@ def mcmc_galaxy(run_params, obs, model, sps, initial_theta=None, test=False):
     # locations of the highest probablity half of the walkers.
     run_params["nburn"] = nburn
 
-    # pool = Pool()
-    pool = None
-    output = fit_model(obs, model, sps, lnprobfn=lnprobfn, **run_params, pool=pool)
-    print('done emcee in {0}s'.format(output["sampling"][1]))
-
+    output = fit_model(obs, model, sps, lnprobfn=lnprobfn, **run_params)
     sampler = output['sampling'][0]
     time_elapsed = output["sampling"][1]
-    
-    # backend = emcee.backends.HDFBackend('temp.hdf5')
-    # backend.reset(nwalkers, ndim)
-    # # avoid using lambda as can't be pickled -> can't be threaded
-    # pbar = tqdm(total=nsteps * nwalkers, unit='steps')
+    logging.info('done emcee in {0}s'.format(time_elapsed))
+
+    samples = sampler.flatchain
+    return samples, time_elapsed
+
+
+def dynesty_galaxy(run_params, obs, model, sps, initial_theta=None, test=False):
+
+    run_params["dynesty"] = True
+    run_params["optmization"] = False
+    run_params["emcee"] = False
+
+    dynesty_params = {}
+    dynesty_params["nested_method"] = "rwalk"
+    dynesty_params["nlive_init"] = 400
+    dynesty_params["nlive_batch"] = 200
+    dynesty_params["nested_dlogz_init"] = 0.05
+    dynesty_params["nested_posterior_thresh"] = 0.05
+    dynesty_params["nested_maxcall"] = int(1e7)
+    logging.info('Running dynesty with params {}'.format(dynesty_params))
+    run_params.update(dynesty_params)
+
+    output = fit_model(obs, model, sps, lnprobfn=lnprobfn, **run_params)
+    samples = output["sampling"][0].samples
+    time_elapsed = output["sampling"][1]
+    log_string = 'done dynesty in {0}s'.format(time_elapsed)
+    logging.info(log_string)
+
+    return samples, time_elapsed
+
     # def log_likelihood(theta):
     #     # print(theta, 'theta internal')
     #     # assert len(theta) > 1
@@ -199,68 +191,69 @@ def mcmc_galaxy(run_params, obs, model, sps, initial_theta=None, test=False):
     # end_time = datetime.now()
     # time_elapsed = end_time - start_time
 
-    return sampler, time_elapsed
+
+def save_samples(samples, model, file_loc):
+    with h5py.File(file_loc, "w") as f:
+        dset = f.create_dataset('samples', samples.shape, dtype='float32')
+        dset[...] = samples
+
+
+def save_corner(samples, model, file_loc):
+    figure = corner.corner(samples, labels=model.free_params,
+                        show_titles=True, title_kwargs={"fontsize": 12})
+    figure.savefig(file_loc)
 
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('index', type=int, help='index of galaxy to fit')
-
     args = parser.parse_args()
 
-    # TODO convert to command line args
-    name = 'fixed_redshift_free_agn.png'
-    output_dir = 'results'
-    find_ml_estimate = True
-    find_mcmc_posterior = True
-    test = True
-    redshift = 0.08  # now using fixed redshift to check degeneracies
-    agn_fraction = True  # i.e. free param to be modelled
-
     timestamp = '{:.0f}'.format(time.time())
+    # TODO convert to command line args?
+    name = 'free_redshift_with_agn_dynesty_save_samples_{}_{}'.format(args.index, timestamp)
+    output_dir = 'results'
+    find_ml_estimate = False
+    find_mcmc_posterior = False
+    find_multinest_posterior = True
+    test = False
+    free_redshift = False
+    agn_fraction = True  # None for not modelled, True for free, or float for fixed
 
     while len(logging.root.handlers) > 0:
         logging.root.removeHandler(logging.root.handlers[-1])
     logging.basicConfig(
-        filename=os.path.join(output_dir, '{}_{}_{}.log'.format(name, args.index, timestamp)),
+        filename=os.path.join(output_dir, '{}.log'.format(name)),
         format='%(asctime)s %(message)s',
-        level=logging.DEBUG)
+        level=logging.INFO)
 
     logging.debug('Script ready')
     
     galaxy = load_galaxy(args.index)
 
+    redshift = None
+    if not free_redshift:
+        redshift = galaxy['redshift']
     run_params, obs, model, sps = construct_problem(galaxy, redshift=redshift, agn_fraction=agn_fraction)
 
     if find_ml_estimate:
         theta_best, time_elapsed = fit_galaxy(run_params, obs, model, sps)
+        logging.info(list(zip(model.free_params, theta_best)))
         # TODO save best_theta to json?
         visualise.visualise_obs_and_model(obs, model, theta_best, sps)
-        plt.savefig(os.path.join(output_dir, '{}_{}_ml_estimate.png'.format(name, timestamp)))
+        plt.savefig(os.path.join(output_dir, '{}_ml_estimate.png'.format(name)))
         plt.clf()
     else:
         theta_best = None
 
-    # temporary hardcoded
-    # theta_best = [
-    #      2.16027863e-01,  6.16566688e+06, -1.74889834e+00,  3.49055535e-01, 2.32118967e+00,  3.72065557e-01
-    # ]
-
-    # theta_best = [
-    #     3.86485209e-03,  9.83688011e+06, -7.49336715e-01,  4.97978128e-01, 6.49960994e+00,  1.96756967e+00
-    # ]
-
     if find_mcmc_posterior:
-        sampler, mcmc_time_elapsed = mcmc_galaxy(run_params, obs, model, sps, initial_theta=theta_best, test=test)
+        samples, mcmc_time_elapsed = mcmc_galaxy(run_params, obs, model, sps, initial_theta=theta_best, test=test)
+        corner_loc = os.path.join(output_dir, '{}_mcmc_corner.png'.format(name))
+        save_corner(samples, model, corner_loc)
 
-
-    # with h5py.File('{}_{}.hdf5'.format(name, timestamp), "w") as f:
-    #     dset = f.create_dataset(name, sampler.flatchain.shape, dtype='float32')
-    #     dset[...] = sampler.flatchain
-        # hfile = "demo_emcee_mcmc_v2.h5"
-        # writer.write_hdf5(hfile, run_params, model, obs, sampler, tsample=mcmc_time_elapsed)
-
-    figure = corner.corner(sampler.flatchain, labels=model.free_params,
-                        show_titles=True, title_kwargs={"fontsize": 12})
-    figure.savefig(os.path.join(output_dir, '{}_{}_corner.png'.format(name, timestamp)))
+    if find_multinest_posterior:
+        # TODO extend to use pymultinest
+        samples, multinest_time_elapsed = dynesty_galaxy(run_params, obs, model, sps, initial_theta=theta_best, test=test)
+        corner_loc = os.path.join(output_dir, '{}_multinest_corner.png'.format(name))
+        save_corner(samples, model, corner_loc)
