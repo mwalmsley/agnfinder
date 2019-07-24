@@ -76,14 +76,12 @@ def construct_problem(galaxy, redshift, agn_fraction):
 
 def fit_galaxy(run_params, obs, model, sps):
 
-    # --- start minimization ----
     run_params["dynesty"] = False
     run_params["emcee"] = False
     run_params["optimize"] = True
     run_params["min_method"] = 'lm'
     run_params["nmin"] = 5
 
-    # model.initial_theta
     logging.info('Begin minimisation')
     output = fit_model(obs=obs, model=model, sps=sps, lnprobfn=lnprobfn, **run_params)  # careful, modifies model in-place: model['optimization'], model['theta']
     
@@ -249,11 +247,15 @@ if __name__ == '__main__':
 
     if find_mcmc_posterior:
         samples, mcmc_time_elapsed = mcmc_galaxy(run_params, obs, model, sps, initial_theta=theta_best, test=test)
+        sample_loc = os.path.join(output_dir, '{}_mcmc_samples.h5py'.format(name))
+        save_samples(samples, model, sample_loc)
         corner_loc = os.path.join(output_dir, '{}_mcmc_corner.png'.format(name))
         save_corner(samples, model, corner_loc)
 
     if find_multinest_posterior:
         # TODO extend to use pymultinest
         samples, multinest_time_elapsed = dynesty_galaxy(run_params, obs, model, sps, initial_theta=theta_best, test=test)
+        sample_loc = os.path.join(output_dir, '{}_multinest_samples.h5py'.format(name))
+        save_samples(samples, model, sample_loc)
         corner_loc = os.path.join(output_dir, '{}_multinest_corner.png'.format(name))
         save_corner(samples, model, corner_loc)
