@@ -228,7 +228,7 @@ def build_model_demo_style(object_redshift=None, ldist=10.0, fixed_metallicity=N
 
 
 
-def build_model(redshift=None, fixed_metallicity=None, dust=False, 
+def build_model(redshift=None, fixed_metallicity=None, dust=False, agn_fraction=None,
             **extras):
     """Build a prospect.models.SedModel object
     
@@ -303,6 +303,19 @@ def build_model(redshift=None, fixed_metallicity=None, dust=False,
         # we can just update `model_params` with the parameters described in the 
         # pre-packaged `dust_emission` parameter set.
         model_params.update(TemplateLibrary["dust_emission"])
+
+    if agn_fraction is None:
+        logging.warning('No AGN fraction supplied - AGN not modelled')
+    elif isinstance(agn_fraction, bool):
+        if agn_fraction:
+            logging.info('AGN fraction will be free parameter')
+            model_params['agn_fraction'] = {'N': 1, 'isfree': True, 'init': 0.1, 'prior': priors.TopHat(mini=0.0, maxi=1.0)}  # units?
+    elif isinstance(agn_fraction, float):
+        logging.info('AGN fraction will be fixed at {}'.format(agn_fraction))
+        model_params['agn_fraction'] = {'N': 1, 'isfree': False, 'init': agn_fraction}  # units?
+    else:
+        raise ValueError('agn fraction {} not understood'.format(agn_fraction))
+
         
     # Now instantiate the model object using this dictionary of parameter specifications
     model = SedModel(model_params)
@@ -310,11 +323,27 @@ def build_model(redshift=None, fixed_metallicity=None, dust=False,
     return model
 
 
+def build_sps(zcontinuous=1, agn_fraction=None, **extras):
+    """
+    :param zcontinuous: 
+        A vlue of 1 insures that we use interpolation between SSPs to 
+        have a continuous metallicity parameter (`logzsol`)
+        See python-FSPS documentation for details
+    """
+    if agn_fraction is None:
+        logging.info('Building standard CSPSpec')
+        sps = CSPSpecBasis(zcontinuous=zcontinuous)
+    else:
+        logging.info('Building custom CSPSpecBasisAGN')
+        sps = CSPSpecBasisAGN(zcontinuous=zcontinuous, agn_fraction=agn_fraction)
+    return sps
 
 
-class SSPBasisAGN(SSPBasis):
+class CSPSpecBasisAGN(CSPSpecBasis):
     """ 
-    Uses SSPBasis to implement get_spectrum(), which calls get_galaxy_spectrum and 
+    Override get_galaxy_spectrum to run as before but, before returning, add AGN component
+
+    As with CSPSpecBasis, uses SSPBasis to implement get_spectrum(), which calls get_galaxy_spectrum and 
      - applies observational effects
      - normalises by mass
     """
@@ -329,18 +358,19 @@ class SSPBasisAGN(SSPBasis):
         :returns mass_fraction:
             Fraction of the formed stellar mass that still exists.
         """
+        logging.warning('Using custom get_galaxy_spectrum with params {}'.format(params))
         self.update(**params)
         try:
-            self.agn_fraction
+            self.params['agn_fraction']
         except KeyError:
-            raise KeyError('Trying to calculate SED inc. AGN, but no `agn_fraction` parameter set')
+            raise AttributeError('Trying to calculate SED inc. AGN, but no `agn_fraction` parameter set')
 
         # call the original get_galaxy_spectrum method
-        wave, spectrum, mass_frac = super(SSPBasisAGN, self).get_galaxy_spectrum(**params)
+        wave, spectrum, mass_frac = super(CSPSpecBasisAGN, self).get_galaxy_spectrum(**params)
 
         # insert AGN template here into spectrum
         interp = quasar_template.load_interpolated_quasar_template()
         normalised_quasar_flux = quasar_template.eval_quasar_template(wave, interp)
-        quasar_flux = agn_models.scale_quasar_to_agn_fraction(initial_quasar_flux=normalised_quasar_flux, galaxy_flux=spectrum, agn_fraction=self.agn_fraction)
+        quasar_flux = agn_models.scale_quasar_to_agn_fraction(initial_quasar_flux=normalised_quasar_flux, galaxy_flux=spectrum, agn_fraction=self.params['agn_fraction'])
 
         return wave, spectrum + quasar_flux, mass_frac

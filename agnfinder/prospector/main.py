@@ -1,4 +1,5 @@
 import logging
+import argparse
 
 import sys
 import os
@@ -45,7 +46,7 @@ logging.info('Loading complete')
 # plt.rcParams.update({'font.size': 30})
 # logging.info('Matplotlib update complete')
 
-def load_galaxy():  # temp
+def load_galaxy(index=0):  # temp
     try:
         data_dir='/media/mike/internal/agnfinder'
         assert os.path.isdir(data_dir)
@@ -58,10 +59,10 @@ def load_galaxy():  # temp
     cols = columns.cpz_cols['metadata'] + columns.cpz_cols['unified'] + columns.cpz_cols['galex'] + columns.cpz_cols['sdss'] + columns.cpz_cols['cfht'] + columns.cpz_cols['kids'] + columns.cpz_cols['vvv'] + columns.cpz_cols['wise']
     df = pd.read_parquet(parquet_loc, columns=cols)
     logging.info('parquet loaded')
-    return df.iloc[0]
+    return df.iloc[index]
 
 
-def construct_problem(galaxy, redshift):
+def construct_problem(galaxy, redshift, agn_fraction):
     run_params = {}
 
     # obs params
@@ -74,25 +75,21 @@ def construct_problem(galaxy, redshift):
     run_params['dust'] = True
     run_params['redshift'] = redshift
     run_params["zcontinuous"] = 1
+    run_params['agn_fraction'] = agn_fraction
 
-    run_params["verbose"] = True
+    run_params["verbose"] = False
 
     logging.debug('Run params defined')
 
     obs = cpz_builders.build_cpz_obs(galaxy, snr=10.)
     logging.debug('obs built')
 
-    sps = demo_builders.build_sps(**run_params)
+    sps = cpz_builders.build_sps(**run_params)
     logging.debug('sps built')
 
     # demo_model = demo_builders.build_model(**run_params)
     model = cpz_builders.build_model(**run_params)
     logging.debug('model built')
-    # if run_params['object_redshift'] is None:
-    #     assert len(demo_model.initial_theta) < len(model.initial_theta)
-    # else:
-    #     assert all(demo_model.initial_theta == model.initial_theta)
-
 
     return run_params, obs, model, sps
 
@@ -137,14 +134,13 @@ def mcmc_galaxy(run_params, obs, model, sps, initial_theta=None, test=False):
     # model = model.copy()
     if initial_theta is not None:
         model.set_parameters(initial_theta)
-        
 
     # ndim = len(model.theta)
     # ndim = len(initial_theta)
 
     if test:
         logging.warning('Running emcee in test mode')
-        nwalkers = 16
+        nwalkers = 128
         niter = 256
         nburn = [16]  # about 2.5 minutes, nearly all from initialising FSPS model (judging from very slow first likelihood eval)
         # nsteps = 1000
@@ -208,26 +204,34 @@ def mcmc_galaxy(run_params, obs, model, sps, initial_theta=None, test=False):
 
 if __name__ == '__main__':
 
+    parser = argparse.ArgumentParser(description='Find AGN!')
+    parser.add_argument('index', type=int, help='index of galaxy to fit')
+
+    args = parser.parse_args()
+
     # TODO convert to command line args
-    name = 'custom_model_free_redshift.png'
+    name = 'fixed_redshift_free_agn.png'
     output_dir = 'results'
     find_ml_estimate = True
     find_mcmc_posterior = True
     test = True
     redshift = 0.08  # now using fixed redshift to check degeneracies
+    agn_fraction = True  # i.e. free param to be modelled
 
+    timestamp = '{:.0f}'.format(time.time())
+
+    while len(logging.root.handlers) > 0:
+        logging.root.removeHandler(logging.root.handlers[-1])
     logging.basicConfig(
-        filename=os.path.join(output_dir, '{}.log'.format(name)),
+        filename=os.path.join(output_dir, '{}_{}_{}.log'.format(name, args.index, timestamp)),
         format='%(asctime)s %(message)s',
         level=logging.DEBUG)
 
     logging.debug('Script ready')
-
-    timestamp = '{:.0f}'.format(time.time())
     
-    galaxy = load_galaxy()
+    galaxy = load_galaxy(args.index)
 
-    run_params, obs, model, sps = construct_problem(galaxy, redshift=redshift)
+    run_params, obs, model, sps = construct_problem(galaxy, redshift=redshift, agn_fraction=agn_fraction)
 
     if find_ml_estimate:
         theta_best, time_elapsed = fit_galaxy(run_params, obs, model, sps)
