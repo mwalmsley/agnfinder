@@ -9,8 +9,9 @@ from prospect.utils.obsutils import fix_obs
 from prospect.models.templates import TemplateLibrary
 from prospect.models import priors
 from prospect.models.sedmodel import SedModel
-
 from prospect.sources import CSPSpecBasis, SSPBasis
+
+from agnfinder import quasar_template, agn_models
 
 Filter = namedtuple('Filter', ['bandpass_file', 'mag_col', 'error_col'])
 
@@ -329,10 +330,17 @@ class SSPBasisAGN(SSPBasis):
             Fraction of the formed stellar mass that still exists.
         """
         self.update(**params)
+        try:
+            self.agn_fraction
+        except KeyError:
+            raise KeyError('Trying to calculate SED inc. AGN, but no `agn_fraction` parameter set')
 
         # call the original get_galaxy_spectrum method
         wave, spectrum, mass_frac = super(SSPBasisAGN, self).get_galaxy_spectrum(**params)
-        # TODO will insert AGN template here into wave and spectrum
-        return wave, spectrum, mass_frac
 
+        # insert AGN template here into spectrum
+        interp = quasar_template.load_interpolated_quasar_template()
+        normalised_quasar_flux = quasar_template.eval_quasar_template(wave, interp)
+        quasar_flux = agn_models.scale_quasar_to_agn_fraction(initial_quasar_flux=normalised_quasar_flux, galaxy_flux=spectrum, agn_fraction=self.agn_fraction)
 
+        return wave, spectrum + quasar_flux, mass_frac

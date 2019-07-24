@@ -28,6 +28,15 @@ def make_galaxy_sed():
 def load_galaxy_sed():
     return np.loadtxt('wavelengths.npy'), np.loadtxt('flux_maggies.npy')
 
+
+def scale_quasar_to_agn_fraction(galaxy_flux, initial_quasar_flux, agn_fraction):
+    # make each sed similar, and create a net SED at agn fraction %
+    total_galaxy_flux = np.sum(galaxy_flux)
+    total_quasar_flux = np.sum(initial_quasar_flux)
+    target_quasar_flux = total_galaxy_flux * agn_fraction
+    return initial_quasar_flux * target_quasar_flux / total_quasar_flux
+
+
 if __name__ == '__main__':
 
     # make_galaxy_sed()
@@ -47,11 +56,7 @@ if __name__ == '__main__':
 
     plt.clf()
 
-    # make each sed similar, and create a net SED at 50% agn fraction
-    total_galaxy_flux = np.sum(galaxy_flux)
-    total_quasar_flux = np.sum(quasar_normalized_flux)
-    target_quasar_flux = total_galaxy_flux * 0.5
-    quasar_flux_scaled = quasar_normalized_flux * target_quasar_flux / total_quasar_flux
+    quasar_flux_scaled = scale_quasar_to_agn_fraction(galaxy_flux, quasar_normalized_flux, agn_fraction=0.5)
     plt.loglog(galaxy_wavelength, galaxy_flux, label='galaxy')
     plt.loglog(galaxy_wavelength, quasar_flux_scaled, label='quasar')
     plt.loglog(galaxy_wavelength, quasar_flux_scaled + galaxy_flux, label='net (50% AGN Frac.')

@@ -214,6 +214,7 @@ if __name__ == '__main__':
     find_ml_estimate = True
     find_mcmc_posterior = True
     test = True
+    redshift = 0.08  # now using fixed redshift to check degeneracies
 
     logging.basicConfig(
         filename=os.path.join(output_dir, '{}.log'.format(name)),
@@ -226,7 +227,7 @@ if __name__ == '__main__':
     
     galaxy = load_galaxy()
 
-    run_params, obs, model, sps = construct_problem(galaxy, redshift=None) # or 0.08
+    run_params, obs, model, sps = construct_problem(galaxy, redshift=redshift)
 
     if find_ml_estimate:
         theta_best, time_elapsed = fit_galaxy(run_params, obs, model, sps)
@@ -250,12 +251,12 @@ if __name__ == '__main__':
         sampler, mcmc_time_elapsed = mcmc_galaxy(run_params, obs, model, sps, initial_theta=theta_best, test=test)
 
 
-    with h5py.File('{}_{}.hdf5'.format(name, timestamp), "w") as f:
-        dset = f.create_dataset(name, sampler.flatchain.shape, dtype='float32')
-        dset[...] = sampler.flatchain
+    # with h5py.File('{}_{}.hdf5'.format(name, timestamp), "w") as f:
+    #     dset = f.create_dataset(name, sampler.flatchain.shape, dtype='float32')
+    #     dset[...] = sampler.flatchain
         # hfile = "demo_emcee_mcmc_v2.h5"
         # writer.write_hdf5(hfile, run_params, model, obs, sampler, tsample=mcmc_time_elapsed)
 
-        figure = corner.corner(sampler.flatchain, labels=model.free_params,
-                            show_titles=True, title_kwargs={"fontsize": 12})
-        figure.savefig(os.path.join(output_dir, '{}_{}_corner.png'.format(name, timestamp)))
+    figure = corner.corner(sampler.flatchain, labels=model.free_params,
+                        show_titles=True, title_kwargs={"fontsize": 12})
+    figure.savefig(os.path.join(output_dir, '{}_{}_corner.png'.format(name, timestamp)))
