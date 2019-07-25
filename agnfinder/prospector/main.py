@@ -34,11 +34,14 @@ def load_galaxy(index=0):  # temp
         assert os.path.isdir(data_dir)
     logging.info('Using {} as data dir'.format(data_dir))
 
-    parquet_loc = os.path.join(data_dir, 'cpz_paper_sample.parquet')
+    parquet_loc = os.path.join(data_dir, 'cpz_paper_sample_week3.parquet')
     cols = columns.cpz_cols['metadata'] + columns.cpz_cols['unified'] + columns.cpz_cols['galex'] + columns.cpz_cols['sdss'] + columns.cpz_cols['cfht'] + columns.cpz_cols['kids'] + columns.cpz_cols['vvv'] + columns.cpz_cols['wise']
     df = pd.read_parquet(parquet_loc, columns=cols)
     logging.info('parquet loaded')
-    df_with_spectral_z = df[~pd.isnull(df['redshift'])].query('redshift > 1e-2').query('redshift < 4').reset_index()  # TODO check not -99
+    df_with_spectral_z = df[~pd.isnull(df['redshift'])].query('redshift > 1e-2').query('redshift < 4').reset_index()
+    # TEMP
+    df.sort_values('Pr[qso]_case_III', ascending=False).reset_index()  # to pick quasars
+    # df.sort_values('Pr[agn]_case_III', ascending=False).reset_index()  # to pick agn
     return df_with_spectral_z.iloc[index]
 
 
@@ -258,4 +261,4 @@ if __name__ == '__main__':
         sample_loc = os.path.join(output_dir, '{}_multinest_samples.h5py'.format(name))
         save_samples(samples, model, sample_loc)
         corner_loc = os.path.join(output_dir, '{}_multinest_corner.png'.format(name))
-        save_corner(samples, model, corner_loc)
+        save_corner(samples[int(len(samples)/2):], model, corner_loc)  # nested sampling has no burn-in phase, early samples are bad
