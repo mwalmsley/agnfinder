@@ -45,11 +45,8 @@ def load_galaxy(index=0, galaxy_class=None):  # temp
     return df_with_spectral_z.iloc[index]
 
 
-def construct_problem(galaxy, redshift, agn_fraction):
+def construct_problem(galaxy, redshift, agn_mass, agn_eb_v):
     run_params = {}
-
-    # obs params
-    run_params["snr"] = 10.0
 
     # model params
     run_params["object_redshift"] = None
@@ -58,13 +55,14 @@ def construct_problem(galaxy, redshift, agn_fraction):
     run_params['dust'] = True
     run_params['redshift'] = redshift
     run_params["zcontinuous"] = 1
-    run_params['agn_fraction'] = agn_fraction
+    run_params['agn_mass'] = agn_mass
+    run_params['agn_eb_v'] = agn_eb_v
 
     run_params["verbose"] = False
 
     logging.info('Run params: {}'.format(run_params))
 
-    obs = cpz_builders.build_cpz_obs(galaxy, snr=10.)
+    obs = cpz_builders.build_cpz_obs(galaxy)
     logging.debug('obs built')
 
     sps = cpz_builders.build_sps(**run_params)
@@ -233,8 +231,10 @@ if __name__ == '__main__':
     find_mcmc_posterior = False
     find_multinest_posterior = True
     test = False
-    free_redshift = False
-    agn_fraction = True  # None for not modelled, True for free, or float for fixed
+    redshift = 'spectro'  # exception to below, as redshift read from galaxy
+    agn_mass = True  # None for not modelled, True for free, or float for fixed
+    agn_eb_v = True
+    
     galaxy_class = 'qso' # None for any, or 'agn', 'passive', 'starforming', 'qso' for most likely galaxies of that class
 
     while len(logging.root.handlers) > 0:
@@ -250,10 +250,9 @@ if __name__ == '__main__':
     logging.info('Galaxy: {}'.format(galaxy))
     logging.info('with spectro. redshift: {}'.format(galaxy['redshift']))
 
-    redshift = None
-    if not free_redshift:
+    if redshift == 'spectro':
         redshift = galaxy['redshift']
-    run_params, obs, model, sps = construct_problem(galaxy, redshift=redshift, agn_fraction=agn_fraction)
+    run_params, obs, model, sps = construct_problem(galaxy, redshift=redshift, agn_mass=agn_mass, agn_eb_v=agn_eb_v)
 
     if find_ml_estimate:
         theta_best, time_elapsed = fit_galaxy(run_params, obs, model, sps)

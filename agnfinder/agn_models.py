@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import matplotlib.pyplot as plt
 from agnfinder.quasar_template import load_quasar_template, eval_quasar_template
@@ -30,12 +32,26 @@ def load_galaxy_sed():
 
 
 def scale_quasar_to_agn_fraction(galaxy_flux, initial_quasar_flux, agn_fraction):
+    warnings.warn(DeprecationWarning('Do not use when fitting a model - use AGN "mass" instead'))
     # make each sed similar, and create a net SED at agn fraction %
     total_galaxy_flux = np.sum(galaxy_flux)
     total_quasar_flux = np.sum(initial_quasar_flux)
     target_quasar_flux = total_galaxy_flux * agn_fraction
     return initial_quasar_flux * target_quasar_flux / total_quasar_flux
 
+def scale_quasar_by_mass(quasar_flux, mass):
+    return (quasar_flux / np.sum(quasar_flux)) * mass * 5.51682093238139e-14  # constant factor to relate to galaxy mass, see below
+
+
+def plot_multicomponent_sed(galaxy_flux, quasar_flux, net_label, file_loc):
+    plt.loglog(galaxy_wavelength, galaxy_flux, label='galaxy')
+    plt.loglog(galaxy_wavelength, quasar_flux_scaled, label='quasar')
+    plt.loglog(galaxy_wavelength, quasar_flux_scaled + galaxy_flux, label=net_label)
+    plt.xlabel('Wavelength')
+    plt.ylabel('Flux (normalised)')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(file_loc)
 
 if __name__ == '__main__':
 
@@ -43,25 +59,42 @@ if __name__ == '__main__':
 
     galaxy_wavelength, galaxy_flux = load_galaxy_sed()
     mfrac = 0.5843067062572432  # manually, awkward to save a scalar
-
-    plt.loglog(galaxy_wavelength, galaxy_flux, label='galaxy')
     interp = load_quasar_template()
     quasar_normalized_flux = eval_quasar_template(galaxy_wavelength, interp)
+
+    # plot each with no scaling
+    plt.loglog(galaxy_wavelength, galaxy_flux, label='galaxy')
     plt.loglog(galaxy_wavelength, quasar_normalized_flux, label='quasar')
     plt.xlabel('Wavelength')
     plt.ylabel('Flux (normalised)')
     plt.legend()
     plt.tight_layout()
     plt.savefig('results/galaxy_and_quasar_template.png')
-
     plt.clf()
 
     quasar_flux_scaled = scale_quasar_to_agn_fraction(galaxy_flux, quasar_normalized_flux, agn_fraction=0.5)
+    plot_multicomponent_sed(galaxy_flux, quasar_flux_scaled, 'Net (50% AGN Frac.)', 'results/galaxy_50%_agn.png')
+    plt.clf()
+
+    quasar_flux_scaled = scale_quasar_to_agn_fraction(galaxy_flux, quasar_normalized_flux, agn_fraction=1.)
+    plot_multicomponent_sed(galaxy_flux, quasar_flux_scaled, 'Net (100% AGN Frac.)', 'results/galaxy_100%_agn.png')
+    plt.clf()
+
+    galaxy_mass = 14361224363.648266
+    total_flux = np.sum(galaxy_flux)
+    flux_per_mass = total_flux / galaxy_mass
+    print(flux_per_mass)
+    # 5.51682093238139e-14, will use this as fixed scaling factor for now
+
+    # check this worked
+    plt.clf()
+    quasar_mass = galaxy_mass * 0.5
+    quasar_flux_scaled = scale_quasar_by_mass(quasar_normalized_flux, quasar_mass)
     plt.loglog(galaxy_wavelength, galaxy_flux, label='galaxy')
     plt.loglog(galaxy_wavelength, quasar_flux_scaled, label='quasar')
-    plt.loglog(galaxy_wavelength, quasar_flux_scaled + galaxy_flux, label='net (50% AGN Frac.')
+    plt.loglog(galaxy_wavelength, quasar_flux_scaled + galaxy_flux, label='Net (AGN Mass {:.2E})'.format(quasar_mass))
     plt.xlabel('Wavelength')
     plt.ylabel('Flux (normalised)')
     plt.legend()
     plt.tight_layout()
-    plt.savefig('results/galaxy_50%_agn.png')
+    plt.savefig('results/galaxy_50%_agn_by_nonphysical_mass.png')

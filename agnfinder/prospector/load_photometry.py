@@ -55,7 +55,7 @@ def get_filters():
     return galex + sdss+ cfht + kids + vista + wise
 
 
-def load_maggies_from_galaxy(galaxy, snr):
+def load_maggies_from_galaxy(galaxy):
     all_filters = get_filters()
     valid_filters = [f for f in all_filters if filter_has_valid_data(f, galaxy)]
     logging.info('valid filters: {}'.format(valid_filters))
@@ -71,12 +71,13 @@ def load_maggies_from_galaxy(galaxy, snr):
     maggies = 10**(-0.4*mags)
     logging.info('maggies: {}'.format(maggies))
 
-    mag_errors = np.array(galaxy[[f.error_col for f in valid_filters]].values).astype(float) * 3.  # being skeptical...
+    # TODO review error scaling, noise model, lnprobfn - currently a big gap in understanding!
+    mag_errors = np.array(galaxy[[f.error_col for f in valid_filters]].values).astype(float) * 5.  # being skeptical...
     logging.info('mag errors: {}'.format(mag_errors))
 
     maggies_unc = []
     for i in range(len(mags)):
-        maggies_unc.append(calculate_maggie_uncertainty(mag_errors[i], maggies[i], snr=snr))
+        maggies_unc.append(calculate_maggie_uncertainty(mag_errors[i], maggies[i]))
     maggies_unc = np.array(maggies_unc).astype(float)
     logging.info('maggis errors: {}'.format(maggies_unc))
 
@@ -91,6 +92,6 @@ def filter_has_valid_data(filter_tuple, galaxy):
     return valid_value and valid_error
 
 
-def calculate_maggie_uncertainty(mag_error, maggie, snr):
+def calculate_maggie_uncertainty(mag_error, maggie):
     # http://slittlefair.staff.shef.ac.uk/teaching/phy217/lectures/stats/L18/index.html#magnitudes
     return maggie * mag_error / 1.09
