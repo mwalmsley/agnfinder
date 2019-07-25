@@ -25,7 +25,7 @@ from agnfinder.prospector import demo_builders, cpz_builders, visualise, fitting
 from agnfinder import columns
 
 
-def load_galaxy(index=0):  # temp
+def load_galaxy(index=0, galaxy_class=None):  # temp
     try:
         data_dir='/media/mike/internal/agnfinder'
         assert os.path.isdir(data_dir)
@@ -35,13 +35,12 @@ def load_galaxy(index=0):  # temp
     logging.info('Using {} as data dir'.format(data_dir))
 
     parquet_loc = os.path.join(data_dir, 'cpz_paper_sample_week3.parquet')
-    cols = columns.cpz_cols['metadata'] + columns.cpz_cols['unified'] + columns.cpz_cols['galex'] + columns.cpz_cols['sdss'] + columns.cpz_cols['cfht'] + columns.cpz_cols['kids'] + columns.cpz_cols['vvv'] + columns.cpz_cols['wise']
+    cols = columns.cpz_cols['metadata'] + columns.cpz_cols['unified'] + columns.cpz_cols['galex'] + columns.cpz_cols['sdss'] + columns.cpz_cols['cfht'] + columns.cpz_cols['kids'] + columns.cpz_cols['vvv'] + columns.cpz_cols['wise'] + columns.cpz_cols['random_forest']
     df = pd.read_parquet(parquet_loc, columns=cols)
     logging.info('parquet loaded')
     df_with_spectral_z = df[~pd.isnull(df['redshift'])].query('redshift > 1e-2').query('redshift < 4').reset_index()
-    # TEMP
-    df.sort_values('Pr[qso]_case_III', ascending=False).reset_index()  # to pick quasars
-    # df.sort_values('Pr[agn]_case_III', ascending=False).reset_index()  # to pick agn
+    if galaxy_class is not None:
+        df.sort_values('Pr[{}]_case_III'.format(galaxy_class), ascending=False).reset_index()  # to pick quasars
     return df_with_spectral_z.iloc[index]
 
 
@@ -213,7 +212,7 @@ if __name__ == '__main__':
 
     timestamp = '{:.0f}'.format(time.time())
     # TODO convert to command line args?
-    name = 'free_redshift_with_agn_dynesty_save_samples_{}_{}'.format(args.index, timestamp)
+    name = 'fixed_redshift_with_agn_qso_galaxies_{}_{}'.format(args.index, timestamp)
     output_dir = 'results'
     find_ml_estimate = False
     find_mcmc_posterior = False
@@ -221,6 +220,7 @@ if __name__ == '__main__':
     test = False
     free_redshift = False
     agn_fraction = True  # None for not modelled, True for free, or float for fixed
+    galaxy_class = 'qso' # None for any, or 'agn', 'passive', 'starforming', 'qso' for most likely galaxies of that class
 
     while len(logging.root.handlers) > 0:
         logging.root.removeHandler(logging.root.handlers[-1])
@@ -231,7 +231,7 @@ if __name__ == '__main__':
 
     logging.debug('Script ready')
     
-    galaxy = load_galaxy(args.index)
+    galaxy = load_galaxy(args.index, galaxy_class)
 
     redshift = None
     if not free_redshift:
