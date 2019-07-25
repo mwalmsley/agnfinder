@@ -40,7 +40,8 @@ def load_galaxy(index=0, galaxy_class=None):  # temp
     logging.info('parquet loaded')
     df_with_spectral_z = df[~pd.isnull(df['redshift'])].query('redshift > 1e-2').query('redshift < 4').reset_index()
     if galaxy_class is not None:
-        df.sort_values('Pr[{}]_case_III'.format(galaxy_class), ascending=False).reset_index()  # to pick quasars
+        logging.warning('Selecting RF-identified {} galaxies'.format(galaxy_class))
+        df_with_spectral_z = df_with_spectral_z.sort_values('Pr[{}]_case_III'.format(galaxy_class), ascending=False).reset_index()  # to pick quasars
     return df_with_spectral_z.iloc[index]
 
 
@@ -204,6 +205,20 @@ def save_corner(samples, model, file_loc):
     figure.savefig(file_loc)
 
 
+def save_sed_traces(samples, model, sps, file_loc):
+    model_dim = len(model.free_params)
+    sample_dim = len(samples[0])
+    if not model_dim == sample_dim:
+        raise ValueError(
+            'check model of with params {} ({}) matches the one used for samples ({}) - free redshift? free AGN?'.format(model.free_params, model_dim, sample_dim)
+        )
+    burn_in = int(len(samples)/2.)  # I notice the first few samples are awful - let's exclude the first 1000. Need to revew the algorithm details here!
+    n_samples = min(burn_in, int(len(samples)/2.))  # Get N/2 traces, up to 1000
+    sample_indices = np.random.choice(range(burn_in, len(samples)), size=n_samples, replace=False)  # pick random subset of samples to display - 4k is too many
+    visualise.visualise_obs_and_models(obs, model, samples[sample_indices], sps)
+    plt.savefig(file_loc)
+
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Find AGN!')
@@ -212,7 +227,7 @@ if __name__ == '__main__':
 
     timestamp = '{:.0f}'.format(time.time())
     # TODO convert to command line args?
-    name = 'fixed_redshift_with_agn_qso_galaxies_{}_{}'.format(args.index, timestamp)
+    name = 'fixed_redshift_with_agn_qso_init9_galaxies_{}_{}'.format(args.index, timestamp)
     output_dir = 'results'
     find_ml_estimate = False
     find_mcmc_posterior = False
@@ -232,6 +247,8 @@ if __name__ == '__main__':
     logging.debug('Script ready')
     
     galaxy = load_galaxy(args.index, galaxy_class)
+    logging.info('Galaxy: {}'.format(galaxy))
+    logging.info('with spectro. redshift: {}'.format(galaxy['redshift']))
 
     redshift = None
     if not free_redshift:
@@ -262,3 +279,5 @@ if __name__ == '__main__':
         save_samples(samples, model, sample_loc)
         corner_loc = os.path.join(output_dir, '{}_multinest_corner.png'.format(name))
         save_corner(samples[int(len(samples)/2):], model, corner_loc)  # nested sampling has no burn-in phase, early samples are bad
+        traces_loc = os.path.join(output_dir, '{}_sed_traces.png'.format(name))
+        save_sed_traces(samples, model, sps, traces_loc)

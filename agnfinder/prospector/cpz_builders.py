@@ -214,8 +214,8 @@ def build_model(redshift=None, fixed_metallicity=None, dust=False, agn_fraction=
         logging.warning('No AGN fraction supplied - AGN not modelled')
     elif isinstance(agn_fraction, bool):
         if agn_fraction:
-            logging.info('AGN fraction will be free parameter')
-            model_params['agn_fraction'] = {'N': 1, 'isfree': True, 'init': 0.1, 'prior': priors.TopHat(mini=0.0, maxi=1.0)}  # units?
+            logging.info('AGN fraction will be free parameter')  # TODO WARNING init set temporarily high!
+            model_params['agn_fraction'] = {'N': 1, 'isfree': True, 'init': 0.9, 'prior': priors.TopHat(mini=0.0, maxi=1.0)}  # units?
         else:
             raise ValueError('agn_fraction set to False - use None instead!')
     elif isinstance(agn_fraction, float):

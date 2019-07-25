@@ -107,3 +107,4 @@ tests/test_figures
 
 out/*
 *.pickle
+*.h5py
