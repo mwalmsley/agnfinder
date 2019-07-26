@@ -131,7 +131,7 @@ def build_model_demo_style(object_redshift=None, ldist=10.0, fixed_metallicity=N
 
 
 
-def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, obscured_torus=None, agn_eb_v=None,
+def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn_eb_v=None, obscured_torus=None, 
             **extras):
     """Build a prospect.models.SedModel object
     
@@ -172,11 +172,13 @@ def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, obs
         # and `TemplateLibrary` returns dictionaries of parameter specifications, 
         # we can just update `model_params` with the parameters described in the 
         # pre-packaged `dust_emission` parameter set.
+        logging.info('Including dust emission free parameters')
         model_params.update(TemplateLibrary["dust_emission"])
 
     # my convention: if None, don't model. if value, model as fixed to value. If True, model as free.
 
     if obscured_torus is not None:
+        logging.info('Including dusty torus free parameters')
         assert obscured_torus == True
         model_params['add_agn_dust'] = {"N": 1, "isfree": False, "init": True}
         # fagn is fraction of agn as a ratio of stellar luminosity
@@ -193,10 +195,12 @@ def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, obs
     if redshift is None:
         raise ValueError('Redshift set to None - must be included in model!')
     if isinstance(redshift, float):
+        logging.info('Using fixed redshift of {}'.format(redshift))
         # Set redshift as fixed to value
         model_params["zred"]['isfree'] = False
         model_params["zred"]['init'] = redshift
     else:
+        logging.info('Using free redshift')
         # Set redshift as free
         assert redshift == True # not just truthy, but exactly True/bool
         model_params["zred"]['isfree'] = True
@@ -208,9 +212,8 @@ def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, obs
         model_params['agn_mass'] = {'N': 1, 'isfree': False, 'init': agn_mass}  # units? 
     else:
         assert agn_mass == True
-        logging.info('AGN mass will be free parameter')  # TODO WARNING init set temporarily high!
-        model_params['agn_mass'] = {'N': 1, 'isfree': True, 'init': model_params["mass"]["init"] / 2., 'prior': priors.LogUniform(mini=1e6, maxi=1e14)}  # as with mass, but two extra powers on each side
-
+        logging.info('AGN mass will be free parameter')
+        model_params['agn_mass'] = {'N': 1, 'isfree': True, 'init': 1., 'prior': priors.LogUniform(mini=1e-2, maxi=1e3)}  # mass scaling implies mass 1 -> fluxes of 1^-8ish
     if agn_eb_v is None:
         logging.warning('AGN extinction not modelled')
     else:
@@ -231,18 +234,18 @@ def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, obs
     return model
 
 
-def build_sps(zcontinuous=1, agn_fraction=None, **extras):
+def build_sps(zcontinuous=1, **extras):
     """
     :param zcontinuous: 
         A vlue of 1 insures that we use interpolation between SSPs to 
         have a continuous metallicity parameter (`logzsol`)
         See python-FSPS documentation for details
     """
-    if agn_fraction:  # True if either =True or =float, False if =None or =False
-        logging.info('Building custom CSPSpecBasisAGN as agn_fraction is {}'.format(agn_fraction))
-        sps = CSPSpecBasisAGN(zcontinuous=zcontinuous, agn_fraction=agn_fraction)
+    if extras['agn_mass']:  # True if either =True or =float, False if =None or =False
+        logging.warning('Building custom CSPSpecBasisAGN as agn_mass is {}'.format(extras['agn_mass']))
+        sps = CSPSpecBasisAGN(zcontinuous=zcontinuous, agn_mass=extras['agn_mass'], agn_eb_v=extras['agn_eb_v'])
     else:
-        logging.info('Building standard CSPSpec')
+        logging.warning('Building standard CSPSpec')
         sps = CSPSpecBasis(zcontinuous=zcontinuous)
     return sps
 
@@ -255,6 +258,12 @@ class CSPSpecBasisAGN(CSPSpecBasis):
      - applies observational effects
      - normalises by mass
     """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+        self.quasar_flux = None
+        self.extincted_quasar_flux = None
+
 
     def get_galaxy_spectrum(self, **params):
         """Update parameters, then multiply SSP weights by SSP spectra and
@@ -269,23 +278,29 @@ class CSPSpecBasisAGN(CSPSpecBasis):
         logging.debug('Using custom get_galaxy_spectrum with params {}'.format(params))
         self.update(**params)
         try:
-            self.params['agn_fraction']
+            self.params['agn_mass']
         except KeyError:
-            raise AttributeError('Trying to calculate SED inc. AGN, but no `agn_fraction` parameter set')
+            raise AttributeError('Trying to calculate SED inc. AGN, but no `agn_mass` parameter set')
 
         # call the original get_galaxy_spectrum method
-        wave, spectrum, mass_frac = super(CSPSpecBasisAGN, self).get_galaxy_spectrum(**params)
+        wave, spectrum, mass_frac = super().get_galaxy_spectrum(**params)
 
         # insert AGN template here into spectrum
         interp_quasar = quasar_template.load_interpolated_quasar_template()
         template_quasar_flux = quasar_template.eval_quasar_template(wave, interp_quasar)
         # quasar_flux = agn_models.scale_quasar_to_agn_fraction(initial_quasar_flux=template_quasar_flux, galaxy_flux=spectrum, agn_fraction=self.params['agn_fraction'])
-        quasar_flux = agn_models.scale_quasar_by_mass(template_quasar_flux, self.params['quasar_mass'])
+        quasar_flux = agn_models.scale_quasar_by_mass(template_quasar_flux, self.params['agn_mass'])
 
+        # must always be specified, even if None
         if self.params['agn_eb_v']:  # float will eval as True
             interp_k_l = extinction_models.load_interpolated_smc_extinction()
             extincted_quasar_flux = extinction_models.smc_extinction(wave, quasar_flux, self.params['agn_eb_v'], interp_k_l)
-        else:
+        else:  # don't model
             extincted_quasar_flux = quasar_flux
 
+        self.quasar_flux = quasar_flux
+        self.extincted_quasar_flux = extincted_quasar_flux
+
+        # print('spectrum', spectrum.median)
+        # print('quasar', extincted_quasar_flux.median)
         return wave, spectrum + extincted_quasar_flux, mass_frac

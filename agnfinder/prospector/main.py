@@ -45,7 +45,7 @@ def load_galaxy(index=0, galaxy_class=None):  # temp
     return df_with_spectral_z.iloc[index]
 
 
-def construct_problem(galaxy, redshift, agn_mass, agn_eb_v):
+def construct_problem(galaxy, redshift, agn_mass, agn_eb_v, obscured_torus):
     run_params = {}
 
     # model params
@@ -57,6 +57,7 @@ def construct_problem(galaxy, redshift, agn_mass, agn_eb_v):
     run_params["zcontinuous"] = 1
     run_params['agn_mass'] = agn_mass
     run_params['agn_eb_v'] = agn_eb_v
+    run_params['obscured_torus'] = obscured_torus
 
     run_params["verbose"] = False
 
@@ -65,12 +66,13 @@ def construct_problem(galaxy, redshift, agn_mass, agn_eb_v):
     obs = cpz_builders.build_cpz_obs(galaxy)
     logging.debug('obs built')
 
-    sps = cpz_builders.build_sps(**run_params)
-    logging.debug('sps built')
-
     # demo_model = demo_builders.build_model(**run_params)
     model = cpz_builders.build_model(**run_params)
     logging.debug('model built')
+
+    # must come AFTER model?
+    sps = cpz_builders.build_sps(**run_params)
+    logging.debug('sps built')
 
     return run_params, obs, model, sps
 
@@ -203,7 +205,7 @@ def save_corner(samples, model, file_loc):
     figure.savefig(file_loc)
 
 
-def save_sed_traces(samples, model, sps, file_loc):
+def save_sed_traces(samples, obs, model, sps, file_loc):
     model_dim = len(model.free_params)
     sample_dim = len(samples[0])
     if not model_dim == sample_dim:
@@ -225,7 +227,7 @@ if __name__ == '__main__':
 
     timestamp = '{:.0f}'.format(time.time())
     # TODO convert to command line args?
-    name = 'fixed_redshift_with_agn_qso_init9_galaxies_{}_{}'.format(args.index, timestamp)
+    name = 'fixed_redshift_free_agn_extinction_obscuration_with_qso_{}_{}_dynesty'.format(args.index, timestamp)
     output_dir = 'results'
     find_ml_estimate = False
     find_mcmc_posterior = False
@@ -234,6 +236,7 @@ if __name__ == '__main__':
     redshift = 'spectro'  # exception to below, as redshift read from galaxy
     agn_mass = True  # None for not modelled, True for free, or float for fixed
     agn_eb_v = True
+    obscured_torus = True
     
     galaxy_class = 'qso' # None for any, or 'agn', 'passive', 'starforming', 'qso' for most likely galaxies of that class
 
@@ -252,7 +255,7 @@ if __name__ == '__main__':
 
     if redshift == 'spectro':
         redshift = galaxy['redshift']
-    run_params, obs, model, sps = construct_problem(galaxy, redshift=redshift, agn_mass=agn_mass, agn_eb_v=agn_eb_v)
+    run_params, obs, model, sps = construct_problem(galaxy, redshift=redshift, agn_mass=agn_mass, agn_eb_v=agn_eb_v, obscured_torus=obscured_torus)
 
     if find_ml_estimate:
         theta_best, time_elapsed = fit_galaxy(run_params, obs, model, sps)
@@ -270,6 +273,8 @@ if __name__ == '__main__':
         save_samples(samples, model, sample_loc)
         corner_loc = os.path.join(output_dir, '{}_mcmc_corner.png'.format(name))
         save_corner(samples, model, corner_loc)
+        traces_loc = os.path.join(output_dir, '{}_mcmc_sed_traces.png'.format(name))
+        save_sed_traces(samples, obs, model, sps, traces_loc)
 
     if find_multinest_posterior:
         # TODO extend to use pymultinest
@@ -278,5 +283,5 @@ if __name__ == '__main__':
         save_samples(samples, model, sample_loc)
         corner_loc = os.path.join(output_dir, '{}_multinest_corner.png'.format(name))
         save_corner(samples[int(len(samples)/2):], model, corner_loc)  # nested sampling has no burn-in phase, early samples are bad
-        traces_loc = os.path.join(output_dir, '{}_sed_traces.png'.format(name))
-        save_sed_traces(samples, model, sps, traces_loc)
+        traces_loc = os.path.join(output_dir, '{}_multinest_sed_traces.png'.format(name))
+        save_sed_traces(samples, obs, model, sps, traces_loc)

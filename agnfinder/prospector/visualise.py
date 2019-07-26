@@ -92,7 +92,7 @@ def plot_model_at_obs(ax, model, theta, obs, sps, trace=False):
         photo_kwargs = dict(marker='o', alpha=0.01)
     else:
         spectra_kwargs = dict(label='Model spectrum', lw=0.7, color='navy', alpha=0.7)
-        photo_kwargs = dict(label='Model photometry', marker='s', alpha=0.8, ls='', lw=3)
+        photo_kwargs = dict(label='Model photometry', marker='s', alpha=0.8)
 
     ax.loglog(observer_spectral_wavelengths, model_spectrum, **spectra_kwargs) # model spectra, observer frame
     ax.scatter(obs["phot_wave"], model_photometry, s=15., color='blue', **photo_kwargs) # model photometry, observer frame
