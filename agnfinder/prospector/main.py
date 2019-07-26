@@ -227,7 +227,7 @@ if __name__ == '__main__':
 
     timestamp = '{:.0f}'.format(time.time())
     # TODO convert to command line args?
-    name = 'fixed_redshift_free_agn_extinction_obscuration_with_qso_{}_{}_dynesty'.format(args.index, timestamp)
+    name = 'fixed_redshift_free_agn_extinction_obscuration_with_passive_{}_{}_dynesty'.format(args.index, timestamp)
     output_dir = 'results'
     find_ml_estimate = False
     find_mcmc_posterior = False
@@ -238,7 +238,7 @@ if __name__ == '__main__':
     agn_eb_v = True
     obscured_torus = True
     
-    galaxy_class = 'qso' # None for any, or 'agn', 'passive', 'starforming', 'qso' for most likely galaxies of that class
+    galaxy_class = 'passive' # None for any, or 'agn', 'passive', 'starforming', 'qso' for most likely galaxies of that class
 
     while len(logging.root.handlers) > 0:
         logging.root.removeHandler(logging.root.handlers[-1])
