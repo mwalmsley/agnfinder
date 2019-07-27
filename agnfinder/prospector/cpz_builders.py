@@ -131,7 +131,7 @@ def build_model_demo_style(object_redshift=None, ldist=10.0, fixed_metallicity=N
 
 
 
-def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn_eb_v=None, obscured_torus=None, 
+def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn_eb_v=None, obscured_torus=None, igm_absorbtion=True,
             **extras):
     """Build a prospect.models.SedModel object
     
@@ -155,7 +155,21 @@ def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn
 
     # Get (a copy of) one of the prepackaged model set dictionaries.
     # This is, somewhat confusingly, a dictionary of dictionaries, keyed by parameter name
-    model_params = TemplateLibrary["parametric_sfh"]
+    model_params = TemplateLibrary["parametric_sfh"]  # add sfh and tau
+
+    # fixed: Kroupa IMF
+    # dust type: currently power law, but should set to Calzetti [i.e. 2]
+
+    # mass: lower 10^9, upper 10^12
+    # TODO set to logzsol=0 fixed, make this assumption 
+    # dust (optical depth at 5500A): init=0.6, prior [0, 2], hopefully this is okay?
+
+
+    # sfh: 'delay-tau' is 4
+    # _parametric_["tau"]  = {"N": 1, "isfree": True,
+    #                     "init": 1, "units": "Gyr^{-1}",
+    #                     "prior": priors.LogUniform(mini=0.1, maxi=30)}
+
 
     # Change the model parameter specifications based on some keyword arguments
     if fixed_metallicity is None:
@@ -168,12 +182,13 @@ def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn
     
     if dust:
         # Add dust emission (with fixed dust SED parameters)
-        # Since `model_params` is a dictionary of parameter specifications, 
-        # and `TemplateLibrary` returns dictionaries of parameter specifications, 
-        # we can just update `model_params` with the parameters described in the 
-        # pre-packaged `dust_emission` parameter set.
-        logging.info('Including dust emission free parameters')
+        logging.info('Including dust emission fixed parameters')
         model_params.update(TemplateLibrary["dust_emission"])
+
+    if igm_absorbtion:
+        # Add (fixed) IGM absorption parameters: madau attention (fixed to 1.)
+        model_params.update(TemplateLibrary["igm"])
+                          
 
     # my convention: if None, don't model. if value, model as fixed to value. If True, model as free.
 
@@ -187,7 +202,7 @@ def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn
         # need to change sps to get the stellar flux FIRST?
         model_params['fagn'] = {'N': 1, 'isfree': True,
                 'init': 1e-4, 'units': r'L_{AGN}/L_*',
-                'prior': priors.LogUniform(mini=1e-5, maxi=1e3)}  # allowing very high values
+                'prior': priors.LogUniform(mini=1e-5, maxi=1e3)}  # allowing very high values TODO may be a problem
         model_params['agn_tau'] = {"N": 1, 'isfree': False,  # leave false for now
                 "init": 5.0, 'units': r"optical depth",
                 'prior': priors.LogUniform(mini=5.0, maxi=150.)}
