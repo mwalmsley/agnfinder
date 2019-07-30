@@ -45,7 +45,7 @@ def load_galaxy(index=0, galaxy_class=None):  # temp
     return df_with_spectral_z.iloc[index]
 
 
-def construct_problem(galaxy, redshift, agn_mass, agn_eb_v, obscured_torus, igm_absorbtion):
+def construct_problem(galaxy, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion):
     run_params = {}
 
     # model params
@@ -57,8 +57,7 @@ def construct_problem(galaxy, redshift, agn_mass, agn_eb_v, obscured_torus, igm_
     run_params["zcontinuous"] = 1
     run_params['agn_mass'] = agn_mass
     run_params['agn_eb_v'] = agn_eb_v
-    run_params['obscured_torus'] = obscured_torus
-    run_params['agn_torus_mass'] = agn_mass * 0.5
+    run_params['agn_torus_mass'] = agn_torus_mass
     run_params['igm_absorbtion'] = igm_absorbtion
 
     run_params["verbose"] = False
@@ -127,7 +126,7 @@ def mcmc_galaxy(run_params, obs, model, sps, initial_theta=None, test=False):
         niter = 256
         nburn = [16]
 
-    run_params["optimize"] = False
+    run_params["optimize"] = True  # find MLE first
     run_params["emcee"] = True
     run_params["dynesty"] = False
     # Number of emcee walkers
@@ -151,7 +150,7 @@ def mcmc_galaxy(run_params, obs, model, sps, initial_theta=None, test=False):
 def dynesty_galaxy(run_params, obs, model, sps, initial_theta=None, test=False):
 
     run_params["dynesty"] = True
-    run_params["optmization"] = False
+    run_params["optimize"] = False
     run_params["emcee"] = False
 
     dynesty_params = {}
@@ -207,16 +206,19 @@ def save_corner(samples, model, file_loc):
     figure.savefig(file_loc)
 
 
-def save_sed_traces(samples, obs, model, sps, file_loc):
+def save_sed_traces(samples, obs, model, sps, file_loc, max_samples=1000, burn_in=1000):
+    # Let's exclude the first 1000, just in case. Only really needed for nested sampling. Need to revew the algorithm details here!
     model_dim = len(model.free_params)
     sample_dim = len(samples[0])
     if not model_dim == sample_dim:
         raise ValueError(
             'check model of with params {} ({}) matches the one used for samples ({}) - free redshift? free AGN?'.format(model.free_params, model_dim, sample_dim)
         )
-    burn_in = int(len(samples)/2.)  # I notice the first few samples are awful - let's exclude the first 1000. Need to revew the algorithm details here!
-    n_samples = min(burn_in, int(len(samples)/2.))  # Get N/2 traces, up to 1000
-    sample_indices = np.random.choice(range(burn_in, len(samples)), size=n_samples, replace=False)  # pick random subset of samples to display - 4k is too many
+    if len(samples) < max_samples:
+        sample_indices = range(burn_in, len(samples))  # display all
+    else:  # pick random subset of samples to display
+        n_samples = min(len(samples - burn_in), max_samples)  # 1000 samples, or all remaining
+        sample_indices = np.random.choice(range(burn_in, len(samples)), size=n_samples, replace=False)  
     visualise.visualise_obs_and_models(obs, model, samples[sample_indices], sps)
     plt.savefig(file_loc)
 
@@ -229,19 +231,19 @@ if __name__ == '__main__':
 
     timestamp = '{:.0f}'.format(time.time())
     # TODO convert to command line args?
-    name = 'fixed_redshift_free_agn_extinction_obscuration_with_passive_{}_{}_dynesty'.format(args.index, timestamp)
+    name = 'qso_fixed_inclination_{}_{}'.format(args.index, timestamp)
     output_dir = 'results'
     find_ml_estimate = False
-    find_mcmc_posterior = False
+    find_mcmc_posterior = True
     find_multinest_posterior = True
     test = False
     redshift = 'spectro'  # exception to below, as redshift read from galaxy
     agn_mass = True  # None for not modelled, True for free, or float for fixed
     agn_eb_v = True
-    obscured_torus = True
+    agn_torus_mass = True
     igm_absorbtion = True
     
-    galaxy_class = 'passive' # None for any, or 'agn', 'passive', 'starforming', 'qso' for most likely galaxies of that class
+    galaxy_class = 'qso' # None for any, or 'agn', 'passive', 'starforming', 'qso' for most likely galaxies of that class
 
     while len(logging.root.handlers) > 0:
         logging.root.removeHandler(logging.root.handlers[-1])
@@ -263,7 +265,7 @@ if __name__ == '__main__':
         redshift=redshift,
         agn_mass=agn_mass,
         agn_eb_v=agn_eb_v,
-        obscured_torus=obscured_torus,
+        agn_torus_mass=agn_torus_mass,
         igm_absorbtion=igm_absorbtion
     )
 
@@ -284,7 +286,7 @@ if __name__ == '__main__':
         corner_loc = os.path.join(output_dir, '{}_mcmc_corner.png'.format(name))
         save_corner(samples, model, corner_loc)
         traces_loc = os.path.join(output_dir, '{}_mcmc_sed_traces.png'.format(name))
-        save_sed_traces(samples, obs, model, sps, traces_loc)
+        save_sed_traces(samples[int(len(samples)/2):], obs, model, sps, traces_loc)
 
     if find_multinest_posterior:
         # TODO extend to use pymultinest

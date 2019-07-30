@@ -45,7 +45,7 @@ def build_cpz_obs(galaxy, **extras):
     return obs
 
 
-def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn_eb_v=None, obscured_torus=None, igm_absorbtion=True,
+def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn_eb_v=None, agn_torus_mass=None, igm_absorbtion=True,
             **extras):
     """Build a prospect.models.SedModel object
     
@@ -140,13 +140,13 @@ def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn
             assert agn_mass == True
             model_params['agn_eb_v'] = {"N": 1, "isfree": True, "init": 0.1, "units":"", 'prior': priors.TopHat(mini=0., maxi=0.5)}
         
-        if isinstance(obscured_torus, float):
-            logging.info('Using fixed obscured torus of {}'.format(obscured_torus))
-            raise NotImplementedError
+        if agn_torus_mass is None:
+            logging.warning('Not modelling AGN torus')
+        elif isinstance(agn_torus_mass, float):
+            logging.info('Using fixed obscured torus of {}'.format(agn_torus_mass))
+            model_params['agn_torus_mass'] = {"N": 1, "isfree": False, "init": agn_torus_mass, "units":"", 'prior': priors.LogUniform(mini=1e-3, maxi=1e3)}
         else:
             logging.info('Using free obscured torus')
-            assert obscured_torus == True
-            model_params['obscured_torus'] = {"N": 1, "isfree": True, "init": .1, "units":"", 'prior': priors.LogUniform(mini=1e-3, maxi=1e3)}
             model_params['agn_torus_mass'] = {"N": 1, "isfree": True, "init": .1, "units":"", 'prior': priors.LogUniform(mini=1e-3, maxi=1e3)}
         
 
