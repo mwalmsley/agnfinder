@@ -61,6 +61,7 @@ def visualise_obs_and_model(obs, model, theta, sps): # apply theta to model/sps,
     plt.title(get_title(model))
     prettify(obs, fig, ax)
 
+
 def visualise_obs_and_models(obs, model, theta_array, sps): # apply theta to model/sps, not model.theta
     fig, ax = plt.subplots(figsize=(16,8))
     assert len(theta_array.shape) == 2
@@ -69,6 +70,7 @@ def visualise_obs_and_models(obs, model, theta_array, sps): # apply theta to mod
         plot_model_at_obs(ax, model, theta_array[theta_row], obs, sps, trace=True)
     # plt.title(get_title(model))
     prettify(obs, fig, ax)
+
 
 def prettify(obs, fig, ax):
     (xmin, xmax), (ymin, ymax) = get_bounds(obs)

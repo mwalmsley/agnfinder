@@ -16,6 +16,7 @@ pytest
 h5py
 pyfits
 astropy
+dill
 
 # ./sedpy
 # ./python-fsps

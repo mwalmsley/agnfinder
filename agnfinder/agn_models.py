@@ -1,6 +1,7 @@
 import warnings
 
 import numpy as np
+from scipy.integrate import simps
 import matplotlib.pyplot as plt
 from agnfinder.quasar_template import load_quasar_template, eval_quasar_template
 
@@ -38,11 +39,6 @@ def scale_quasar_to_agn_fraction(galaxy_flux, initial_quasar_flux, agn_fraction)
     total_quasar_flux = np.sum(initial_quasar_flux)
     target_quasar_flux = total_galaxy_flux * agn_fraction
     return initial_quasar_flux * target_quasar_flux / total_quasar_flux
-
-def scale_quasar_by_mass(quasar_flux, mass):
-    # flux_per_mass = 5.51682093238139e-14  # constant factor to relate to galaxy mass, see below
-    flux_per_mass = 1e-8  # such that mass is 0 - 100 ish
-    return (quasar_flux / np.sum(quasar_flux)) * mass * flux_per_mass  
 
 
 def plot_multicomponent_sed(galaxy_flux, quasar_flux, net_label, file_loc):
@@ -91,7 +87,7 @@ if __name__ == '__main__':
     # check this worked
     plt.clf()
     quasar_mass = galaxy_mass * 0.5
-    quasar_flux_scaled = scale_quasar_by_mass(quasar_normalized_flux, quasar_mass)
+    quasar_flux_scaled = quasar_normalized_flux * quasar_mass
     plt.loglog(galaxy_wavelength, galaxy_flux, label='galaxy')
     plt.loglog(galaxy_wavelength, quasar_flux_scaled, label='quasar')
     plt.loglog(galaxy_wavelength, quasar_flux_scaled + galaxy_flux, label='Net (AGN Mass {:.2E})'.format(quasar_mass))

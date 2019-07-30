@@ -45,12 +45,12 @@ def load_galaxy(index=0, galaxy_class=None):  # temp
     return df_with_spectral_z.iloc[index]
 
 
-def construct_problem(galaxy, redshift, agn_mass, agn_eb_v, obscured_torus):
+def construct_problem(galaxy, redshift, agn_mass, agn_eb_v, obscured_torus, igm_absorbtion):
     run_params = {}
 
     # model params
     run_params["object_redshift"] = None
-    run_params["fixed_metallicity"] = None
+    run_params["fixed_metallicity"] = 0.  # solar
     run_params["add_duste"] = True
     run_params['dust'] = True
     run_params['redshift'] = redshift
@@ -58,6 +58,8 @@ def construct_problem(galaxy, redshift, agn_mass, agn_eb_v, obscured_torus):
     run_params['agn_mass'] = agn_mass
     run_params['agn_eb_v'] = agn_eb_v
     run_params['obscured_torus'] = obscured_torus
+    run_params['agn_torus_mass'] = agn_mass * 0.5
+    run_params['igm_absorbtion'] = igm_absorbtion
 
     run_params["verbose"] = False
 
@@ -237,6 +239,7 @@ if __name__ == '__main__':
     agn_mass = True  # None for not modelled, True for free, or float for fixed
     agn_eb_v = True
     obscured_torus = True
+    igm_absorbtion = True
     
     galaxy_class = 'passive' # None for any, or 'agn', 'passive', 'starforming', 'qso' for most likely galaxies of that class
 
@@ -255,7 +258,14 @@ if __name__ == '__main__':
 
     if redshift == 'spectro':
         redshift = galaxy['redshift']
-    run_params, obs, model, sps = construct_problem(galaxy, redshift=redshift, agn_mass=agn_mass, agn_eb_v=agn_eb_v, obscured_torus=obscured_torus)
+    run_params, obs, model, sps = construct_problem(
+        galaxy,
+        redshift=redshift,
+        agn_mass=agn_mass,
+        agn_eb_v=agn_eb_v,
+        obscured_torus=obscured_torus,
+        igm_absorbtion=igm_absorbtion
+    )
 
     if find_ml_estimate:
         theta_best, time_elapsed = fit_galaxy(run_params, obs, model, sps)
