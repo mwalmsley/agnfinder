@@ -217,7 +217,7 @@ class CSPSpecBasisAGN(CSPSpecBasis):
         # insert blue AGN template here into spectrum
         interp_quasar = quasar_template.load_interpolated_quasar_template()
         template_quasar_flux = quasar_template.eval_quasar_template(wave, interp_quasar, short_only=True)
-        quasar_flux = template_quasar_flux * self.params['agn_mass']
+        quasar_flux = template_quasar_flux * self.params['agn_mass'] * 1e14  # no idea why...
 
         interp_torus = quasar_template.load_interpolated_torus_template()
         template_torus_flux = quasar_template.eval_torus_template(wave, interp_torus, long_only=True)

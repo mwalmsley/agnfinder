@@ -1,5 +1,6 @@
 import logging
 import argparse
+import cProfile
 
 import sys
 import os
@@ -223,38 +224,9 @@ def save_sed_traces(samples, obs, model, sps, file_loc, max_samples=1000, burn_i
     plt.savefig(file_loc)
 
 
-if __name__ == '__main__':
+def main(index, name, galaxy_class, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, find_ml_estimate, find_mcmc_posterior, find_multinest_posterior):
 
-    parser = argparse.ArgumentParser(description='Find AGN!')
-    parser.add_argument('index', type=int, help='index of galaxy to fit')
-    args = parser.parse_args()
-
-    timestamp = '{:.0f}'.format(time.time())
-    # TODO convert to command line args?
-    name = 'qso_fixed_inclination_{}_{}'.format(args.index, timestamp)
-    output_dir = 'results'
-    find_ml_estimate = False
-    find_mcmc_posterior = True
-    find_multinest_posterior = True
-    test = False
-    redshift = 'spectro'  # exception to below, as redshift read from galaxy
-    agn_mass = True  # None for not modelled, True for free, or float for fixed
-    agn_eb_v = True
-    agn_torus_mass = True
-    igm_absorbtion = True
-    
-    galaxy_class = 'qso' # None for any, or 'agn', 'passive', 'starforming', 'qso' for most likely galaxies of that class
-
-    while len(logging.root.handlers) > 0:
-        logging.root.removeHandler(logging.root.handlers[-1])
-    logging.basicConfig(
-        filename=os.path.join(output_dir, '{}.log'.format(name)),
-        format='%(asctime)s %(message)s',
-        level=logging.INFO)
-
-    logging.debug('Script ready')
-    
-    galaxy = load_galaxy(args.index, galaxy_class)
+    galaxy = load_galaxy(index, galaxy_class)
     logging.info('Galaxy: {}'.format(galaxy))
     logging.info('with spectro. redshift: {}'.format(galaxy['redshift']))
 
@@ -270,7 +242,7 @@ if __name__ == '__main__':
     )
 
     if find_ml_estimate:
-        theta_best, time_elapsed = fit_galaxy(run_params, obs, model, sps)
+        theta_best, _ = fit_galaxy(run_params, obs, model, sps)
         logging.info(list(zip(model.free_params, theta_best)))
         # TODO save best_theta to json?
         visualise.visualise_obs_and_model(obs, model, theta_best, sps)
@@ -280,7 +252,7 @@ if __name__ == '__main__':
         theta_best = None
 
     if find_mcmc_posterior:
-        samples, mcmc_time_elapsed = mcmc_galaxy(run_params, obs, model, sps, initial_theta=theta_best, test=test)
+        samples, _ = mcmc_galaxy(run_params, obs, model, sps, initial_theta=theta_best, test=test)
         sample_loc = os.path.join(output_dir, '{}_mcmc_samples.h5py'.format(name))
         save_samples(samples, model, sample_loc)
         corner_loc = os.path.join(output_dir, '{}_mcmc_corner.png'.format(name))
@@ -290,10 +262,52 @@ if __name__ == '__main__':
 
     if find_multinest_posterior:
         # TODO extend to use pymultinest
-        samples, multinest_time_elapsed = dynesty_galaxy(run_params, obs, model, sps, initial_theta=theta_best, test=test)
+        samples, _ = dynesty_galaxy(run_params, obs, model, sps, initial_theta=theta_best, test=test)
         sample_loc = os.path.join(output_dir, '{}_multinest_samples.h5py'.format(name))
         save_samples(samples, model, sample_loc)
         corner_loc = os.path.join(output_dir, '{}_multinest_corner.png'.format(name))
         save_corner(samples[int(len(samples)/2):], model, corner_loc)  # nested sampling has no burn-in phase, early samples are bad
         traces_loc = os.path.join(output_dir, '{}_multinest_sed_traces.png'.format(name))
         save_sed_traces(samples, obs, model, sps, traces_loc)
+
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser(description='Find AGN!')
+    parser.add_argument('index', type=int, help='index of galaxy to fit')
+    parser.add_argument('--profile', type=bool, default=False, dest='profile')
+    args = parser.parse_args()
+
+    timestamp = '{:.0f}'.format(time.time())
+    # TODO convert to command line args?
+    name = 'agn_bigger_agn_mass_fixed_inclination_{}_{}'.format(args.index, timestamp)
+    output_dir = 'results'
+    find_ml_estimate = False
+    find_mcmc_posterior = False
+    find_multinest_posterior = True
+    test = False
+    redshift = 'spectro'  # exception to below, as redshift read from galaxy
+    agn_mass = True  # None for not modelled, True for free, or float for fixed
+    agn_eb_v = True
+    agn_torus_mass = True
+    igm_absorbtion = True
+    
+    galaxy_class = 'agn' # None for any, or 'agn', 'passive', 'starforming', 'qso' for most likely galaxies of that class
+
+    while len(logging.root.handlers) > 0:
+        logging.root.removeHandler(logging.root.handlers[-1])
+    logging.basicConfig(
+        filename=os.path.join(output_dir, '{}.log'.format(name)),
+        format='%(asctime)s %(message)s',
+        level=logging.INFO)
+
+    logging.debug('Script ready')
+
+    if args.profile:
+        logging.warning('Using profiling')
+        pr = cProfile.Profile()
+        pr.enable()
+    main(args.index, name, galaxy_class, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, find_ml_estimate, find_mcmc_posterior, find_multinest_posterior)
+    if args.profile:
+        pr.disable()
+        pr.dump_stats(os.path.join(output_dir, '{}.profile'.format(name)))

@@ -64,7 +64,6 @@ def eval_quasar_template(wavelengths, interp, short_only=False):
 
 # TODO combine these functions
 def eval_torus_template(wavelengths, interp, long_only=False):
-    print(np.log10(wavelengths), 'log wavelengths')
     fluxes = 10 ** interp(np.log10(wavelengths))  # in angstroms still!
     if long_only:  # add exponential damping after 1 micron
         fluxes *= get_damping_multiplier(wavelengths, 'short')
