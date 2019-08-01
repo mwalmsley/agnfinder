@@ -144,10 +144,10 @@ def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn
             logging.warning('Not modelling AGN torus')
         elif isinstance(agn_torus_mass, float):
             logging.info('Using fixed obscured torus of {}'.format(agn_torus_mass))
-            model_params['agn_torus_mass'] = {"N": 1, "isfree": False, "init": agn_torus_mass, "units":"", 'prior': priors.LogUniform(mini=1e-3, maxi=1e3)}
+            model_params['agn_torus_mass'] = {"N": 1, "isfree": False, "init": agn_torus_mass, "units":"", 'prior': priors.TopHat(mini=0., maxi=15)}
         else:
             logging.info('Using free obscured torus')
-            model_params['agn_torus_mass'] = {"N": 1, "isfree": True, "init": .1, "units":"", 'prior': priors.LogUniform(mini=1e-3, maxi=1e3)}
+            model_params['agn_torus_mass'] = {"N": 1, "isfree": True, "init": .1, "units":"", 'prior': priors.TopHat(mini=0., maxi=15)}
         
 
     # explicitly no FSPS dusty torus
