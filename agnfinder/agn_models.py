@@ -3,7 +3,7 @@ import warnings
 import numpy as np
 from scipy.integrate import simps
 import matplotlib.pyplot as plt
-from agnfinder.quasar_template import load_quasar_template, eval_quasar_template
+from agnfinder import quasar_templates
 
 from agnfinder.prospector import cpz_builders
 
@@ -54,6 +54,8 @@ def plot_multicomponent_sed(galaxy_flux, quasar_flux, net_label, file_loc):
 if __name__ == '__main__':
 
     # make_galaxy_sed()
+
+    raise DeprecationWarning
 
     galaxy_wavelength, galaxy_flux = load_galaxy_sed()
     mfrac = 0.5843067062572432  # manually, awkward to save a scalar

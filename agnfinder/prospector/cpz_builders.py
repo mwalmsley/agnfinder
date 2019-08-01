@@ -9,7 +9,7 @@ from prospect.models import priors
 from prospect.models.sedmodel import SedModel
 from prospect.sources import CSPSpecBasis, SSPBasis
 
-from agnfinder import quasar_template, agn_models, extinction_models
+from agnfinder import quasar_templates, agn_models, extinction_models
 from agnfinder.prospector import load_photometry
 
 
@@ -187,6 +187,12 @@ class CSPSpecBasisAGN(CSPSpecBasis):
 
     def __init__(self, *args, **kwargs):
         super().__init__()
+
+        # TODO could wrap these globals entirely within quasar_templates
+        self.quasar_template = quasar_templates.QuasarTemplate(template_loc=quasar_templates.INTERPOLATED_QUASAR_LOC)
+        self.torus_template = quasar_templates.TorusTemplate(template_loc=quasar_templates.INTERPOLATED_TORUS_LOC)
+        self.extinction_template = extinction_models.ExtinctionTemplate(template_loc=extinction_models.INTERPOLATED_SMC_EXTINCTION_LOC)
+
         self.galaxy_flux = None
         self.unextincted_quasar_flux = None
         self.quasar_flux = None
@@ -215,18 +221,15 @@ class CSPSpecBasisAGN(CSPSpecBasis):
         wave, spectrum, mass_frac = super().get_galaxy_spectrum(**params)
 
         # insert blue AGN template here into spectrum
-        interp_quasar = quasar_template.load_interpolated_quasar_template()
-        template_quasar_flux = quasar_template.eval_quasar_template(wave, interp_quasar, short_only=True)
-        quasar_flux = template_quasar_flux * self.params['agn_mass'] * 1e14  # no idea why...
+        template_quasar_flux = self.quasar_template(wave, short_only=True)
+        quasar_flux = template_quasar_flux * self.params['agn_mass'] * 1e14
 
-        interp_torus = quasar_template.load_interpolated_torus_template()
-        template_torus_flux = quasar_template.eval_torus_template(wave, interp_torus, long_only=True)
-        torus_flux = template_torus_flux * self.params['agn_torus_mass'] * 1e14  # no idea why...
+        template_torus_flux = self.torus_template(wave, long_only=True)
+        torus_flux = template_torus_flux * self.params['agn_torus_mass'] * 1e14
 
         # must always be specified, even if None
         if self.params['agn_eb_v']:  # float will eval as True
-            interp_k_l = extinction_models.load_interpolated_smc_extinction()
-            extincted_quasar_flux = extinction_models.smc_extinction(wave, quasar_flux, self.params['agn_eb_v'], interp_k_l)
+            extincted_quasar_flux = self.extinction_template(wave, quasar_flux, self.params['agn_eb_v'])
         else:  # don't model
             extincted_quasar_flux = quasar_flux
 
@@ -236,8 +239,6 @@ class CSPSpecBasisAGN(CSPSpecBasis):
         self.quasar_flux = extincted_quasar_flux + torus_flux
         self.galaxy_flux = spectrum
 
-        # print('spectrum', spectrum.median)
-        # print('quasar', extincted_quasar_flux.median)
         return wave, self.galaxy_flux + self.quasar_flux, mass_frac
 
     
