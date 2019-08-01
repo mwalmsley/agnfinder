@@ -66,15 +66,15 @@ def construct_problem(galaxy, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_
     logging.info('Run params: {}'.format(run_params))
 
     obs = cpz_builders.build_cpz_obs(galaxy)
-    logging.debug('obs built')
+    logging.info(obs)
 
     # demo_model = demo_builders.build_model(**run_params)
     model = cpz_builders.build_model(**run_params)
-    logging.debug('model built')
+    logging.info(model)
 
     # must come AFTER model?
     sps = cpz_builders.build_sps(**run_params)
-    logging.debug('sps built')
+    logging.info(sps)
 
     return run_params, obs, model, sps
 
@@ -275,12 +275,13 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('index', type=int, help='index of galaxy to fit')
+    parser.add_argument('galaxy', type=str, help='class of galaxy to fit')
     parser.add_argument('--profile', type=bool, default=False, dest='profile')
     args = parser.parse_args()
 
     timestamp = '{:.0f}'.format(time.time())
     # TODO convert to command line args?
-    name = 'agn_bigger_agn_mass_fixed_inclination_{}_{}'.format(args.index, timestamp)
+    name = '{}_loguniform_mass_{}_{}'.format(args.galaxy, args.index, timestamp)
     output_dir = 'results'
     find_ml_estimate = False
     find_mcmc_posterior = False
@@ -292,7 +293,7 @@ if __name__ == '__main__':
     agn_torus_mass = True
     igm_absorbtion = True
     
-    galaxy_class = 'agn' # None for any, or 'agn', 'passive', 'starforming', 'qso' for most likely galaxies of that class
+    galaxy_class = args.galaxy # None for any, or 'agn', 'passive', 'starforming', 'qso' for most likely galaxies of that class
 
     while len(logging.root.handlers) > 0:
         logging.root.removeHandler(logging.root.handlers[-1])

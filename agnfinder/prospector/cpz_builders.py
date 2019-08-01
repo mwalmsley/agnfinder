@@ -125,7 +125,7 @@ def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn
     else:
         assert agn_mass == True
         logging.info('AGN mass will be free parameter')
-        model_params['agn_mass'] = {'N': 1, 'isfree': True, 'init': 1., 'prior': priors.LogUniform(mini=1e-2, maxi=1e3)}  # mass scaling implies mass 1 -> fluxes of 1^-8ish
+        model_params['agn_mass'] = {'N': 1, 'isfree': True, 'init': 1., 'prior': priors.LogUniform(mini=1e-6, maxi=15)}
     if agn_eb_v is None:
         logging.warning('AGN extinction not modelled')
     else:
@@ -144,10 +144,10 @@ def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn
             logging.warning('Not modelling AGN torus')
         elif isinstance(agn_torus_mass, float):
             logging.info('Using fixed obscured torus of {}'.format(agn_torus_mass))
-            model_params['agn_torus_mass'] = {"N": 1, "isfree": False, "init": agn_torus_mass, "units":"", 'prior': priors.TopHat(mini=0., maxi=15)}
+            model_params['agn_torus_mass'] = {"N": 1, "isfree": False, "init": agn_torus_mass, "units":"", 'prior': priors.LogUniform(mini=1e-6, maxi=15)}
         else:
             logging.info('Using free obscured torus')
-            model_params['agn_torus_mass'] = {"N": 1, "isfree": True, "init": .1, "units":"", 'prior': priors.TopHat(mini=0., maxi=15)}
+            model_params['agn_torus_mass'] = {"N": 1, "isfree": True, "init": .1, "units":"", 'prior': priors.LogUniform(mini=1e-6, maxi=15)}
         
 
     # explicitly no FSPS dusty torus

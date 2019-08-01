@@ -19,3 +19,7 @@ if __name__ == '__main__':
 # https://github.com/bd-j/prospector/blob/master/prospect/sources/galaxy_basis.py#L109
 
 # https://github.com/dfm/python-fsps/blob/master/fsps/fsps.py#L582
+
+# FSPS caches calculations for dif. tage, but updating a parameter (tau, for me) breaks this somehow
+# Prospector passes the tau parameter by updating the ssp object
+# https://github.com/bd-j/prospector/blob/master/prospect/sources/galaxy_basis.py#L55
