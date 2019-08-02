@@ -224,7 +224,7 @@ def save_sed_traces(samples, obs, model, sps, file_loc, max_samples=1000, burn_i
     plt.savefig(file_loc)
 
 
-def main(index, name, galaxy_class, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, find_ml_estimate, find_mcmc_posterior, find_multinest_posterior):
+def main(index, name, output_dir, galaxy_class, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, find_ml_estimate, find_mcmc_posterior, find_multinest_posterior):
 
     galaxy = load_galaxy(index, galaxy_class)
     logging.info('Galaxy: {}'.format(galaxy))
@@ -261,7 +261,7 @@ def main(index, name, galaxy_class, redshift, agn_mass, agn_eb_v, agn_torus_mass
         save_sed_traces(samples[int(len(samples)/2):], obs, model, sps, traces_loc)
 
     if find_multinest_posterior:
-        # TODO extend to use pymultinest
+        # TODO extend to use pymultinest?
         samples, _ = dynesty_galaxy(run_params, obs, model, sps, initial_theta=theta_best, test=test)
         sample_loc = os.path.join(output_dir, '{}_multinest_samples.h5py'.format(name))
         save_samples(samples, model, sample_loc)
@@ -269,6 +269,14 @@ def main(index, name, galaxy_class, redshift, agn_mass, agn_eb_v, agn_torus_mass
         save_corner(samples[int(len(samples)/2):], model, corner_loc)  # nested sampling has no burn-in phase, early samples are bad
         traces_loc = os.path.join(output_dir, '{}_multinest_sed_traces.png'.format(name))
         save_sed_traces(samples, obs, model, sps, traces_loc)
+        components_loc = os.path.join(output_dir, '{}_multinest_components.png'.format(name))
+        # messy saving of components
+        plt.clf()
+        visualise.calculate_many_components(model, samples[int(len(samples)/2):], obs, sps)
+        plt.legend()
+        plt.ylim([1e-25, None])
+        plt.tight_layout()
+        plt.savefig(components_loc)
 
 
 if __name__ == '__main__':
@@ -281,7 +289,7 @@ if __name__ == '__main__':
 
     timestamp = '{:.0f}'.format(time.time())
     # TODO convert to command line args?
-    name = '{}_loguniform_mass_{}_{}'.format(args.galaxy, args.index, timestamp)
+    name = '{}_loguniform_{}_{}'.format(args.galaxy, args.index, timestamp)
     output_dir = 'results'
     find_ml_estimate = False
     find_mcmc_posterior = False
@@ -293,7 +301,11 @@ if __name__ == '__main__':
     agn_torus_mass = True
     igm_absorbtion = True
     
-    galaxy_class = args.galaxy # None for any, or 'agn', 'passive', 'starforming', 'qso' for most likely galaxies of that class
+     # None or 'random' for any, or agn', 'passive', 'starforming', 'qso' for most likely galaxies of that class
+    if args.galaxy == 'random':
+        galaxy_class = None
+    else:
+        galaxy_class = args.galaxy
 
     while len(logging.root.handlers) > 0:
         logging.root.removeHandler(logging.root.handlers[-1])
@@ -308,7 +320,7 @@ if __name__ == '__main__':
         logging.warning('Using profiling')
         pr = cProfile.Profile()
         pr.enable()
-    main(args.index, name, galaxy_class, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, find_ml_estimate, find_mcmc_posterior, find_multinest_posterior)
+    main(args.index, name, output_dir, galaxy_class, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, find_ml_estimate, find_mcmc_posterior, find_multinest_posterior)
     if args.profile:
         pr.disable()
         pr.dump_stats(os.path.join(output_dir, '{}.profile'.format(name)))

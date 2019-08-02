@@ -67,6 +67,8 @@ def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn
         An instance of prospect.models.SedModel
     """
 
+    # TODO increase galaxy extinction to 0.6
+
     # Get (a copy of) one of the prepackaged model set dictionaries.
     # This is, somewhat confusingly, a dictionary of dictionaries, keyed by parameter name
     model_params = TemplateLibrary["parametric_sfh"]  # add sfh and tau
@@ -125,7 +127,7 @@ def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn
     else:
         assert agn_mass == True
         logging.info('AGN mass will be free parameter')
-        model_params['agn_mass'] = {'N': 1, 'isfree': True, 'init': 1., 'prior': priors.LogUniform(mini=1e-6, maxi=15)}
+        model_params['agn_mass'] = {'N': 1, 'isfree': True, 'init': 1., 'prior': priors.LogUniform(mini=1e-7, maxi=15)}
     if agn_eb_v is None:
         logging.warning('AGN extinction not modelled')
     else:
@@ -144,10 +146,10 @@ def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn
             logging.warning('Not modelling AGN torus')
         elif isinstance(agn_torus_mass, float):
             logging.info('Using fixed obscured torus of {}'.format(agn_torus_mass))
-            model_params['agn_torus_mass'] = {"N": 1, "isfree": False, "init": agn_torus_mass, "units":"", 'prior': priors.LogUniform(mini=1e-6, maxi=15)}
+            model_params['agn_torus_mass'] = {"N": 1, "isfree": False, "init": agn_torus_mass, "units":"", 'prior': priors.LogUniform(mini=1e-7, maxi=15)}
         else:
             logging.info('Using free obscured torus')
-            model_params['agn_torus_mass'] = {"N": 1, "isfree": True, "init": .1, "units":"", 'prior': priors.LogUniform(mini=1e-6, maxi=15)}
+            model_params['agn_torus_mass'] = {"N": 1, "isfree": True, "init": .1, "units":"", 'prior': priors.LogUniform(mini=1e-7, maxi=15)}
         
 
     # explicitly no FSPS dusty torus
@@ -210,7 +212,10 @@ class CSPSpecBasisAGN(CSPSpecBasis):
         :returns mass_fraction:
             Fraction of the formed stellar mass that still exists.
         """
-        logging.debug('Using custom get_galaxy_spectrum with params {}'.format(params))
+
+        # don't log unless you need do, it's slow!
+        # logging.debug('Using custom get_galaxy_spectrum with params {}'.format(params))
+        
         self.update(**params)
         try:
             self.params['agn_mass']
