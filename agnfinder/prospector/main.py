@@ -195,7 +195,7 @@ def dynesty_galaxy(run_params, obs, model, sps, initial_theta=None, test=False):
     # time_elapsed = end_time - start_time
 
 
-def save_samples(samples, model, file_loc):
+def save_samples(samples, file_loc):
     with h5py.File(file_loc, "w") as f:
         dset = f.create_dataset('samples', samples.shape, dtype='float32')
         dset[...] = samples
@@ -254,7 +254,7 @@ def main(index, name, output_dir, galaxy_class, redshift, agn_mass, agn_eb_v, ag
     if find_mcmc_posterior:
         samples, _ = mcmc_galaxy(run_params, obs, model, sps, initial_theta=theta_best, test=test)
         sample_loc = os.path.join(output_dir, '{}_mcmc_samples.h5py'.format(name))
-        save_samples(samples, model, sample_loc)
+        save_samples(samples, sample_loc)
         corner_loc = os.path.join(output_dir, '{}_mcmc_corner.png'.format(name))
         save_corner(samples, model, corner_loc)
         traces_loc = os.path.join(output_dir, '{}_mcmc_sed_traces.png'.format(name))
@@ -264,7 +264,7 @@ def main(index, name, output_dir, galaxy_class, redshift, agn_mass, agn_eb_v, ag
         # TODO extend to use pymultinest?
         samples, _ = dynesty_galaxy(run_params, obs, model, sps, initial_theta=theta_best, test=test)
         sample_loc = os.path.join(output_dir, '{}_multinest_samples.h5py'.format(name))
-        save_samples(samples, model, sample_loc)
+        save_samples(samples, sample_loc)
         corner_loc = os.path.join(output_dir, '{}_multinest_corner.png'.format(name))
         save_corner(samples[int(len(samples)/2):], model, corner_loc)  # nested sampling has no burn-in phase, early samples are bad
         traces_loc = os.path.join(output_dir, '{}_multinest_sed_traces.png'.format(name))
