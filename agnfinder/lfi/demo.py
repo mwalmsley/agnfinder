@@ -41,7 +41,7 @@ if __name__ == '__main__':
     # we want to start with uniform priors
     prior = priors.Uniform(lower, upper)
 
-    n_hiddens = [30, 30] #  hidden layers in MAF (must all be the same)
+    n_hiddens = [50, 50, 50, 50] #  hidden layers in MAF (must all be the same)
     # Build list of neural networks
     NDEs = [ndes.ConditionalMaskedAutoregressiveFlow(n_parameters=n_inputs, n_data=n_outputs, n_hiddens=n_hiddens, n_mades=2, act_fun=tf.tanh, index=1)]
 
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     DelfiEnsemble = delfi.Delfi(observed_data, prior, NDEs,
                                     param_limits=[lower, upper],
                                     param_names=['M1', 'TB', 'Mu', 'M2', 'Msl'],
-                                    results_dir="data/lfi/demo_results",
+                                    results_dir="data/lfi/bigger/",
                                     progress_bar=True,
                                    )
 
