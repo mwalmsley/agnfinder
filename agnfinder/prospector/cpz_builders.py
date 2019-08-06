@@ -240,31 +240,10 @@ class CSPSpecBasisAGN(CSPSpecBasis):
         except KeyError:
             raise AttributeError('Trying to calculate SED inc. AGN, but no `agn_mass` parameter set')
 
-        # call the original get_galaxy_spectrum method
-        # self.update(**params)
-        # spectra = []
-        # # for me, mass is always a scalar? I don't need to worry about this??
-        # mass = np.atleast_1d(self.params['mass']).copy()
-        # mfrac = np.zeros_like(mass)
-        # # Loop over mass components
-        # for i, m in enumerate(mass):
-        #     # self.update_component(i)  # i.e. send to SSP
-        #     wave, spec = self.ssp.get_spectrum(tage=self.ssp.params['tage'],  # always relies on the dict
-        #                                        peraa=False)
-        #     spectra.append(spec)
-        #     mfrac[i] = (self.ssp.stellar_mass)
-
-        # # Convert normalization units from per stellar mass to per mass formed
-        # if np.all(self.params.get('mass_units', 'mformed') == 'mstar'):
-        #     mass /= mfrac
-        # stellar_spectrum = np.dot(mass, np.array(spectra)) / mass.sum()
-        # mfrac_sum = np.dot(mass, mfrac) / mass.sum()
-
-
         """Copy of get_galaxy_spectrum"""
         self.update(**params)  # store all arguments (model params) in self.params
 
-        spectra = []
+        # spectra = []
 
         # load mass model param, and group as one array if multiple values
         # probably this is a scalar for me - CONFIRMED
@@ -274,29 +253,29 @@ class CSPSpecBasisAGN(CSPSpecBasis):
         # mfrac will record the stellar mass (from FSPS) of each mass component
         mfrac = np.zeros_like(mass)
         # Loop over mass components
-        for i, m in enumerate(mass):  # weirdly, actual value of the mass is not used
+        # for i, m in enumerate(mass):  # weirdly, actual value of the mass is not used
             # send the ith index of every FSPS-relevant model param. to FSPS.
             # This allows support for models where the 1st dimension of param is really a different model
             # For me, my params are simple length 1 arrays
             # So in practice, this just sends the FSPS params to FSPS
-            self.update_component(i)
-            wave, spec = self.ssp.get_spectrum(tage=self.ssp.params['tage'],
-                                               peraa=False)
+        self.update_component(0)
+        wave, spectrum = self.ssp.get_spectrum(tage=self.ssp.params['tage'],
+                                            peraa=False)
             # wave is not saved by component (i.e. always uses the last) so very likely doesn't change with FSPS params
             
             # save each spectra (single spectra for me)
-            spectra.append(spec)
+        # spectra.append(spec)
             # FSPS also updates (but does not return) scalar stellar mass (at tage, I assume)
             # save this as well
-            mfrac[i] = (self.ssp.stellar_mass) # e.g. 0.605
-
+        # mfrac[i] = (self.ssp.stellar_mass) # e.g. 0.605
+        mfrac_sum = self.ssp.stellar_mass 
         # Convert normalization units from per stellar mass to per mass formed
         # for me, not triggered
-        if np.all(self.params.get('mass_units', 'mformed') == 'mstar'):
-            mass /= mfrac
+        # if np.all(self.params.get('mass_units', 'mformed') == 'mstar'):
+            # mass /= mfrac
         # np.dot is a multiplication for me, so these weighted sums have no effect (mass = mass.sum())
-        spectrum = np.dot(mass, np.array(spectra)) / mass.sum()
-        mfrac_sum = np.dot(mass, mfrac) / mass.sum()
+        # spectrum = np.dot(mass, np.array(spectra)) / mass.sum()
+        # mfrac_sum = np.dot(mass, mfrac) / mass.sum()
 
         # rename to match
         mass_frac = mfrac_sum
@@ -352,8 +331,8 @@ class CustomSSP(fsps.StellarPopulation):
             gp_model_loc=gp_model_loc,
             pca_model_loc=pca_model_loc
         )
-        self._wavelengths = TODO
-
+        self._wavelengths = TODO  # can probably use a fixed array - TODO check
+        self.stellar_mass = None
         self.params = {}  # mimicking how FSPS works, with args passed via dict (kind of a pain)
 
     def get_spectrum(self, tage, peraa=False, careful=True):
@@ -362,7 +341,7 @@ class CustomSSP(fsps.StellarPopulation):
             self.check_fixed_params_unchanged()
         param_vector = np.array(self.params['tau'], tage, self.params['dust'])
         spectra = self._emulator(param_vector)
-        self.stellar_mass = TODO  # mimicking FSPS also
+        self.stellar_mass = TODO  # mimicking FSPS also. Will need to emulate this, but a scalar so not too bad?
         return self._wavelengths, spectra
 
     def check_fixed_params_unchanged(self):
