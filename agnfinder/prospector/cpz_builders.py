@@ -1,8 +1,10 @@
 import logging
+import os
 
 import numpy as np
 import pandas as pd
 
+import fsps
 from prospect.utils.obsutils import fix_obs
 from prospect.models.templates import TemplateLibrary
 from prospect.models import priors
@@ -11,6 +13,7 @@ from prospect.sources import CSPSpecBasis, SSPBasis
 
 from agnfinder import quasar_templates, agn_models, extinction_models
 from agnfinder.prospector import load_photometry
+from agnfinder.fsps import emulate
 
 
 def build_cpz_obs(galaxy, **extras):
@@ -187,8 +190,23 @@ class CSPSpecBasisAGN(CSPSpecBasis):
      - normalises by mass
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__()
+    # exactly as with super, one change
+    def __init__(self, zcontinuous=1, reserved_params=['zred', 'sigma_smooth'],
+                 vactoair_flag=False, compute_vega_mags=False, **kwargs):
+
+        # super().__init__()
+
+        # This is a StellarPopulation object from fsps
+        self.ssp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
+                                          zcontinuous=zcontinuous,
+                                          vactoair_flag=vactoair_flag)
+        # This is custom FSPS-emulating GP
+        # self.ssp = CustomSSP()
+
+        self.reserved_params = reserved_params
+        self.params = {}
+        self.update(**kwargs)
+    # custom init from here
 
         # TODO could wrap these globals entirely within quasar_templates
         self.quasar_template = quasar_templates.QuasarTemplate(template_loc=quasar_templates.INTERPOLATED_QUASAR_LOC)
@@ -223,7 +241,69 @@ class CSPSpecBasisAGN(CSPSpecBasis):
             raise AttributeError('Trying to calculate SED inc. AGN, but no `agn_mass` parameter set')
 
         # call the original get_galaxy_spectrum method
-        wave, spectrum, mass_frac = super().get_galaxy_spectrum(**params)
+        # self.update(**params)
+        # spectra = []
+        # # for me, mass is always a scalar? I don't need to worry about this??
+        # mass = np.atleast_1d(self.params['mass']).copy()
+        # mfrac = np.zeros_like(mass)
+        # # Loop over mass components
+        # for i, m in enumerate(mass):
+        #     # self.update_component(i)  # i.e. send to SSP
+        #     wave, spec = self.ssp.get_spectrum(tage=self.ssp.params['tage'],  # always relies on the dict
+        #                                        peraa=False)
+        #     spectra.append(spec)
+        #     mfrac[i] = (self.ssp.stellar_mass)
+
+        # # Convert normalization units from per stellar mass to per mass formed
+        # if np.all(self.params.get('mass_units', 'mformed') == 'mstar'):
+        #     mass /= mfrac
+        # stellar_spectrum = np.dot(mass, np.array(spectra)) / mass.sum()
+        # mfrac_sum = np.dot(mass, mfrac) / mass.sum()
+
+
+        """Copy of get_galaxy_spectrum"""
+        self.update(**params)  # store all arguments (model params) in self.params
+
+        spectra = []
+
+        # load mass model param, and group as one array if multiple values
+        # probably this is a scalar for me - CONFIRMED
+        mass = np.atleast_1d(self.params['mass']).copy()
+        # assert len(mass) == 1
+
+        # mfrac will record the stellar mass (from FSPS) of each mass component
+        mfrac = np.zeros_like(mass)
+        # Loop over mass components
+        for i, m in enumerate(mass):  # weirdly, actual value of the mass is not used
+            # send the ith index of every FSPS-relevant model param. to FSPS.
+            # This allows support for models where the 1st dimension of param is really a different model
+            # For me, my params are simple length 1 arrays
+            # So in practice, this just sends the FSPS params to FSPS
+            self.update_component(i)
+            wave, spec = self.ssp.get_spectrum(tage=self.ssp.params['tage'],
+                                               peraa=False)
+            # wave is not saved by component (i.e. always uses the last) so very likely doesn't change with FSPS params
+            
+            # save each spectra (single spectra for me)
+            spectra.append(spec)
+            # FSPS also updates (but does not return) scalar stellar mass (at tage, I assume)
+            # save this as well
+            mfrac[i] = (self.ssp.stellar_mass) # e.g. 0.605
+
+        # Convert normalization units from per stellar mass to per mass formed
+        # for me, not triggered
+        if np.all(self.params.get('mass_units', 'mformed') == 'mstar'):
+            mass /= mfrac
+        # np.dot is a multiplication for me, so these weighted sums have no effect (mass = mass.sum())
+        spectrum = np.dot(mass, np.array(spectra)) / mass.sum()
+        mfrac_sum = np.dot(mass, mfrac) / mass.sum()
+
+        # rename to match
+        mass_frac = mfrac_sum
+        stellar_spectrum = spectrum
+        
+        """Explicit call of super"""
+        # wave, stellar_spectrum, mass_frac = super().get_galaxy_spectrum(**params)
 
         # insert blue AGN template here into spectrum
         template_quasar_flux = self.quasar_template(wave, short_only=True)
@@ -242,11 +322,11 @@ class CSPSpecBasisAGN(CSPSpecBasis):
         self.extincted_quasar_flux = extincted_quasar_flux
         self.torus_flux = torus_flux
         self.quasar_flux = extincted_quasar_flux + torus_flux
-        self.galaxy_flux = spectrum
+        self.galaxy_flux = stellar_spectrum
 
         return wave, self.galaxy_flux + self.quasar_flux, mass_frac
 
-    
+
     # def get_spectrum(self, outwave=None, filters=None, peraa=False, **params):
         # """Get a spectrum and SED for the given params.
         # """
@@ -254,3 +334,49 @@ class CSPSpecBasisAGN(CSPSpecBasis):
         # mass_weighted_smspec, mass_weighted_phot, mfrac = super().get_spectrum(outwave=None, filters=None, peraa=False, **params)
 
         # reverse the mass-weighting of agn component
+
+
+class CustomSSP(fsps.StellarPopulation):
+
+    def __init__(self):
+        logging.warning('Using cached SSP!')
+        # TODO may need to mock other properties e.g. params
+        
+        # TODO hardcoded paths for now
+        model_dir = 'notebooks'
+        num_params = 3
+        num_bases = 10
+        gp_model_loc = os.path.join(model_dir, 'gpfit_'+str(num_bases)+'_'+str(num_params) + '.zip')
+        pca_model_loc = os.path.join(model_dir, 'pcaModel.pickle')
+        self._emulator = emulate.GPEmulator(
+            gp_model_loc=gp_model_loc,
+            pca_model_loc=pca_model_loc
+        )
+        self._wavelengths = TODO
+
+        self.params = {}  # mimicking how FSPS works, with args passed via dict (kind of a pain)
+
+    def get_spectrum(self, tage, peraa=False, careful=True):
+        if careful:
+            assert tage is not 0  # not emulated!
+            self.check_fixed_params_unchanged()
+        param_vector = np.array(self.params['tau'], tage, self.params['dust'])
+        spectra = self._emulator(param_vector)
+        self.stellar_mass = TODO  # mimicking FSPS also
+        return self._wavelengths, spectra
+
+    def check_fixed_params_unchanged(self):
+        expected_fixed_args = {
+            'logzsol': 0.0, 
+            'sfh': 4,
+            'imf_type': 2, 
+            'dust_type': 2, 
+            'add_dust_emission': True, 
+            'duste_umin': 1.0,
+            'duste_qpah': 4.0, 
+            'duste_gamma': 0.001, 
+            'add_igm_absorption': True, 
+            'igm_factor': 1.0 
+        }
+        for key, value in expected_fixed_args:
+            assert self.params[key] == value

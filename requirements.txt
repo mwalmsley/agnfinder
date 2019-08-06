@@ -17,6 +17,7 @@ h5py
 pyfits
 astropy
 dill
+GPy
 
 # ./sedpy
 # ./python-fsps

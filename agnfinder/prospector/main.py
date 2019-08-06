@@ -282,8 +282,8 @@ def main(index, name, output_dir, galaxy_class, redshift, agn_mass, agn_eb_v, ag
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Find AGN!')
-    parser.add_argument('index', type=int, help='index of galaxy to fit')
-    parser.add_argument('galaxy', type=str, help='class of galaxy to fit')
+    parser.add_argument('--index', type=int, default=0, dest='index', help='index of galaxy to fit')
+    parser.add_argument('--galaxy', type=str, default='random', dest='galaxy', help='class of galaxy to fit')
     parser.add_argument('--profile', type=bool, default=False, dest='profile')
     args = parser.parse_args()
 
