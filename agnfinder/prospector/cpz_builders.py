@@ -174,7 +174,13 @@ def build_sps(zcontinuous=1, **extras):
     """
     if extras['agn_mass']:  # True if either =True or =float, False if =None or =False
         logging.warning('Building custom CSPSpecBasisAGN as agn_mass is {}'.format(extras['agn_mass']))
-        sps = CSPSpecBasisAGN(zcontinuous=zcontinuous, agn_mass=extras['agn_mass'], agn_eb_v=extras['agn_eb_v'], agn_torus_mass=extras['agn_torus_mass'])
+        sps = CSPSpecBasisAGN(
+            zcontinuous=zcontinuous,
+            agn_mass=extras['agn_mass'], 
+            agn_eb_v=extras['agn_eb_v'],
+            agn_torus_mass=extras['agn_torus_mass'],
+            emulate_ssp=extras['emulate_ssp']
+        )
     else:
         logging.warning('Building standard CSPSpec')
         sps = CSPSpecBasis(zcontinuous=zcontinuous)
@@ -192,21 +198,23 @@ class CSPSpecBasisAGN(CSPSpecBasis):
 
     # exactly as with super, one change
     def __init__(self, zcontinuous=1, reserved_params=['zred', 'sigma_smooth'],
-                 vactoair_flag=False, compute_vega_mags=False, **kwargs):
+                 vactoair_flag=False, compute_vega_mags=False, emulate_ssp=False, **kwargs):
 
         # super().__init__()
-
-        # This is a StellarPopulation object from fsps
-        self.ssp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
-                                          zcontinuous=zcontinuous,
-                                          vactoair_flag=vactoair_flag)
-        # This is custom FSPS-emulating GP
-        # self.ssp = CustomSSP()
+        
+        if emulate_ssp:
+            logging.warning('Using custom FSPS emulator for SSP')
+            self.ssp = CustomSSP()
+        else:
+            logging.warning('Using standard FSPS for SSP, no emulation')
+            self.ssp = fsps.StellarPopulation(compute_vega_mags=compute_vega_mags,
+                                            zcontinuous=zcontinuous,
+                                            vactoair_flag=vactoair_flag)
 
         self.reserved_params = reserved_params
         self.params = {}
         self.update(**kwargs)
-    # custom init from here
+        # custom init from here
 
         # TODO could wrap these globals entirely within quasar_templates
         self.quasar_template = quasar_templates.QuasarTemplate(template_loc=quasar_templates.INTERPOLATED_QUASAR_LOC)
@@ -243,39 +251,14 @@ class CSPSpecBasisAGN(CSPSpecBasis):
         """Copy of get_galaxy_spectrum"""
         self.update(**params)  # store all arguments (model params) in self.params
 
-        # spectra = []
-
-        # load mass model param, and group as one array if multiple values
-        # probably this is a scalar for me - CONFIRMED
         mass = np.atleast_1d(self.params['mass']).copy()
-        # assert len(mass) == 1
-
-        # mfrac will record the stellar mass (from FSPS) of each mass component
         mfrac = np.zeros_like(mass)
-        # Loop over mass components
-        # for i, m in enumerate(mass):  # weirdly, actual value of the mass is not used
-            # send the ith index of every FSPS-relevant model param. to FSPS.
-            # This allows support for models where the 1st dimension of param is really a different model
-            # For me, my params are simple length 1 arrays
-            # So in practice, this just sends the FSPS params to FSPS
         self.update_component(0)
-        wave, spectrum = self.ssp.get_spectrum(tage=self.ssp.params['tage'],
-                                            peraa=False)
-            # wave is not saved by component (i.e. always uses the last) so very likely doesn't change with FSPS params
-            
-            # save each spectra (single spectra for me)
-        # spectra.append(spec)
-            # FSPS also updates (but does not return) scalar stellar mass (at tage, I assume)
-            # save this as well
-        # mfrac[i] = (self.ssp.stellar_mass) # e.g. 0.605
+        wave, spectrum = self.ssp.get_spectrum(
+            tage=self.ssp.params['tage'],
+            peraa=False
+        )
         mfrac_sum = self.ssp.stellar_mass 
-        # Convert normalization units from per stellar mass to per mass formed
-        # for me, not triggered
-        # if np.all(self.params.get('mass_units', 'mformed') == 'mstar'):
-            # mass /= mfrac
-        # np.dot is a multiplication for me, so these weighted sums have no effect (mass = mass.sum())
-        # spectrum = np.dot(mass, np.array(spectra)) / mass.sum()
-        # mfrac_sum = np.dot(mass, mfrac) / mass.sum()
 
         # rename to match
         mass_frac = mfrac_sum
@@ -315,9 +298,10 @@ class CSPSpecBasisAGN(CSPSpecBasis):
         # reverse the mass-weighting of agn component
 
 
-class CustomSSP(fsps.StellarPopulation):
+# fsps.StellarPopulation
+class CustomSSP():
 
-    def __init__(self):
+    def __init__(self, careful=True):
         logging.warning('Using cached SSP!')
         # TODO may need to mock other properties e.g. params
         
@@ -327,22 +311,27 @@ class CustomSSP(fsps.StellarPopulation):
         num_bases = 10
         gp_model_loc = os.path.join(model_dir, 'gpfit_'+str(num_bases)+'_'+str(num_params) + '.zip')
         pca_model_loc = os.path.join(model_dir, 'pcaModel.pickle')
-        self._emulator = emulate.GPEmulator(
+        self._spectrum_emulator = emulate.GPEmulator(
             gp_model_loc=gp_model_loc,
             pca_model_loc=pca_model_loc
         )
-        self._wavelengths = TODO  # can probably use a fixed array - TODO check
-        self.stellar_mass = None
-        self.params = {}  # mimicking how FSPS works, with args passed via dict (kind of a pain)
+        mass_model_loc = os.path.join(model_dir, 'mass_emulator.pickle')
+        self._mass_emulator = emulate.SKLearnEmulator(model_loc=mass_model_loc)
+        reference_wave_loc = os.path.join(model_dir, 'reference_wave.txt')
+        self.wavelengths = np.loadtxt(reference_wave_loc)  # use a fixed array
+        self.stellar_mass = None  # already exists!
+        self.params = CustomFSPSParams()  # mimicking how FSPS works, with args passed via dict (kind of a pain)
+        self.careful = careful
 
-    def get_spectrum(self, tage, peraa=False, careful=True):
-        if careful:
+    def get_spectrum(self, tage, peraa=False):
+        if self.careful:
             assert tage is not 0  # not emulated!
             self.check_fixed_params_unchanged()
-        param_vector = np.array(self.params['tau'], tage, self.params['dust'])
-        spectra = self._emulator(param_vector)
-        self.stellar_mass = TODO  # mimicking FSPS also. Will need to emulate this, but a scalar so not too bad?
-        return self._wavelengths, spectra
+        param_vector = np.array([self.params['tau'], tage, self.params['dust2']])
+        # emulator doesn't model the first 100 wavelengths (which are ~0) because of how Nesar made it, add them back manually
+        spectra = np.hstack([np.ones(100) * 1e-60, self._spectrum_emulator(param_vector)])
+        self.stellar_mass = self._mass_emulator(param_vector)  # mimicking FSPS also, so prospector can request self.stellar_mass
+        return self.wavelengths, spectra
 
     def check_fixed_params_unchanged(self):
         expected_fixed_args = {
@@ -357,5 +346,43 @@ class CustomSSP(fsps.StellarPopulation):
             'add_igm_absorption': True, 
             'igm_factor': 1.0 
         }
-        for key, value in expected_fixed_args:
+        for key, value in expected_fixed_args.items():
             assert self.params[key] == value
+
+
+class CustomFSPSParams():
+
+    def __init__(self):
+
+        self.ssp_params = ["imf_type", "imf_upper_limit", "imf_lower_limit",
+                    "imf1", "imf2", "imf3", "vdmc", "mdave",
+                    "dell", "delt", "sbss", "fbhb", "pagb",
+                    "add_stellar_remnants", "tpagb_norm_type",
+                    "add_agb_dust_model", "agb_dust", "redgb", "agb",
+                    "masscut", "fcstar", "evtype", "smooth_lsf"]
+
+        self.csp_params = ["smooth_velocity", "redshift_colors",
+                    "compute_light_ages","nebemlineinspec",
+                    "dust_type", "add_dust_emission", "add_neb_emission",
+                    "add_neb_continuum", "cloudy_dust", "add_igm_absorption",
+                    "zmet", "sfh", "wgp1", "wgp2", "wgp3",
+                    "tau", "const", "tage", "fburst", "tburst",
+                    "dust1", "dust2", "logzsol", "zred", "pmetals",
+                    "dust_clumps", "frac_nodust", "dust_index", "dust_tesc",
+                    "frac_obrun", "uvb", "mwr", "dust1_index",
+                    "sf_start", "sf_trunc", "sf_slope", "duste_gamma",
+                    "duste_umin", "duste_qpah", "sigma_smooth",
+                    "min_wave_smooth", "max_wave_smooth", "gas_logu",
+                    "gas_logz", "igm_factor", "fagn", "agn_tau"]
+
+        self._params = {}
+
+    @property
+    def all_params(self):
+        return self.ssp_params + self.csp_params
+
+    def __getitem__(self, k):
+        return self._params[k]
+
+    def __setitem__(self, k, v):
+        self._params[k] = v

@@ -8,6 +8,7 @@ from sedpy import observate
 Filter = namedtuple('Filter', ['bandpass_file', 'mag_col', 'error_col'])
 
 
+
 def get_filters():
         # Pairs of (filter name in sedpy, filter name in dataframe)
     galex = [

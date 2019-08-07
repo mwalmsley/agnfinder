@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import tensorflow as tf
 import h5py
@@ -14,51 +16,59 @@ def simulator(theta, seed=1, simulator_args=None, batch=1):
 
 compressor_args=None
 def compressor(d, compressor_args):
-    # pydelfi can compress observables, but
-    # don't compress because it's only 2d anyway
+    # pydelfi can compress observables, but you might not need this for input dimension < 10ish
     return d
 
 
 if __name__ == '__main__':
 
+    output_dir = 'data/lfi/smaller'
     simulator_args = None
-
-    # example_theta = [0.30178471, 0.23758648, 0.32793839, 0.2836491,  0.23384894]
-    # print(simulator(example_theta, seed=1, simulator_args=None, batch=None))
-    # exit()
-
-    # number of parameters
-    n_inputs = 2
-    # number of observables
-    n_outputs = 1
+    
+    n_parameters = 2  # number of parameters
+    n_observables = 1  # number of observables
 
     # specify the experimental observations
     observed_data = [.3]
 
-    # we map all of our input parameters from [0,1] to the appropriate ranges
-    lower = np.zeros(n_inputs)
-    upper = np.ones(n_inputs)
-    # we want to start with uniform priors
+    # define prior
+    lower = np.zeros(n_parameters)
+    upper = np.ones(n_parameters)
+    # dimension of prior should be ...?
     prior = priors.Uniform(lower, upper)
 
-    n_hiddens = [50, 50, 50, 50] #  hidden layers in MAF (must all be the same)
-    # Build list of neural networks
-    NDEs = [ndes.ConditionalMaskedAutoregressiveFlow(n_parameters=n_inputs, n_data=n_outputs, n_hiddens=n_hiddens, n_mades=2, act_fun=tf.tanh, index=1)]
+    # big model
+    # n_hiddens = [50, 50, 50, 50]
+    # n_maf = 10
 
+    # small model
+    n_hiddens = [20, 20]
+    n_maf = 1
+
+    # Build list of neural networks
+    NDEs = [
+        ndes.ConditionalMaskedAutoregressiveFlow(
+            n_parameters=n_parameters,
+            n_data=n_observables,
+            n_hiddens=n_hiddens,
+            n_mades=2,
+            act_fun=tf.tanh,
+            index=index
+        )
+        for index in range(n_maf)
+    ]
 
     DelfiEnsemble = delfi.Delfi(observed_data, prior, NDEs,
                                     param_limits=[lower, upper],
                                     param_names=['M1', 'TB', 'Mu', 'M2', 'Msl'],
-                                    results_dir="data/lfi/bigger/",
+                                    results_dir= output_dir + "/",
                                     progress_bar=True,
                                    )
 
-    print("DelfiEnsemble is ready! Begin training")
-
-    # total number of points we want to evaluate
+    # total number of points to evaluate
     total_sims = 500
 
-    # number of points to evaluate with uniform priors (before training)
+    # points to evaluate with uniform priors (before training)
     n_initial = 125 
 
     # number of additional training runs
@@ -84,8 +94,9 @@ if __name__ == '__main__':
                                   save_intermediate_posteriors=False)
 
     posterior_samples = DelfiEnsemble.emcee_sample()
-    save_samples(posterior_samples, 'data/lfi/samples.hdf5')
+    save_samples(posterior_samples, os.path.join(output_dir, 'samples.hdf5'))
+    filtered_samples = posterior_samples[(posterior_samples > 0.) & (posterior_samples < 1.)]
     figure = corner.corner(posterior_samples)
     # , labels=['a', 'b'],
                         # show_titles=True, title_kwargs={"fontsize": 12})
-    figure.savefig('data/lfi/corner.png')
+    figure.savefig(os.path.join(output_dir, 'corner.png'))

@@ -31,7 +31,7 @@ def load_galaxy(index=0, galaxy_class=None):  # temp
         data_dir='/media/mike/internal/agnfinder'
         assert os.path.isdir(data_dir)
     except AssertionError:
-        data_dir='data/agnfinder'
+        data_dir='data/agnfinder'  # for Oxford or UCSC clusters
         assert os.path.isdir(data_dir)
     logging.info('Using {} as data dir'.format(data_dir))
 
@@ -46,7 +46,7 @@ def load_galaxy(index=0, galaxy_class=None):  # temp
     return df_with_spectral_z.iloc[index]
 
 
-def construct_problem(galaxy, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion):
+def construct_problem(galaxy, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, emulate_ssp):
     run_params = {}
 
     # model params
@@ -60,6 +60,7 @@ def construct_problem(galaxy, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_
     run_params['agn_eb_v'] = agn_eb_v
     run_params['agn_torus_mass'] = agn_torus_mass
     run_params['igm_absorbtion'] = igm_absorbtion
+    run_params['emulate_ssp'] = emulate_ssp
 
     run_params["verbose"] = False
 
@@ -224,7 +225,7 @@ def save_sed_traces(samples, obs, model, sps, file_loc, max_samples=1000, burn_i
     plt.savefig(file_loc)
 
 
-def main(index, name, output_dir, galaxy_class, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, find_ml_estimate, find_mcmc_posterior, find_multinest_posterior):
+def main(index, name, output_dir, galaxy_class, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, find_ml_estimate, find_mcmc_posterior, find_multinest_posterior, emulate_ssp):
 
     galaxy = load_galaxy(index, galaxy_class)
     logging.info('Galaxy: {}'.format(galaxy))
@@ -238,7 +239,8 @@ def main(index, name, output_dir, galaxy_class, redshift, agn_mass, agn_eb_v, ag
         agn_mass=agn_mass,
         agn_eb_v=agn_eb_v,
         agn_torus_mass=agn_torus_mass,
-        igm_absorbtion=igm_absorbtion
+        igm_absorbtion=igm_absorbtion,
+        emulate_ssp=emulate_ssp
     )
 
     if find_ml_estimate:
@@ -284,7 +286,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('--index', type=int, default=0, dest='index', help='index of galaxy to fit')
     parser.add_argument('--galaxy', type=str, default='random', dest='galaxy', help='class of galaxy to fit')
-    parser.add_argument('--profile', type=bool, default=False, dest='profile')
+    parser.add_argument('--profile', default=False, dest='profile', action='store_true')
+    parser.add_argument('--emulate-ssp', default=False, dest='emulate_ssp', action='store_true')
     args = parser.parse_args()
 
     timestamp = '{:.0f}'.format(time.time())
@@ -320,7 +323,7 @@ if __name__ == '__main__':
         logging.warning('Using profiling')
         pr = cProfile.Profile()
         pr.enable()
-    main(args.index, name, output_dir, galaxy_class, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, find_ml_estimate, find_mcmc_posterior, find_multinest_posterior)
+    main(args.index, name, output_dir, galaxy_class, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, find_ml_estimate, find_mcmc_posterior, find_multinest_posterior, args.emulate_ssp)
     if args.profile:
         pr.disable()
         pr.dump_stats(os.path.join(output_dir, '{}.profile'.format(name)))

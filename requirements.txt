@@ -18,6 +18,7 @@ pyfits
 astropy
 dill
 GPy
+scikit-learn==0.20.3
 
 # ./sedpy
 # ./python-fsps
