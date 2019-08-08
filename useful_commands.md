@@ -23,7 +23,7 @@ module load python36 (job-free environment only)
 source $tfgpu_env
 
 rsync -avz --exclude 'results' repos/agnfinder mwalmsle@lux.ucsc.edu:repos
-rsync -avz mwalmsle@lux.ucsc.edu:repos/agnfinder/results/ /media/mike/internal/agnfinder/results/ucsc_cluster_emulated
+rsync -avz mwalmsle@lux.ucsc.edu:repos/agnfinder/results/lfi/ /media/mike/internal/agnfinder/results/lfi/
 
 # Profiling
 

@@ -19,6 +19,8 @@ astropy
 dill
 GPy
 scikit-learn==0.20.3
+tqdm
+pyDOE2
 
 # ./sedpy
 # ./python-fsps

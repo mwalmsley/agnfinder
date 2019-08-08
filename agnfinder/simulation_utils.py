@@ -1,5 +1,6 @@
 import logging
 
+from tqdm import tqdm
 import numpy as np
 import h5py
 import pyDOE2
@@ -24,7 +25,7 @@ def sample(theta_df, n_samples, output_dim, simulator):
     theta_names = theta_df.columns.values  # df with columns (theta_1, theta_2, ...)
     X = np.zeros((n_samples, len(theta_names)))
     Y = np.zeros((n_samples, output_dim))
-    for n, theta_tuple in enumerate(theta_df.sample(n_samples).itertuples(name='theta')):
+    for n, theta_tuple in tqdm(enumerate(theta_df.sample(n_samples).itertuples(name='theta'))):
         X[n] = [getattr(theta_tuple, p) for p in theta_names]
         Y[n] = simulator(X[n])
     return X, Y
