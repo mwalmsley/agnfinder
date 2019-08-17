@@ -32,3 +32,5 @@ pyprof2calltree -k -i myscript.cprof
 # Run
 
 python agnfinder/prospector/main.py --index=0 --galaxy=qso
+
+python agnfinder/lfi/train.py data/photometry_simulation_100000.hdf5 --test

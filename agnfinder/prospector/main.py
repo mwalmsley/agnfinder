@@ -22,11 +22,11 @@ from prospect.fitting import lnprobfn
 from prospect.fitting import fit_model
 from prospect.io import write_results as writer
 
-from agnfinder.prospector import demo_builders, cpz_builders, visualise, fitting
+from agnfinder.prospector import demo_builders, cpz_builders, visualise, fitting, load_photometry
 from agnfinder import columns
 
 
-def load_galaxy(index=0, galaxy_class=None):  # temp
+def load_galaxy(index=0, forest_class=None, spectro_class=None):
     try:
         data_dir='/media/mike/internal/agnfinder'
         assert os.path.isdir(data_dir)
@@ -38,11 +38,17 @@ def load_galaxy(index=0, galaxy_class=None):  # temp
     parquet_loc = os.path.join(data_dir, 'cpz_paper_sample_week3.parquet')
     cols = columns.cpz_cols['metadata'] + columns.cpz_cols['unified'] + columns.cpz_cols['galex'] + columns.cpz_cols['sdss'] + columns.cpz_cols['cfht'] + columns.cpz_cols['kids'] + columns.cpz_cols['vvv'] + columns.cpz_cols['wise'] + columns.cpz_cols['random_forest']
     df = pd.read_parquet(parquet_loc, columns=cols)
+    filters = load_photometry.get_filters(reliable=True)
+    required_cols = [f.mag_col for f in filters] + [f.error_col for f in filters]
+    df = df.dropna(subset=required_cols)
     logging.info('parquet loaded')
     df_with_spectral_z = df[~pd.isnull(df['redshift'])].query('redshift > 1e-2').query('redshift < 4').reset_index()
-    if galaxy_class is not None:
-        logging.warning('Selecting RF-identified {} galaxies'.format(galaxy_class))
-        df_with_spectral_z = df_with_spectral_z.sort_values('Pr[{}]_case_III'.format(galaxy_class), ascending=False).reset_index()  # to pick quasars
+    if forest_class is not None:
+        logging.warning('Selecting forest-identified {} galaxies'.format(forest_class))
+        df_with_spectral_z = df_with_spectral_z.sort_values('Pr[{}]_case_III'.format(forest_class), ascending=False).reset_index()  # to pick quasars
+    if spectro_class is not None:
+        logging.warning('Selecting spectro-identified {} galaxies'.format(spectro_class))
+        df_with_spectral_z = df_with_spectral_z.query('hclass == {}'.format(spectro_class)).reset_index()  # to pick quasars
     return df_with_spectral_z.iloc[index]
 
 
@@ -66,7 +72,7 @@ def construct_problem(galaxy, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_
 
     logging.info('Run params: {}'.format(run_params))
 
-    obs = cpz_builders.build_cpz_obs(galaxy)
+    obs = cpz_builders.build_cpz_obs(galaxy, reliable=True)
     logging.info(obs)
 
     # demo_model = demo_builders.build_model(**run_params)
@@ -225,9 +231,9 @@ def save_sed_traces(samples, obs, model, sps, file_loc, max_samples=1000, burn_i
     plt.savefig(file_loc)
 
 
-def main(index, name, output_dir, galaxy_class, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, find_ml_estimate, find_mcmc_posterior, find_multinest_posterior, emulate_ssp):
+def main(index, name, output_dir, forest_class, spectro_class, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, find_ml_estimate, find_mcmc_posterior, find_multinest_posterior, emulate_ssp):
 
-    galaxy = load_galaxy(index, galaxy_class)
+    galaxy = load_galaxy(index, forest_class, spectro_class)
     logging.info('Galaxy: {}'.format(galaxy))
     logging.info('with spectro. redshift: {}'.format(galaxy['redshift']))
 
@@ -284,15 +290,17 @@ def main(index, name, output_dir, galaxy_class, redshift, agn_mass, agn_eb_v, ag
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Find AGN!')
+    parser.add_argument('name', type=str, help='name of run')
     parser.add_argument('--index', type=int, default=0, dest='index', help='index of galaxy to fit')
-    parser.add_argument('--galaxy', type=str, default='random', dest='galaxy', help='class of galaxy to fit')
+    parser.add_argument('--forest', type=str, default=None, dest='forest', help='forest-estimated class of galaxy to fit')
+    parser.add_argument('--spectro', type=str, default=None, dest='spectro', help='spectro class of galaxy to fit')
     parser.add_argument('--profile', default=False, dest='profile', action='store_true')
     parser.add_argument('--emulate-ssp', default=False, dest='emulate_ssp', action='store_true')
     args = parser.parse_args()
 
     timestamp = '{:.0f}'.format(time.time())
     # TODO convert to command line args?
-    name = '{}_loguniform_{}_{}'.format(args.galaxy, args.index, timestamp)
+    name = '{}_{}_{}'.format(args.name, args.index, timestamp)
     output_dir = 'results'
     find_ml_estimate = False
     find_mcmc_posterior = False
@@ -305,10 +313,20 @@ if __name__ == '__main__':
     igm_absorbtion = True
     
      # None or 'random' for any, or agn', 'passive', 'starforming', 'qso' for most likely galaxies of that class
-    if args.galaxy == 'random':
-        galaxy_class = None
+    if args.forest == 'random':
+        forest_class = None
     else:
-        galaxy_class = args.galaxy
+        forest_class = args.forest
+    
+    hclass_schema = {
+        'galaxy': 1,
+        'agn': 2,
+        'qso': 3
+    }
+    if args.spectro == 'random':
+        spectro_class = None
+    else:
+        spectro_class = hclass_schema[args.spectro]
 
     while len(logging.root.handlers) > 0:
         logging.root.removeHandler(logging.root.handlers[-1])
@@ -317,13 +335,11 @@ if __name__ == '__main__':
         format='%(asctime)s %(message)s',
         level=logging.INFO)
 
-    logging.debug('Script ready')
-
     if args.profile:
         logging.warning('Using profiling')
         pr = cProfile.Profile()
         pr.enable()
-    main(args.index, name, output_dir, galaxy_class, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, find_ml_estimate, find_mcmc_posterior, find_multinest_posterior, args.emulate_ssp)
+    main(args.index, name, output_dir, forest_class, spectro_class, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, find_ml_estimate, find_mcmc_posterior, find_multinest_posterior, args.emulate_ssp)
     if args.profile:
         pr.disable()
         pr.dump_stats(os.path.join(output_dir, '{}.profile'.format(name)))

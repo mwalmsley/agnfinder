@@ -9,7 +9,7 @@ Filter = namedtuple('Filter', ['bandpass_file', 'mag_col', 'error_col'])
 
 
 
-def get_filters():
+def get_filters(reliable):
         # Pairs of (filter name in sedpy, filter name in dataframe)
     galex = [
         Filter(
@@ -52,13 +52,17 @@ def get_filters():
             error_col='magerr_auto_AllWISE_{}'.format(x.upper())
         )
         for x in ['w1', 'w2']] # exclude w3, w4
+    if reliable:
+        return sdss + vista + wise
+    else:
+        return galex + sdss+ cfht + kids + vista + wise
 
-    return galex + sdss+ cfht + kids + vista + wise
 
-
-def load_maggies_from_galaxy(galaxy):
-    all_filters = get_filters()
+def load_maggies_from_galaxy(galaxy, reliable):
+    all_filters = get_filters(reliable)
     valid_filters = [f for f in all_filters if filter_has_valid_data(f, galaxy)]
+    if reliable and len(valid_filters) != 12:
+        raise ValueError('Some reliable bands are missing - only got {}'.format(valid_filters))
     logging.info('valid filters: {}'.format(valid_filters))
 
     # Instantiate the `Filter()` objects using methods in `sedpy`

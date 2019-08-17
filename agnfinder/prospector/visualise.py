@@ -113,6 +113,7 @@ def calculate_many_components(model, theta_array, obs, sps, ax=None):
     ax.set_xlabel('Wavelength (A), Source Frame')
     ax.set_ylabel('Flux Density (before Dimming)')
 
+
 def component_to_band(component_list):
     # assumes all wavelengths are the same
     component_array = np.array(component_list)

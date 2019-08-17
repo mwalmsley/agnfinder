@@ -16,7 +16,7 @@ from agnfinder.prospector import load_photometry
 from agnfinder.fsps import emulate
 
 
-def build_cpz_obs(galaxy, **extras):
+def build_cpz_obs(galaxy, reliable, **extras):
     """Build a dictionary of photometry (and eventually spectra?)
     Arguments are hyperparameters that are likely to change over runs
 
@@ -24,7 +24,8 @@ def build_cpz_obs(galaxy, **extras):
         A dictionary of observational data to use in the fit.
     """
     obs = {}
-    obs["filters"], obs["maggies"], obs['maggies_unc'] = load_photometry.load_maggies_from_galaxy(galaxy)
+    obs["filters"], obs["maggies"], obs['maggies_unc'] = load_photometry.load_maggies_from_galaxy(galaxy, reliable)
+    print(obs['filters'])
     # Now we need a mask, which says which flux values to consider in the likelihood.
     # IMPORTANT: the mask is *True* for values that you *want* to fit
     obs["phot_mask"] = np.array([True for _ in obs['filters']])

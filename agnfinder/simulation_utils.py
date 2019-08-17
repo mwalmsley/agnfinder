@@ -14,18 +14,30 @@ def denormalise_hypercube(normalised_hcube, limits):
     # normalised_theta_to_sample.shape
     theta_to_sample = normalised_hcube.copy()
     for key_n, (key, lims) in enumerate(limits.items()):
-        theta_to_sample[:, key_n] = (theta_to_sample[:, key_n] + lims[0]) *(lims[1] - lims[0])
+        # 0, 1 -> -2, 6
+        # 0, 8
+        theta_to_sample[:, key_n] = (theta_to_sample[:, key_n] * (lims[1] - lims[0]) + lims[0]) 
+        print(key, theta_to_sample[:, key_n].min(), theta_to_sample[:, key_n].max())
         if key.startswith('log'):
             logging.warning('Automatically exponentiating {}'.format(key))
-            theta_to_sample[:, key_n] = theta_to_sample[:, key_n] ** 10
+            theta_to_sample[:, key_n] = 10 ** theta_to_sample[:, key_n]
     return theta_to_sample
+
+
+def denormalise_theta(normalised_theta, limits):
+    theta = np.zeros_like(normalised_theta)
+    for n, (key, lims) in enumerate(limits.items()):
+        theta[n] = normalised_theta[n] * (lims[1] - lims[0]) + lims[0]
+        if key.startswith('log'):
+            theta[n] = 10 ** theta[n]
+    return theta
 
 
 def sample(theta_df, n_samples, output_dim, simulator):
     theta_names = theta_df.columns.values  # df with columns (theta_1, theta_2, ...)
     X = np.zeros((n_samples, len(theta_names)))
     Y = np.zeros((n_samples, output_dim))
-    for n, theta_tuple in tqdm(enumerate(theta_df.sample(n_samples).itertuples(name='theta'))):
+    for n, theta_tuple in tqdm(enumerate(theta_df.itertuples(name='theta'))):
         X[n] = [getattr(theta_tuple, p) for p in theta_names]
         Y[n] = simulator(X[n])
     return X, Y
