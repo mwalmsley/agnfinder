@@ -64,7 +64,7 @@ def tf_model():
         metrics=['mean_absolute_error'])
     return model
 
-
+# because hyperas is weird, this isn't allowed any arguments - not even via closure! TODO
 def data():
     
     local_loc = '/media/mike/internal/agnfinder/photometry_simulation_1000000.hdf5'
@@ -162,6 +162,24 @@ def boosted_trees():
     x_train, y_train, x_test, y_test = data()
     clf = GradientBoostingRegressor().fit(x_train, y_train)
     print(mean_squared_error(y_test, clf.predict(x_test))) 
+
+
+def get_trained_emulator(emulator, checkpoint_loc, new=False):
+    checkpoint_dir = os.path.dirname(checkpoint_loc)
+    checkpoint_prefix = checkpoint_loc.split('/')[-1]
+    checkpointer = tf.train.Checkpoint(emulator=emulator)
+    if new:
+        emulator = train_manual(emulator, *data())
+        print('Training complete - saving')
+        checkpointer.save(file_prefix=checkpoint_prefix)
+    else:
+        print('Loading previous model')
+        checkpointer = tf.train.Checkpoint(emulator=emulator)
+        save_path = tf.train.latest_checkpoint(checkpoint_dir)
+        assert save_path is not None
+        _ = checkpointer.restore(save_path)  # modifies the loaded emulator by tf magic (i.e. the graph)
+    return emulator
+
 
 if __name__ == '__main__':
 
