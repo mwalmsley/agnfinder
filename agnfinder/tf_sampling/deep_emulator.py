@@ -20,34 +20,7 @@ from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.metrics import mean_squared_error
 
 
-def network():
-    model = Sequential()
-    model.add(Dense(512, input_dim=7))
-    model.add(Activation('relu'))
-    model.add(Dense(512))
-    model.add(Activation('relu'))
-    model.add(Dense(512))
-    model.add(Activation('relu'))
-    model.add(Dense(512))
-    model.add(Dropout(0.6))
-    model.add(Dense(12))
-    model.add(Activation('relu'))
-    return model
-
 def tf_model():
-    # inputs = tf.keras.Input(shape=(7,))
-    # x0 = tf.keras.layers.Dense(512)(inputs)
-    # x1 = tf.keras.layers.Dense(256)(x0)
-    # x2 = tf.keras.layers.Dense(512)(x1)
-    # x3 = tf.keras.layers.Dropout(0.6)(x2)
-    # outputs = tf.keras.layers.Dense(12)(x3)
-    # model = tf.keras.Model(inputs=inputs, outputs=outputs)
-    # model.compile(
-    #     optimizer='adam',
-    #     loss='mean_squared_error',
-    #     metrics=['mean_absolute_error'])
-    # return model
-    
     # note: the relu's make a huge improvement here over default (sigmoid?)
     model = tf.keras.Sequential([
         tf.keras.layers.Dense(256,input_dim=7, activation='relu'),
@@ -66,55 +39,22 @@ def tf_model():
 
 # because hyperas is weird, this isn't allowed any arguments - not even via closure! TODO
 def data():
-    
-    local_loc = '/media/mike/internal/agnfinder/photometry_simulation_1000000.hdf5'
-    cluster_loc = 'data/photometry_simulation_1000000.hdf5'
-    if os.path.exists(local_loc):
-        data_loc = local_loc
-    else:
-        data_loc = cluster_loc
-
-    logging.warning('Using data loc {}'.format(data_loc))
-    assert os.path.isfile(data_loc)
-    with h5py.File(data_loc, 'r') as f:
+    loc = 'data/photometry_simulation_1000000.hdf5'
+    # loc = 'data/photometry_simulation_100000.hdf5'
+    logging.warning('Using data loc {}'.format(loc))
+    assert os.path.isfile(loc)
+    with h5py.File(loc, 'r') as f:
         theta = f['samples']['normalised_theta'][...]
         # hacky extra normalisation here, not great TODO
         simulated_y = -1 * np.log10(f['samples']['simulated_y'][...])
     features = theta
     labels = simulated_y
-
-    # x_train, x_test, y_train, y_test = train_test_split(features, labels[:, 4].reshape(-1, 1))
-    x_train, x_test, y_train, y_test = train_test_split(features, labels)
+    x_train, x_test, y_train, y_test = train_test_split(features, labels, random_state=1)
     return x_train, y_train, x_test, y_test
 
 def train_manual(model, train_features, train_labels, test_features, test_labels):
-
-
-
-    # dataset = tf.data.Dataset.from_tensor_slices(
-    #     (train_features, train_labels)
-    # )
-    # dataset = dataset.shuffle(10000).batch(64)
-    # optimizer = tf.train.AdamOptimizer()
-
-    # @tf.function()
-    # def train():
-    #     # with tf.variable_scope('training', reuse=tf.AUTO_REUSE):
-    #     for (batch, (features, labels)) in enumerate(dataset):
-    #     # if batch % 100 == 0:
-    #         with tf.GradientTape() as tape:
-    #             predictions = clf(features, training=True)
-    #             loss_value = tf.losses.mean_squared_error(labels, predictions)
-    #             grads = tape.gradient(loss_value, clf.trainable_variables)
-    #             optimizer.apply_gradients(zip(grads, clf.trainable_variables),
-    #                                     global_step=tf.train.get_or_create_global_step())
-
-
-    model.fit(train_features, train_labels, epochs=3, batch_size=64, validation_split=0.2)
-
-    # test_loss, test_abs_error = model.evaluate(test_features, test_labels)
-    # print(test_loss, test_abs_error)
-
+    early_stopping = keras.callbacks.EarlyStopping()
+    model.fit(train_features, train_labels, epochs=3, batch_size=64, validation_split=0.2, callbacks=[early_stopping])
     return model
 
 
@@ -158,53 +98,43 @@ def create_model(x_train, y_train, x_test, y_test):
     return {'loss': best_val_losses, 'status': STATUS_OK, 'model': model}
 
 
-def boosted_trees():
+def train_boosted_trees():
     x_train, y_train, x_test, y_test = data()
     clf = GradientBoostingRegressor().fit(x_train, y_train)
     print(mean_squared_error(y_test, clf.predict(x_test))) 
 
 
-def get_trained_emulator(emulator, checkpoint_loc, new=False):
-    checkpoint_dir = os.path.dirname(checkpoint_loc)
-    checkpoint_prefix = checkpoint_loc.split('/')[-1]
-    checkpointer = tf.train.Checkpoint(emulator=emulator)
+def get_trained_keras_emulator(emulator, checkpoint_loc, new=False):
     if new:
         emulator = train_manual(emulator, *data())
-        print('Training complete - saving')
-        checkpointer.save(file_prefix=checkpoint_prefix)
+        emulator.save_weights(checkpoint_loc)
     else:
-        print('Loading previous model')
-        checkpointer = tf.train.Checkpoint(emulator=emulator)
-        save_path = tf.train.latest_checkpoint(checkpoint_dir)
-        assert save_path is not None
-        _ = checkpointer.restore(save_path)  # modifies the loaded emulator by tf magic (i.e. the graph)
+        emulator.load_weights(checkpoint_loc)  # modifies inplace
     return emulator
+
+
+def find_best_model(max_evals=40):
+    best_run, best_model = optim.minimize(model=create_model,
+                                        data=data,
+                                        algo=tpe.suggest,
+                                        max_evals=max_evals,
+                                        trials=Trials())
+
+    print("Best performing model chosen hyper-parameters:")
+    print(best_run)
 
 
 if __name__ == '__main__':
 
-    
+    tf.enable_eager_execution()
 
-    # boosted_trees()
-    # exit()
+    # train_boosted_trees()
 
-    best_run, best_model = optim.minimize(model=create_model,
-                                          data=data,
-                                          algo=tpe.suggest,
-                                          max_evals=40,
-                                          trials=Trials())
-
-    print("Best performing model chosen hyper-parameters:")
-    print(best_run)
+    # find_best_model()
     # print("Evalutation of best performing model:")
     # print(best_model.evaluate(test_features, test_labels))
 
-    # checkpoint_dir = 'results/trained_deep_emulator/checkpoint'
-
-    # tf.enable_eager_execution()
-    # model = tf_model()
-    # trained_clf = train_manual(model, *data())
-
-    # print('Training complete - saving')
-    # checkpointer = tf.train.Checkpoint(model=trained_clf)
-    # checkpointer.save(checkpoint_dir)
+    # create_new_emulator
+    checkpoint_loc = 'results/checkpoints/weights_only/latest_tf'  # last element is checkpoint name
+    model = tf_model()
+    trained_clf = get_trained_keras_emulator(model, checkpoint_loc, new=True)

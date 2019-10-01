@@ -32,8 +32,8 @@ if __name__ == '__main__':
     n_samples = args.n_samples
     n_burnin = args.n_burnin
 
-    checkpoint_loc = 'results/checkpoints/trained_deep_emulator'  # must match saved checkpoint of emulator
-    emulator = deep_emulator.get_trained_emulator(deep_emulator.tf_model(), checkpoint_loc, new=new_emulator)
+    checkpoint_loc = 'results/checkpoints/weights_only/latest_tf'  # must match saved checkpoint of emulator
+    emulator = deep_emulator.get_trained_keras_emulator(deep_emulator.tf_model(), checkpoint_loc, new=new_emulator)
 
     with open('data/lfi_test_case.json', 'r') as f:
         test_pair = json.load(f)
@@ -42,8 +42,8 @@ if __name__ == '__main__':
 
     problem = SamplingProblem(true_observation, true_params, forward_model=emulator)
     
-    # sampler = SamplerHMC(problem, n_burnin, n_samples, n_chains)
-    sampler = SamplerNested(problem, n_live=10)
+    sampler = SamplerHMC(problem, n_burnin, n_samples, n_chains)
+    # sampler = SamplerNested(problem, n_live=10)
     flat_samples = sampler()
 
     labels = ['mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling']
