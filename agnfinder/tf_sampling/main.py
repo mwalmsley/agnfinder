@@ -13,8 +13,6 @@ import tensorflow_probability as tfp
 from agnfinder.tf_sampling import deep_emulator
 from agnfinder.tf_sampling.api import SamplingProblem
 from agnfinder.tf_sampling.hmc import SamplerHMC
-from agnfinder.tf_sampling.nested import SamplerNested
-
 
 if __name__ == '__main__':
 
@@ -42,8 +40,7 @@ if __name__ == '__main__':
 
     problem = SamplingProblem(true_observation, true_params, forward_model=emulator)
     
-    sampler = SamplerHMC(problem, n_burnin, n_samples, n_chains)
-    # sampler = SamplerNested(problem, n_live=10)
+    sampler = SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method='roughly_correct')
     flat_samples = sampler()
 
     labels = ['mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling']

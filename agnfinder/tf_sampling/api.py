@@ -21,7 +21,7 @@ class Sampler():
         raise NotImplementedError
 
     def __call__(self):
-        self.sample()
+        return self.sample()
 
 
 # TODO refactor

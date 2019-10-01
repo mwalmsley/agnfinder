@@ -16,39 +16,30 @@ from agnfinder.tf_sampling.api import Sampler, SamplingProblem, get_log_prob_fn
 
 class SamplerHMC(Sampler):
 
-    def __init__(self, problem: SamplingProblem, n_burnin, n_samples, n_chains):
+    def __init__(self, problem: SamplingProblem, n_burnin, n_samples, n_chains, init_method='random'):
+        assert tf.executing_eagerly()  # required for sampling
         self.problem = problem
         self.n_burnin = n_burnin
         self.n_samples = n_samples
         self.n_chains = n_chains
+        assert init_method in {'random', 'optimised', 'correct', 'roughly_correct'}
+        self.init_method = init_method
 
     def sample(self):
         log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation, batch_dim=self.n_chains)
 
-        # exactly correct start
-        true_params_stacked = np.vstack([self.problem.true_params.astype(np.float32) for n in range(self.n_chains)])
-        initial_state = tf.constant(true_params_stacked)
-
-        # roughly correct start
-        # not_quite_true_params = np.vstack([true_params for n in range(n_chains)] + np.random.rand(n_chains, len(true_params)) * 0.03).astype(np.float32)
-        # initial_state = tf.constant(not_quite_true_params)
-
-        # random start
-        # initial_state = many_random_starts()
-
-        # optimized start
-        # print(true_params)
-        # initial_state = optimized_start(self.problem.forward_model,  len(true_params), n_chains, steps=5000)
-
-
-        # print('Params')
-        # print(true_params)
-        # print(initial_state)
-
-        print('Observations')
-        print(self.problem.true_observation)
-        print(-self.problem.forward_model(self.problem.true_params.reshape(1, -1), training=False))
-
+        if self.init_method == 'correct':
+            true_params_stacked = np.vstack([self.problem.true_params.astype(np.float32) for n in range(self.n_chains)])
+            initial_state = tf.constant(true_params_stacked)
+        elif self.init_method == 'roughly_correct':
+            not_quite_true_params = np.vstack([self.problem.true_params for n in range(self.n_chains)] + np.random.rand(self.n_chains, len(self.problem.true_params)) * 0.03).astype(np.float32)
+            initial_state = tf.constant(not_quite_true_params)
+        elif self.init_method == 'random':
+            initial_state = many_random_starts(self.problem.forward_model, self.problem.true_observation, self.problem.true_params, self.n_chains)
+        elif self.init_method == 'optimised':
+            initial_state = optimized_start(self.problem.forward_model, self.problem.true_observation, self.problem.n_dim, self.n_chains, steps=3000)
+        else:
+            raise ValueError('Initialisation method {} not recognised'.format(self.init_method))
 
         print('Ready to go - beginning sampling at {}'.format(datetime.datetime.now().ctime()))
         start_time = datetime.datetime.now()
@@ -69,8 +60,10 @@ class SamplerHMC(Sampler):
         print('Sampling {} x {} chains complete in {}, {} ms per sample'.format(self.n_samples, self.n_chains, elapsed, ms_per_sample))
 
         flat_samples = samples.numpy().reshape(-1, 7)
-        print(is_accepted)
-        print(list(zip(self.problem.true_params, np.median(flat_samples, axis=0))))
+        print('Acceptance ratio', is_accepted)
+        if is_accepted < 0.3:
+            print('Warning - acceptance ratio is low!')
+        print('True vs. median recovered parameters: ', list(zip(self.problem.true_params, np.median(flat_samples, axis=0))))
         return flat_samples
 
 def hmc(log_prob_fn, initial_state, num_results=int(10e3), num_burnin_steps=int(1e3)):
@@ -121,10 +114,10 @@ def optimized_start(forward_model, observation, param_dim, n_chains, steps=1000)
     return initial_state
 
 
-def many_random_starts(true_observation, true_params, n_chains):
+def many_random_starts(forward_model, true_observation, true_params, n_chains):
     overproposal_factor = 1000
     overproposed_initial_state = tf.random.uniform(shape=(n_chains * overproposal_factor, len(true_params)))
-    log_prob_fn = get_log_prob_fn(true_observation, batch_dim=n_chains * overproposal_factor)
+    log_prob_fn = get_log_prob_fn(forward_model, true_observation, batch_dim=n_chains * overproposal_factor)
     start_time = datetime.datetime.now()
     initial_log_probs = log_prob_fn(overproposed_initial_state)
     end_time = datetime.datetime.now()
