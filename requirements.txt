@@ -21,6 +21,7 @@ GPy
 scikit-learn==0.20.3
 tqdm
 pyDOE2
+git+https://github.com/tomcharnock/NestorFlow.git
 
 # ./sedpy
 # ./python-fsps

@@ -14,6 +14,16 @@ From one directory level above (your current directory, by default), run
 
 You can now import the package.
 
+## Running
+
+To use the HMC emulator:
+
+    python agnfinder/hmc_emulator/main.py 
+
+with optional arguments as per the file. 
+
+Using all default arguments will raise the following error: `ValueError: It looks like the parameter(s) in column(s) 0, 1, 2, 3, 4, 5, 6 have no dynamic range.`. The default args are an oversimplified test case where there aren't enough samples to make a corner plot. Specify the arguments to resolve this.
+
 ## Data
 XXL LePhare libraries:
 - no emission lines, no extinction laws
