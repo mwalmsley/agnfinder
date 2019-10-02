@@ -38,5 +38,6 @@ if __name__ == '__main__':
     save_dir = 'results/recovery/latest_{}'.format(init_method)
     if not os.path.isdir(save_dir):
         os.mkdir(save_dir)
+    
     np.savetxt(os.path.join(save_dir, 'true_params.txt'), all_true_params)
     np.savetxt(os.path.join(save_dir, 'best_estimates.txt'), all_best_estimates)
