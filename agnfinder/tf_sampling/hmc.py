@@ -6,7 +6,6 @@ import argparse
 import corner
 import numpy as np
 from pydelfi import ndes
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 import tensorflow as tf
 import tensorflow_probability as tfp
 
@@ -49,22 +48,22 @@ class SamplerHMC(Sampler):
             num_results=self.n_samples,
             num_burnin_steps=self.n_burnin
         )
-        print(samples.shape)
-        within_bounds = (np.max(samples, axis=2) < 1.) & (np.min(samples, axis=2) > 0.)
-        print(within_bounds.shape)
-        samples = samples[within_bounds]
-        print(len(samples))
+
+        flat_samples = samples.numpy().reshape(-1, 7)
+        within_bounds = (np.max(flat_samples, axis=1) < 1.) & (np.min(flat_samples, axis=1) > 0.)
+        flat_samples = flat_samples[within_bounds]
         end_time = datetime.datetime.now()
         elapsed = end_time - start_time
         ms_per_sample = 1000 * elapsed.total_seconds() / (self.n_samples * self.n_chains)  # not counting burn-in as a sample, so really quicker
         print('Sampling {} x {} chains complete in {}, {} ms per sample'.format(self.n_samples, self.n_chains, elapsed, ms_per_sample))
-
-        flat_samples = samples.numpy().reshape(-1, 7)
-        print('Acceptance ratio', is_accepted)
+        
+        print('Acceptance ratio: {:.4f}', is_accepted.numpy())
         if is_accepted < 0.3:
             print('Warning - acceptance ratio is low!')
+
         print('True vs. median recovered parameters: ', list(zip(self.problem.true_params, np.median(flat_samples, axis=0))))
         return flat_samples
+
 
 def hmc(log_prob_fn, initial_state, num_results=int(10e3), num_burnin_steps=int(1e3)):
 

@@ -6,7 +6,6 @@ import argparse
 import corner
 import numpy as np
 from pydelfi import ndes
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 import tensorflow as tf
 import tensorflow_probability as tfp
 
