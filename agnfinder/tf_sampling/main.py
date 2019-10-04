@@ -30,7 +30,7 @@ def test_log_prob_fn(problem):
     # plt.savefig('results/model_vs_sim_at_logp_test_case.png')
 
     log_prob_fn = api.get_log_prob_fn(problem.forward_model, problem.true_observation, batch_dim=1)
-    plt.figure()
+
 
     print(log_prob_fn(true_params_2d))
     print(log_prob_fn(0.001 + true_params_2d))
@@ -40,33 +40,22 @@ def test_log_prob_fn(problem):
     print(log_prob_fn(0.1 + true_params_2d))
     print(log_prob_fn(-0.1 + true_params_2d))
 
+    for param_index in range(6):
+        plt.figure()
+        param_values = np.linspace(0.01, 0.99, 100)
+        log_prob = np.zeros(100)
+        for n in range(100):
+            modified_values = true_params_2d.numpy()
+            modified_values[0, param_index] = param_values[n]
+            log_prob[n] = log_prob_fn(tf.Variable(modified_values)).numpy()
+        plt.plot(param_values, log_prob, label='Log prob')
+        plt.xlabel('Param {}'.format(param_index))
+        plt.ylabel('Log prob with modified param')
+        plt.axvline(true_params_2d[0, param_index].numpy(), c='k', label='True')
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig('results/log_prob_modified_param_{}.png'.format(param_index))
 
-    param_index = 0
-    param_values = np.linspace(0.01, 0.99, 100)
-    log_prob = np.zeros(100)
-    for n in range(100):
-        new_param = param_values[n].reshape(1)
-        # print(new_param, 'new')
-        other_params = true_params_2d[0, 1:].numpy()
-        # print(other_params, 'other')
-        modified_value = np.concatenate((new_param, other_params))
-        modified_params = tf.Variable(modified_value.reshape(1, 7))
-        # print(modified_params)
-        # modified_params[0, param_index] = param_values[n]
-        result = log_prob_fn(modified_params).numpy()
-        # print(result)
-        log_prob[n] = result
-    plt.plot(param_values, log_prob, label='Log prob')
-    plt.xlabel('Param {}'.format(param_index))
-    plt.ylabel('Log prob with modified param')
-    print(true_params_2d[0, param_index])
-    # plt.axvline(true_params_2d[0, param_index], label='True')
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig('results/log_prob_modified_param.png')
-
-
-    
     exit()
 
 if __name__ == '__main__':
