@@ -4,6 +4,7 @@ import logging
 import numpy as np
 import h5py
 import tensorflow as tf  # just for eager toggle
+os.environ['TF_XLA_FLAGS']='--tf_xla_cpu_global_jit'
 
 from agnfinder.tf_sampling import deep_emulator, api, hmc
 
@@ -96,16 +97,16 @@ if __name__ == '__main__':
     logging.getLogger().setLevel(logging.WARNING)  # some third party library is mistakenly setting the logging somewhere...
 
     checkpoint_loc = 'results/checkpoints/weights_only/latest_tf'  # must match saved checkpoint of emulator
-    n_galaxies_to_check = 5
+    n_galaxies = 1
     n_burnin = 1000
     n_samples = 2000
-    n_chains = 2
+    n_chains = 128
     init_method = 'random'
     # init_method = 'roughly_correct'
     # init_method = 'optimised'
-    save_dir = 'results/recovery/latest_{}'.format(init_method)
+    save_dir = 'results/recovery/latest_{}_{}_{}'.format(n_galaxies, n_samples * n_chains, init_method)
 
-    record_performance_on_galaxies(checkpoint_loc, n_galaxies_to_check, n_burnin, n_samples, n_chains, init_method, save_dir)
+    record_performance_on_galaxies(checkpoint_loc, n_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir)
     aggregate_performance(save_dir, n_samples, n_chains)
     samples, true_params, true_observations = read_performance(save_dir)
     print(samples.shape, true_params.shape, true_observations.shape)

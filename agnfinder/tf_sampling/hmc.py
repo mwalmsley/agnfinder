@@ -57,7 +57,7 @@ class SamplerHMC(Sampler):
         ms_per_sample = 1000 * elapsed.total_seconds() / (self.n_samples * self.n_chains)  # not counting burn-in as a sample, so really quicker
         print('Sampling {} x {} chains complete in {}, {} ms per sample'.format(self.n_samples, self.n_chains, elapsed, ms_per_sample))
         
-        print('Acceptance ratio: {:.4f}', is_accepted.numpy())
+        print('Acceptance ratio: {:.4f}'.format(is_accepted.numpy()))
         if is_accepted < 0.3:
             print('Warning - acceptance ratio is low!')
 
@@ -114,7 +114,7 @@ def optimized_start(forward_model, observation, param_dim, n_chains, steps=1000)
 
 
 def many_random_starts(forward_model, true_observation, true_params, n_chains):
-    overproposal_factor = 1000
+    overproposal_factor = 10
     overproposed_initial_state = tf.random.uniform(shape=(n_chains * overproposal_factor, len(true_params)))
     log_prob_fn = get_log_prob_fn(forward_model, true_observation, batch_dim=n_chains * overproposal_factor)
     start_time = datetime.datetime.now()
