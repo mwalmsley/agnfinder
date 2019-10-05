@@ -16,29 +16,19 @@ from agnfinder.tf_sampling.hmc import SamplerHMC
 
 
 def test_log_prob_fn(problem):
-    # test this TODO
 
     true_params_2d = tf.reshape(problem.true_params, (1, 7))
 
-    # plt.figure()
-    # plt.scatter(range(12), problem.forward_model(true_params_2d), label='model prediction')
-    # plt.scatter(range(12), problem.true_observation, label='full simulation (truth)')
-    # plt.xlabel('Band (ordered indices)')
-    # plt.ylabel('Predicted mag')
-    # plt.legend()
-    # plt.tight_layout()
-    # plt.savefig('results/model_vs_sim_at_logp_test_case.png')
+    plt.figure()
+    plt.scatter(range(12), problem.forward_model(true_params_2d), label='model prediction')
+    plt.scatter(range(12), problem.true_observation, label='full simulation (truth)')
+    plt.xlabel('Band (ordered indices)')
+    plt.ylabel('Predicted mag')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig('results/model_vs_sim_at_logp_test_case.png')
 
     log_prob_fn = api.get_log_prob_fn(problem.forward_model, problem.true_observation, batch_dim=1)
-
-
-    print(log_prob_fn(true_params_2d))
-    print(log_prob_fn(0.001 + true_params_2d))
-    print(log_prob_fn(-0.001 + true_params_2d))
-    print(log_prob_fn(0.01 + true_params_2d))
-    print(log_prob_fn(-0.01 + true_params_2d))
-    print(log_prob_fn(0.1 + true_params_2d))
-    print(log_prob_fn(-0.1 + true_params_2d))
 
     for param_index in range(6):
         plt.figure()
@@ -56,11 +46,8 @@ def test_log_prob_fn(problem):
         plt.tight_layout()
         plt.savefig('results/log_prob_modified_param_{}.png'.format(param_index))
 
-    exit()
-
 if __name__ == '__main__':
 
-    tf.logging.set_verbosity(tf.logging.ERROR)
     tf.enable_eager_execution()
 
     parser = argparse.ArgumentParser(description='Sample emulator')
@@ -84,10 +71,10 @@ if __name__ == '__main__':
 
     problem = SamplingProblem(true_observation, true_params, forward_model=emulator)
 
-    # test this TODO
-    test_log_prob_fn(problem)  # seems like the real parameters are very unlikely and not a minima for the log prob fn (at least nearby). sad times!
+    # test_log_prob_fn(problem)  # seems like the real parameters are very unlikely and not a minima for the log prob fn (at least nearby). sad times!
     
-    sampler = SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method='roughly_correct')
+    init_method = 'random'
+    sampler = SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
     flat_samples = sampler()
 
     labels = ['mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling']

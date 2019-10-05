@@ -1,4 +1,5 @@
 import os
+import logging
 import json
 import datetime
 import argparse
@@ -58,7 +59,9 @@ class SamplerHMC(Sampler):
         print('Sampling {} x {} chains complete in {}, {} ms per sample'.format(self.n_samples, self.n_chains, elapsed, ms_per_sample))
         
         print('Acceptance ratio: {:.4f}'.format(is_accepted.numpy()))
-        if is_accepted < 0.3:
+        if is_accepted < 0.01:
+            logging.critical('HMC failed to adapt - is step size too small? Is there some burn-in?')
+        elif is_accepted < 0.3:
             print('Warning - acceptance ratio is low!')
 
         print('True vs. median recovered parameters: ', list(zip(self.problem.true_params, np.median(flat_samples, axis=0))))
@@ -72,7 +75,7 @@ def hmc(log_prob_fn, initial_state, num_results=int(10e3), num_burnin_steps=int(
         tfp.mcmc.HamiltonianMonteCarlo(
             target_log_prob_fn=log_prob_fn,
             num_leapfrog_steps=3,
-            step_size=2.,
+            step_size=2,
             state_gradients_are_stopped=True),
         num_adaptation_steps=int(num_burnin_steps * 0.8))
     assert tf.executing_eagerly()

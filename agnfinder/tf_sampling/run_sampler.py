@@ -97,10 +97,10 @@ if __name__ == '__main__':
     logging.getLogger().setLevel(logging.WARNING)  # some third party library is mistakenly setting the logging somewhere...
 
     checkpoint_loc = 'results/checkpoints/weights_only/latest_tf'  # must match saved checkpoint of emulator
-    n_galaxies = 1
+    n_galaxies = 2
     n_burnin = 1000
-    n_samples = 2000
-    n_chains = 128
+    n_samples = 1000
+    n_chains = 16
     init_method = 'random'
     # init_method = 'roughly_correct'
     # init_method = 'optimised'
