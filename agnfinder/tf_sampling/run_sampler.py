@@ -1,5 +1,6 @@
 import os
 import logging
+import json  # temp
 
 import numpy as np
 import h5py
@@ -24,8 +25,15 @@ def record_performance_on_galaxies(checkpoint_loc, n_galaxies_to_check, n_burnin
 
 
 def record_performance(x_test, i, y_test, emulator, n_burnin, n_samples, n_chains, init_method, save_dir):
-    true_params = x_test[i]
-    true_observation = y_test[i]
+
+    logging.warning('Overriding actual params with fixed test case!')
+    # true_params = x_test[i]
+    # true_observation = y_test[i]
+    with open('data/lfi_test_case.json', 'r') as f:
+        test_pair = json.load(f)
+        true_params = np.array(test_pair['true_params']).astype(np.float32)
+        true_observation = np.array(test_pair['true_observation']).astype(np.float32)
+
     problem = api.SamplingProblem(true_observation, true_params, forward_model=emulator)
     sampler = hmc.SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
     flat_samples = sampler()
@@ -35,8 +43,10 @@ def record_performance(x_test, i, y_test, emulator, n_burnin, n_samples, n_chain
     if os.path.isfile(save_file):
         os.remove(save_file)
 
-    if flat_samples.shape != (n_samples * n_chains, 7):
+    expected_shape = (n_samples * n_chains, 7)
+    if flat_samples.shape != expected_shape:
         logging.warning('Samples not required shape - skipping save to avoid virtual dataset issues')
+        logging.warning('actual {} vs expected {}'.format(flat_samples.shape, expected_shape))
     else:
         
         f = h5py.File(save_file, mode='w')
@@ -98,9 +108,9 @@ if __name__ == '__main__':
 
     checkpoint_loc = 'results/checkpoints/weights_only/latest_tf'  # must match saved checkpoint of emulator
     n_galaxies = 2
-    n_burnin = 1000
+    n_burnin = 2000
     n_samples = 1000
-    n_chains = 16
+    n_chains = 32
     init_method = 'random'
     # init_method = 'roughly_correct'
     # init_method = 'optimised'

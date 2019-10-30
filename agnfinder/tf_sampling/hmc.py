@@ -51,8 +51,12 @@ class SamplerHMC(Sampler):
         )
 
         flat_samples = samples.numpy().reshape(-1, 7)
+
+        # mask rows with values outside of bounds
+        # do not simply cut from array as consistent shapes are required by hdf5 virtual dataset
         within_bounds = (np.max(flat_samples, axis=1) < 1.) & (np.min(flat_samples, axis=1) > 0.)
-        flat_samples = flat_samples[within_bounds]
+        flat_samples[within_bounds] = np.nan  # access by slice, okay?
+        masked_samples = np.ma.masked_invalid(flat_samples)
         end_time = datetime.datetime.now()
         elapsed = end_time - start_time
         ms_per_sample = 1000 * elapsed.total_seconds() / (self.n_samples * self.n_chains)  # not counting burn-in as a sample, so really quicker
@@ -64,8 +68,8 @@ class SamplerHMC(Sampler):
         elif is_accepted < 0.3:
             print('Warning - acceptance ratio is low!')
 
-        print('True vs. median recovered parameters: ', list(zip(self.problem.true_params, np.median(flat_samples, axis=0))))
-        return flat_samples
+        print('True vs. median recovered parameters: ', list(zip(self.problem.true_params, np.ma.median(masked_samples, axis=0))))
+        return masked_samples
 
 
 def hmc(log_prob_fn, initial_state, num_results=int(10e3), num_burnin_steps=int(1e3)):
