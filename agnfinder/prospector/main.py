@@ -2,42 +2,31 @@ import logging
 import argparse
 import cProfile
 
-import sys
 import os
 import time
-from datetime import datetime
-from multiprocessing import Pool
 
-from tqdm import tqdm
 import h5py
 import numpy as np
 import pandas as pd
 import corner
-import scipy
-import matplotlib.pyplot as plt 
-import emcee
-import dynesty
+import matplotlib.pyplot as plt
 
 from prospect.fitting import lnprobfn
 from prospect.fitting import fit_model
-from prospect.io import write_results as writer
 
-from agnfinder.prospector import demo_builders, cpz_builders, visualise, fitting, load_photometry
+from agnfinder.prospector import cpz_builders, visualise, fitting, load_photometry
 from agnfinder import columns
 
 
-def load_galaxy(index=0, forest_class=None, spectro_class=None):
-    try:
-        data_dir='/media/mike/internal/agnfinder'
-        assert os.path.isdir(data_dir)
-    except AssertionError:
-        data_dir='data/agnfinder'  # for Oxford or UCSC clusters
-        assert os.path.isdir(data_dir)
-    logging.info('Using {} as data dir'.format(data_dir))
+def load_galaxy(catalog_loc, index=0, forest_class=None, spectro_class=None):
+    # catalog_loc could be '../cpz_paper_sample_week3.parquet'
+    logging.info('Using {} as catalog'.format(catalog_loc))
 
-    parquet_loc = os.path.join(data_dir, 'cpz_paper_sample_week3.parquet')
     cols = columns.cpz_cols['metadata'] + columns.cpz_cols['unified'] + columns.cpz_cols['galex'] + columns.cpz_cols['sdss'] + columns.cpz_cols['cfht'] + columns.cpz_cols['kids'] + columns.cpz_cols['vvv'] + columns.cpz_cols['wise'] + columns.cpz_cols['random_forest']
-    df = pd.read_parquet(parquet_loc, columns=cols)
+    if catalog_loc.endswith('.parquet'):
+        df = pd.read_parquet(catalog_loc, columns=cols)
+    else:
+        df = pd.read_csv(catalog_loc, usecols=cols)  # why, pandas, is this a different named arg?
     filters = load_photometry.get_filters(reliable=True)
     required_cols = [f.mag_col for f in filters] + [f.error_col for f in filters]
     df = df.dropna(subset=required_cols)
@@ -155,7 +144,8 @@ def mcmc_galaxy(run_params, obs, model, sps, initial_theta=None, test=False):
     return samples, time_elapsed
 
 
-def dynesty_galaxy(run_params, obs, model, sps, initial_theta=None, test=False):
+def dynesty_galaxy(run_params, obs, model, sps, test=False):
+    # test not implemented
 
     run_params["dynesty"] = True
     run_params["optimize"] = False
@@ -178,28 +168,6 @@ def dynesty_galaxy(run_params, obs, model, sps, initial_theta=None, test=False):
     logging.info(log_string)
 
     return samples, time_elapsed
-
-    # def log_likelihood(theta):
-    #     # print(theta, 'theta internal')
-    #     # assert len(theta) > 1
-    #     pbar.update()
-    #     return lnprobfn(theta, model=model, sps=sps, obs=obs)
-
-    # sampler = emcee.EnsembleSampler(
-    #     nwalkers,
-    #     ndim,
-    #     log_likelihood,
-    #     pool=None,
-    #     # backend=backend
-    # )
-
-    # # start every walker at the same point
-    # initial_position = np.array(list(initial_theta) * nwalkers).reshape(nwalkers, ndim)
-    # print('initial_position', initial_position.shape)
-    # start_time = datetime.now()
-    # sampler.run_mcmc(initial_position, nsteps)
-    # end_time = datetime.now()
-    # time_elapsed = end_time - start_time
 
 
 def save_samples(samples, file_loc):
@@ -231,9 +199,9 @@ def save_sed_traces(samples, obs, model, sps, file_loc, max_samples=1000, burn_i
     plt.savefig(file_loc)
 
 
-def main(index, name, output_dir, forest_class, spectro_class, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, find_ml_estimate, find_mcmc_posterior, find_multinest_posterior, emulate_ssp):
+def main(index, name, catalog_loc, save_dir, forest_class, spectro_class, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, find_ml_estimate, find_mcmc_posterior, find_multinest_posterior, emulate_ssp):
 
-    galaxy = load_galaxy(index, forest_class, spectro_class)
+    galaxy = load_galaxy(catalog_loc, index, forest_class, spectro_class)
     logging.info('Galaxy: {}'.format(galaxy))
     logging.info('with spectro. redshift: {}'.format(galaxy['redshift']))
 
@@ -254,30 +222,30 @@ def main(index, name, output_dir, forest_class, spectro_class, redshift, agn_mas
         logging.info(list(zip(model.free_params, theta_best)))
         # TODO save best_theta to json?
         visualise.visualise_obs_and_model(obs, model, theta_best, sps)
-        plt.savefig(os.path.join(output_dir, '{}_ml_estimate.png'.format(name)))
+        plt.savefig(os.path.join(save_dir, '{}_ml_estimate.png'.format(name)))
         plt.clf()
     else:
         theta_best = None
 
     if find_mcmc_posterior:
         samples, _ = mcmc_galaxy(run_params, obs, model, sps, initial_theta=theta_best, test=test)
-        sample_loc = os.path.join(output_dir, '{}_mcmc_samples.h5py'.format(name))
+        sample_loc = os.path.join(save_dir, '{}_mcmc_samples.h5py'.format(name))
         save_samples(samples, sample_loc)
-        corner_loc = os.path.join(output_dir, '{}_mcmc_corner.png'.format(name))
+        corner_loc = os.path.join(save_dir, '{}_mcmc_corner.png'.format(name))
         save_corner(samples, model, corner_loc)
-        traces_loc = os.path.join(output_dir, '{}_mcmc_sed_traces.png'.format(name))
+        traces_loc = os.path.join(save_dir, '{}_mcmc_sed_traces.png'.format(name))
         save_sed_traces(samples[int(len(samples)/2):], obs, model, sps, traces_loc)
 
     if find_multinest_posterior:
         # TODO extend to use pymultinest?
-        samples, _ = dynesty_galaxy(run_params, obs, model, sps, initial_theta=theta_best, test=test)
-        sample_loc = os.path.join(output_dir, '{}_multinest_samples.h5py'.format(name))
+        samples, _ = dynesty_galaxy(run_params, obs, model, sps, test=test)
+        sample_loc = os.path.join(save_dir, '{}_multinest_samples.h5py'.format(name))
         save_samples(samples, sample_loc)
-        corner_loc = os.path.join(output_dir, '{}_multinest_corner.png'.format(name))
+        corner_loc = os.path.join(save_dir, '{}_multinest_corner.png'.format(name))
         save_corner(samples[int(len(samples)/2):], model, corner_loc)  # nested sampling has no burn-in phase, early samples are bad
-        traces_loc = os.path.join(output_dir, '{}_multinest_sed_traces.png'.format(name))
+        traces_loc = os.path.join(save_dir, '{}_multinest_sed_traces.png'.format(name))
         save_sed_traces(samples, obs, model, sps, traces_loc)
-        components_loc = os.path.join(output_dir, '{}_multinest_components.png'.format(name))
+        components_loc = os.path.join(save_dir, '{}_multinest_components.png'.format(name))
         # messy saving of components
         plt.clf()
         visualise.calculate_many_components(model, samples[int(len(samples)/2):], obs, sps)
@@ -289,19 +257,31 @@ def main(index, name, output_dir, forest_class, spectro_class, redshift, agn_mas
 
 if __name__ == '__main__':
 
+    """
+    Fit a forward model to a real galaxy.
+    Provide a catalog index to select which galaxy. Useful for running in parallel.
+    Optionally, filter to only one class of galaxy (labelled by spectrosopy or random forests)
+    
+    Output: samples (.h5py) and corner plot of forward model parameter posteriors for the selected galaxy
+
+    Example use:
+    /data/miniconda3/envs/agnfinder/bin/python /Data/repos/agnfinder/agnfinder/prospector/main.py demo --catalog-loc /Volumes/alpha/agnfinder/cpz_paper_sample_week3.parquet --save-dir data
+    """
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('name', type=str, help='name of run')
+    parser.add_argument('--catalog-loc', dest='catalog_loc', type=str)
+    parser.add_argument('--save-dir', dest='save_dir', type=str)
     parser.add_argument('--index', type=int, default=0, dest='index', help='index of galaxy to fit')
     parser.add_argument('--forest', type=str, default=None, dest='forest', help='forest-estimated class of galaxy to fit')
-    parser.add_argument('--spectro', type=str, default=None, dest='spectro', help='spectro class of galaxy to fit')
+    parser.add_argument('--spectro', type=str, default='any', dest='spectro', help='filter to only galaxies with this spectro. label, before selecting by index')
     parser.add_argument('--profile', default=False, dest='profile', action='store_true')
     parser.add_argument('--emulate-ssp', default=False, dest='emulate_ssp', action='store_true')
     args = parser.parse_args()
 
     timestamp = '{:.0f}'.format(time.time())
-    # TODO convert to command line args?
     name = '{}_{}_{}'.format(args.name, args.index, timestamp)
-    output_dir = 'results'
+    save_dir = args.save_dir
+    catalog_loc = args.catalog_loc
     find_ml_estimate = False
     find_mcmc_posterior = False
     find_multinest_posterior = True
@@ -321,17 +301,15 @@ if __name__ == '__main__':
     hclass_schema = {
         'galaxy': 1,
         'agn': 2,
-        'qso': 3
+        'qso': 3,
+        'any': None
     }
-    if args.spectro == 'random':
-        spectro_class = None
-    else:
-        spectro_class = hclass_schema[args.spectro]
+    spectro_class = hclass_schema[args.spectro]
 
     while len(logging.root.handlers) > 0:
         logging.root.removeHandler(logging.root.handlers[-1])
     logging.basicConfig(
-        filename=os.path.join(output_dir, '{}.log'.format(name)),
+        filename=os.path.join(save_dir, '{}.log'.format(name)),
         format='%(asctime)s %(message)s',
         level=logging.INFO)
 
@@ -339,7 +317,7 @@ if __name__ == '__main__':
         logging.warning('Using profiling')
         pr = cProfile.Profile()
         pr.enable()
-    main(args.index, name, output_dir, forest_class, spectro_class, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, find_ml_estimate, find_mcmc_posterior, find_multinest_posterior, args.emulate_ssp)
+    main(args.index, name, catalog_loc, save_dir, forest_class, spectro_class, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, find_ml_estimate, find_mcmc_posterior, find_multinest_posterior, args.emulate_ssp)
     if args.profile:
         pr.disable()
-        pr.dump_stats(os.path.join(output_dir, '{}.profile'.format(name)))
+        pr.dump_stats(os.path.join(save_dir, '{}.profile'.format(name)))

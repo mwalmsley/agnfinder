@@ -2,18 +2,17 @@ import logging
 import os
 
 import numpy as np
-import pandas as pd
 
 import fsps
 from prospect.utils.obsutils import fix_obs
 from prospect.models.templates import TemplateLibrary
 from prospect.models import priors
 from prospect.models.sedmodel import SedModel
-from prospect.sources import CSPSpecBasis, SSPBasis
+from prospect.sources import CSPSpecBasis
 
-from agnfinder import quasar_templates, agn_models, extinction_models
+from agnfinder import quasar_templates, extinction_models
 from agnfinder.prospector import load_photometry
-from agnfinder.fsps import emulate
+from agnfinder.fsps_emulation import emulate
 
 
 def build_cpz_obs(galaxy, reliable, **extras):

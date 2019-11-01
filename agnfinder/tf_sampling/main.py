@@ -1,13 +1,9 @@
-import os
 import json
-import datetime
 import argparse
 
 import corner
 import numpy as np
-from pydelfi import ndes
 import tensorflow as tf
-import tensorflow_probability as tfp
 import matplotlib.pyplot as plt
 
 from agnfinder.tf_sampling import deep_emulator, api
@@ -48,23 +44,34 @@ def test_log_prob_fn(problem):
 
 if __name__ == '__main__':
 
+    """
+    Add --new-emulator flag on first run to train the emulator.
+    See README.md in this folder for more.
+
+    Example use:
+    /data/miniconda3/envs/agnfinder/bin/python agnfinder/tf_sampling/main.py --checkpoint-loc results/checkpoints/latest_tf --test-json data/lfi_test_case.json --n-chains 32 --n-samples 1000 --n-burnin 1500
+
+    """
     tf.enable_eager_execution()
 
     parser = argparse.ArgumentParser(description='Sample emulator')
+    parser.add_argument('--checkpoint-loc', type=str, dest='checkpoint_loc')
+    parser.add_argument('--test-json', type=str, dest='test_json_loc')
     parser.add_argument('--new-emulator', default=False, dest='new_emulator', action='store_true')
     parser.add_argument('--n-chains', type=int, default=16, dest='n_chains')
     parser.add_argument('--n-samples', type=int, default=int(1e3), dest='n_samples')
     parser.add_argument('--n-burnin', type=int, default=300, dest='n_burnin')
     args = parser.parse_args()
+    checkpoint_loc = args.checkpoint_loc
+    test_json_loc = args.test_json_loc
     new_emulator = args.new_emulator
     n_chains = args.n_chains
     n_samples = args.n_samples
     n_burnin = args.n_burnin
 
-    checkpoint_loc = 'results/checkpoints/weights_only/latest_tf'  # must match saved checkpoint of emulator
     emulator = deep_emulator.get_trained_keras_emulator(deep_emulator.tf_model(), checkpoint_loc, new=new_emulator)
 
-    with open('data/lfi_test_case.json', 'r') as f:
+    with open(test_json_loc, 'r') as f:
         test_pair = json.load(f)
         true_params = np.array(test_pair['true_params']).astype(np.float32)
         true_observation = np.array(test_pair['true_observation']).astype(np.float32)

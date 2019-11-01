@@ -1,4 +1,5 @@
 import os
+import argparse
 import logging
 
 import numpy as np
@@ -21,14 +22,23 @@ def check_parameter_bias(samples, true_params):
 
 if __name__ == '__main__':
 
+    """
+    Check if the emulated HMC sampling is correctly recovering the original galaxy parameters for the forward model.
+
+    Example use:
+    /data/miniconda3/envs/agnfinder/bin/python /Data/repos/agnfinder/agnfinder/tf_sampling/evaluate_performance.py --save-dir results/emulated_sampling/latest_1_32000_random
+    """
+
+    parser = argparse.ArgumentParser(description='Find AGN!')
+    parser.add_argument('--save-dir', dest='save_dir', type=str)
+    args = parser.parse_args()
+    save_dir = args.save_dir
+
     logging.getLogger().setLevel(logging.INFO)  # some third party library is mistakenly setting the logging somewhere...
 
-    # save_dir = 'results/recovery/latest_roughly_correct'
-    save_dir = 'results/recovery/latest_random'
-
     logging.info('Loading samples')
-    samples, true_params, true_observations = run_sampler.read_performance(save_dir)
+    samples, true_params, _ = run_sampler.read_performance(save_dir)
 
     logging.info('Checking parameter bias')
-    fig, axes = check_parameter_bias(samples, true_params)
+    fig, _ = check_parameter_bias(samples, true_params)
     fig.savefig(os.path.join(save_dir, 'parameter_bias.pdf'))
