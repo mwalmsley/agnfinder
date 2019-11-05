@@ -112,4 +112,4 @@ results
 data/*.hdf5
 results/*.png
 data/*.png
-
+*.parquet

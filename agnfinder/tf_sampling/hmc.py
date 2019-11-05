@@ -123,6 +123,6 @@ def many_random_starts(forward_model, true_observation, true_params, n_chains):
     end_time = datetime.datetime.now()
     ms_elapsed = (end_time - start_time).total_seconds() * 1000
     ms_per_sample =  ms_elapsed / (n_chains * overproposal_factor)
-    print('{} samples at {} ms per sample'.format(n_chains*overproposal_factor, ms_per_sample))
+    print('{} samples at {:.4f} ms per sample'.format(n_chains*overproposal_factor, ms_per_sample))
     initial_state = tf.gather(overproposed_initial_state, tf.argsort(initial_log_probs))[int((overproposal_factor - 1) * n_chains):]
     return initial_state

@@ -1,3 +1,4 @@
+import os
 import json
 import argparse
 
@@ -56,14 +57,16 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Sample emulator')
     parser.add_argument('--checkpoint-loc', type=str, dest='checkpoint_loc')
-    parser.add_argument('--test-json', type=str, dest='test_json_loc')
+    parser.add_argument('--test-json', type=str, dest='test_json_loc', default='data/lfi_test_case.json')
     parser.add_argument('--new-emulator', default=False, dest='new_emulator', action='store_true')
     parser.add_argument('--n-chains', type=int, default=32, dest='n_chains')
     parser.add_argument('--n-samples', type=int, default=int(2e3), dest='n_samples')
     parser.add_argument('--n-burnin', type=int, default=1000, dest='n_burnin')
     args = parser.parse_args()
     checkpoint_loc = args.checkpoint_loc
+    assert checkpoint_loc is not None
     test_json_loc = args.test_json_loc
+    assert os.path.isfile(test_json_loc)
     new_emulator = args.new_emulator
     n_chains = args.n_chains
     n_samples = args.n_samples

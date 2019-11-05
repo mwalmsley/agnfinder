@@ -2,7 +2,7 @@
 
 You will need a hypercube of (parameters -> photometry). 
 
-- Download this from Slack - search `photometry_simulations_1000000.hdf5`, or
+- Download this the Onedrive link in the root README, `photometry_simulations_1000000.hdf5`, or
 - Create with `simulation_samples.py` (requires FSPS and a few hours).
 
 ## Design NN Emulator (Optional)
@@ -13,17 +13,17 @@ If you want to play around with this, you'll need to update the data() function 
 
 ## Create Emulator and Run on Fixed Test Case
 
-Make sure you've placed the hypercube into `data/photometry_simulaton_1000000.hdf5` or modified data() in `deep_emulator.py§. Else, this will fail.
+Place the hypercube into `data/photometry_simulaton_1000000.hdf5`, or modify data() in `deep_emulator.py` to point to the your hypercube. Else, this will fail.
 
 To train a new emulator, then sample it with default chain lengths/etc on a fixed synthetic galaxy from the test set:
 
-    main.py --new-emulator
+    export CHECKPOINT_LOC=results/checkpoints/latest
+    python agnfinder/tf_sampling/main.py --checkpoint-loc $CHECKPOINT_LOC --new-emulator 
 
-These defauls are designed as a quick debug to make sure nothing fails loudly.
-
+These MCMC defauls are designed as a quick debug to make sure nothing fails loudly.
 After the first run, you'll probably prefer to use the saved emulator and set the HMC arguments to more reasonable values:
 
-    main.py --n-chains=128 --n-burnin=3000 --n-samples=3000
+    python agnfinder/tf_sampling/main.py --checkpoint-loc $CHECKPOINT_LOC --n-chains=128 --n-burnin=3000 --n-samples=3000
 
 Corner plots are placed in the `results` dir, where the filename will record the optional arguments above. 
 
