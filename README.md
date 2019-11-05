@@ -1,20 +1,49 @@
 # AGNFinder
 Detect AGN from photometry in XXL data, as Euclid prep.
 
+## Data Required
+
+You will need:
+- The catalog of galaxies and associated photometry, which Mike calls `cpz_paper_sample_week3.parquet` (csv also supported)
+- The modified/non-default sedpy filter transmission files. **Place these into the sedpy filters folder**, under `[your_sedpy_install]/filters`. Mike has these under the folder `CPz_filters`.
+
+You might also like:
+- A precalculated hypercube of (forward model parameters, photometric observations) pairs, such as `photometry_simulation_1000000.hdf5`.
+
+You can find each of these files [here](https://1drv.ms/u/s!ApOZ4Ims-i3xh4RGm2IE_UtjlysdxA?e=8Ymi2H).
+
+
 ## Installation
 
-Clone the repo. 
+AGNFinder requires python-fsps, which itself requires FSPS. 
+FSPS installation instructions are [here](https://github.com/cconroy20/fsps/blob/master/doc/INSTALL).
+**Follow these now**. Setting the $SPS_HOME environmental variable in the shell from which you run Python is crucial, or the subsequent python-fsps install will fail.
 
-    git clone git@github.com:mwalmsley/agnfinder.git
+Clone the repo and install the required Python packages (you're using an environment manager like conda or virtualenv, right?):
 
-From one directory level above (your current directory, by default), run
-
+    git clone --single-branch --branch emulator-diagnostics git@github.com:mwalmsley/agnfinder.git
     pip install -r agnfinder/requirements.txt
+
+Note that requirements.txt will install several packages directly from git. See requirements.txt.
+If you receive the an error relating to $SPS_HOME during the pip install of python-fsps, check your FSPS install and check that variable is set (`echo $SPS_HOME`).
+
+Finally, still from the directory above:
+
     pip install -e agnfinder
 
-You can now import the package.
+The `-e` is important if you plan to edit the agnfinder code. You should now be able to import the package.
 
-## Data
+## Running
+
+To use the HMC emulator, see `tf_sampling/README.md`.
+
+## Troubleshooting
+
+- `MemoryError` while running `pip install -r requirements.txt` = Tensorflow is a big package and small computers can struggle. To resolve, try `pip install tensorflow==1.15 --no-cache-dir` (or as requirements.txt says).
+- `Filter transmission file /data/miniconda3/envs/agnfinder/lib/python3.6/site-packages/sedpy/data/filters/u_sloan.par does not exist!` = you didn't copy the sedpy filters. See above.
+
+## Data Notes
+
 XXL LePhare libraries:
 - no emission lines, no extinction laws
 LIBRARY_XXLN_Ellipticals.lib.dat.fits
