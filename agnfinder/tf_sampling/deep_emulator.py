@@ -8,10 +8,8 @@ from tensorflow import keras
 import h5py
 
 from hyperopt import Trials, STATUS_OK, tpe
-from keras.datasets import mnist
 from keras.layers.core import Dense, Dropout, Activation
 from keras.models import Sequential
-from keras.utils import np_utils
 
 from hyperas import optim
 from hyperas.distributions import choice, uniform
@@ -40,7 +38,6 @@ def tf_model():
 # because hyperas is weird, this isn't allowed any arguments - not even via closure! TODO
 def data():
     loc = 'data/photometry_simulation_1000000.hdf5'
-    # loc = 'data/photometry_simulation_100000.hdf5'
     logging.warning('Using data loc {}'.format(loc))
     assert os.path.isfile(loc)
     with h5py.File(loc, 'r') as f:
@@ -106,15 +103,17 @@ def train_boosted_trees():
 
 def get_trained_keras_emulator(emulator, checkpoint_loc, new=False):
     if new:
+        logging.info('Training new emulator')
         emulator = train_manual(emulator, *data())
         emulator.save_weights(checkpoint_loc)
     else:
+        logging.info('Loading previous emulator from {}'.format(checkpoint_loc))
         emulator.load_weights(checkpoint_loc)  # modifies inplace
     return emulator
 
 
 def find_best_model(max_evals=40):
-    best_run, best_model = optim.minimize(model=create_model,
+    best_run, _ = optim.minimize(model=create_model,
                                         data=data,
                                         algo=tpe.suggest,
                                         max_evals=max_evals,
@@ -135,6 +134,6 @@ if __name__ == '__main__':
     # print(best_model.evaluate(test_features, test_labels))
 
     # create_new_emulator
-    checkpoint_loc = 'results/checkpoints/weights_only/latest_tf'  # last element is checkpoint name
+    checkpoint_loc = 'results/checkpoints/latest_tf'  # last element is checkpoint name
     model = tf_model()
     trained_clf = get_trained_keras_emulator(model, checkpoint_loc, new=True)

@@ -1,6 +1,6 @@
 import os
 import logging
-import json  # temp
+import argparse
 
 import numpy as np
 import h5py
@@ -56,7 +56,7 @@ def record_performance(x_test, i, y_test, emulator, n_burnin, n_samples, n_chain
         f.create_dataset('true_observations', data=true_observation)
 
 
-def aggregate_performance(save_dir, n_chains, n_samples):
+def aggregate_performance(save_dir, n_samples, n_chains):
     logging.debug('Creating virtual dataset')
     performance_files = [os.path.join(save_dir, x) for x in os.listdir(save_dir) if x.endswith('_performance.h5')]
     n_sources = len(performance_files)
@@ -102,10 +102,29 @@ def aggregate_filename(save_dir):
 
 if __name__ == '__main__':
 
+    """
+    Run the emulated HMC method on many galaxies.
+    Evaluating performance at recovering posteriors can be done in `evaluate_performance.py`
+
+    Example use: 
+    /data/miniconda3/envs/agnfinder/bin/python /Data/repos/agnfinder/agnfinder/tf_sampling/run_sampler.py --checkpoint-loc results/checkpoints/latest_tf --output-dir results/emulated_sampling
+
+    """
+    parser = argparse.ArgumentParser(description='Run emulated HMC on many galaxies')
+    parser.add_argument('--checkpoint-loc', type=str, dest='checkpoint_loc')
+    parser.add_argument('--output-dir', dest='output_dir', type=str)  # in which save_dir while be created
+    parser.add_argument('--n-galaxies', type=int, default=1, dest='n_galaxies')
+    parser.add_argument('--n-burnin', type=int, default=1000, dest='n_burnin')
+    parser.add_argument('--n-samples', type=int, default=1000, dest='n_samples')
+    parser.add_argument('--n-chains', type=int, default=32, dest='n_chains')
+    parser.add_argument('--init', type=str, dest='init_method', default='random', help='Can be one of: random, roughly_correct, optimised')
+    args = parser.parse_args()
+
     tf.enable_eager_execution() 
     
     logging.getLogger().setLevel(logging.WARNING)  # some third party library is mistakenly setting the logging somewhere...
 
+<<<<<<< HEAD
     checkpoint_loc = 'results/checkpoints/weights_only/latest_tf'  # must match saved checkpoint of emulator
     n_galaxies = 2
     n_burnin = 2000
@@ -115,6 +134,16 @@ if __name__ == '__main__':
     # init_method = 'roughly_correct'
     # init_method = 'optimised'
     save_dir = 'results/recovery/latest_{}_{}_{}'.format(n_galaxies, n_samples * n_chains, init_method)
+=======
+    checkpoint_loc =  args.checkpoint_loc
+    n_galaxies = args.n_galaxies
+    n_burnin = args.n_burnin
+    n_samples = args.n_samples
+    n_chains = args.n_chains
+    output_dir = args.output_dir
+    init_method = args.init_method
+    save_dir = os.path.join(output_dir, 'latest_{}_{}_{}'.format(n_galaxies, n_samples * n_chains, init_method))
+>>>>>>> run-from-scratch
 
     record_performance_on_galaxies(checkpoint_loc, n_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir)
     aggregate_performance(save_dir, n_samples, n_chains)

@@ -3,17 +3,13 @@ import argparse
 import dill
 from collections import OrderedDict
 
-import h5py
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from prospect.utils.obsutils import fix_obs
-import pyDOE2
 
-from agnfinder.prospector import main, cpz_builders, visualise
+from agnfinder.prospector import main, visualise
 from agnfinder import simulation_utils
 
-def simulate(n_samples, save_loc, emulate_ssp, noise):
+def simulate(n_samples, catalog_loc, save_loc, emulate_ssp, noise):
 
     # a bit hacky - log* keys will be 10 ** within simulator function below
     free_params = OrderedDict({
@@ -33,7 +29,7 @@ def simulate(n_samples, save_loc, emulate_ssp, noise):
     theta_df = pd.DataFrame(denormalised_hcube, columns=free_params.keys())
     normalised_theta_df = pd.DataFrame(hcube, columns=free_params.keys())
 
-    simulator, phot_wavelengths = get_photometry_simulator(emulate_ssp, noise=noise)
+    simulator, phot_wavelengths = get_photometry_simulator(catalog_loc, emulate_ssp, noise=noise)
 
     # not using the normalised params from simulation_utils, sticking with normalised_theta_df. Very messy TODO
     _, photometry = simulation_utils.sample(
@@ -52,27 +48,20 @@ def simulate(n_samples, save_loc, emulate_ssp, noise):
         wavelengths=phot_wavelengths
     )
 
-def get_photometry_simulator(emulate_ssp, noise):
+def get_photometry_simulator(catalog_loc, emulate_ssp, noise):
     galaxy_index = 1
-    galaxy = main.load_galaxy(galaxy_index)
+    galaxy = main.load_galaxy(catalog_loc, galaxy_index)
     redshift = galaxy['redshift']
     agn_mass = True
     agn_eb_v = True
     agn_torus_mass = True
     igm_absorbtion = True
-    emulate_ssp = emulate_ssp
 
     if noise:
-        # with open('data/error_estimators.pickle', 'rb') as f:
-            # error_estimators = dill.load(f)  # get_sigma needs this via closure
         def get_sigma(x):
-            # best_guess = np.array([error_estimators[band](x[n]) for n, band in enumerate(error_estimators.keys())])
-            # if np.isnan(best_guess).any():
             return x / 20.
-            # else:
-                # return best_guess
     else:
-        get_sigma = None 
+        get_sigma = None
 
     _, obs, model, sps = main.construct_problem(galaxy, redshift=redshift, agn_mass=agn_mass, agn_eb_v=agn_eb_v, agn_torus_mass=agn_torus_mass, igm_absorbtion=igm_absorbtion, emulate_ssp=emulate_ssp)
 
@@ -91,14 +80,23 @@ def get_photometry_simulator(emulate_ssp, noise):
 
 if __name__ == '__main__':
 
+    """
+    Create a hypercube of (galaxy parameters, photometry) paired vectors, calculated according to the forward model
+    Useful for training a neural network to emulate the forward model
+
+    Optionally, use the GP emulator for the forward model. Not a great idea, as this is slower than the original forward model, but I implemented it already...
+
+    Example use: /data/miniconda3/envs/agnfinder/bin/python /Data/repos/agnfinder/agnfinder/simulation_samples.py 100 --catalog-loc /Volumes/alpha/agnfinder/cpz_paper_sample_week3.parquet --save-dir data
+    """
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('n_samples', type=int)
+    parser.add_argument('--catalog-loc', dest='catalog_loc', type=str)
+    parser.add_argument('--save-dir', dest='save_dir', type=str)
     parser.add_argument('--emulate-ssp', default=False, action='store_true')
     parser.add_argument('--noise', default=False, action='store_true')
-    # parser.add_argument('save_loc', type=str, dest='save_loc')
     args = parser.parse_args()
 
-    # n_samples = 100
-    save_loc = 'data/photometry_simulation_{}.hdf5'.format(args.n_samples)
+    save_name = 'photometry_simulation_{}.hdf5'.format(args.n_samples)
+    save_loc = os.path.join(args.save_dir, save_name)
 
-    simulate(args.n_samples, save_loc, args.emulate_ssp, args.noise)
+    simulate(args.n_samples, args.catalog_loc, save_loc, args.emulate_ssp, args.noise)
