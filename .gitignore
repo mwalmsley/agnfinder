@@ -110,3 +110,5 @@ out/*
 *.h5py
 results
 data/*.hdf5
+
+results/*.png
