@@ -21,7 +21,7 @@ FSPS installation instructions are [here](https://github.com/cconroy20/fsps/blob
 
 Clone the repo and install the required Python packages (you're using an environment manager like conda or virtualenv, right?):
 
-    git clone --single-branch --branch emulator-diagnostics git@github.com:mwalmsley/agnfinder.git
+    git clone git@github.com:mwalmsley/agnfinder.git
     pip install -r agnfinder/requirements.txt
 
 Note that requirements.txt will install several packages directly from git. See requirements.txt.
