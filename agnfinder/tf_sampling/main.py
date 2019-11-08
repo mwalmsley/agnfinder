@@ -50,7 +50,7 @@ if __name__ == '__main__':
     See README.md in this folder for more.
 
     Example use:
-    /data/miniconda3/envs/agnfinder/bin/python agnfinder/tf_sampling/main.py --checkpoint-loc results/checkpoints/latest_tf --test-json data/lfi_test_case.json --n-chains 32 --n-samples 1000 --n-burnin 1500
+    python agnfinder/tf_sampling/main.py --checkpoint-loc results/checkpoints/latest --test-json data/lfi_test_case.json --n-chains 32 --n-samples 1000 --n-burnin 1500
 
     """
     tf.enable_eager_execution()
@@ -85,10 +85,10 @@ if __name__ == '__main__':
     
     init_method = 'random'
     sampler = SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
-    flat_samples = sampler()
+    samples = sampler()
 
     labels = ['mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling']
-    figure = corner.corner(flat_samples, labels=labels)  # middle dim is per chain
+    figure = corner.corner(samples.reshape(-1, 7), labels=labels)  # middle dim is per chain
     figure.savefig('results/samples_{}_then_{}x{}.png'.format(n_burnin, n_samples, n_chains))
 
     exit()  # avoids weird tf.function error

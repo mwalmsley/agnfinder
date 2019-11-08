@@ -31,23 +31,23 @@ def galaxy():
         }
     )
 
-@pytest.fixture()
-def filter_tuples():
-    tuples = []
-    for band in ['a', 'b', 'c', 'd', 'e', 'f']:
-        tuples.append(
-            load_photometry.Filter(
-                bandpass_file='{}.par'.format(band),
-                mag_col='band_{}'.format(band),
-                error_col='band_{}_err'.format(band)
-            )
-        )
-    return tuples
+# @pytest.fixture()
+# def filter_tuples():
+#     tuples = []
+#     for band in ['a', 'b', 'c', 'd', 'e', 'f']:
+#         tuples.append(
+#             load_photometry.Filter(
+#                 bandpass_file='{}.par'.format(band),
+#                 mag_col='band_{}'.format(band),
+#                 error_col='band_{}_err'.format(band)
+#             )
+#         )
+#     return tuples
 
-def test_get_filters():
-    filters = load_photometry.get_filters()  # assume okay if throws no errors
+# def test_get_filters():
+#     filters = load_photometry.get_filters()  # assume okay if throws no errors
 
 
-def test_filter_has_valid_data(filter_tuples, galaxy):
-    validity = [load_photometry.filter_has_valid_data(f, galaxy) for f in filter_tuples]
-    assert validity == [True, False, False, False, False, False]
+# def test_filter_has_valid_data(filter_tuples, galaxy):
+#     validity = [load_photometry.filter_has_valid_data(f, galaxy) for f in filter_tuples]
+#     assert validity == [True, False, False, False, False, False]

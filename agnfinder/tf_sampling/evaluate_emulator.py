@@ -17,7 +17,7 @@ if __name__ == '__main__':
     Check if the emulator is giving photometry similar to the 'true' forward model.
 
     Example use:
-    /data/miniconda3/envs/agnfinder/bin/python /Data/repos/agnfinder/agnfinder/tf_sampling/evaluate_emulator.py --checkpoint-loc results/checkpoints/latest_tf
+    python agnfinder/tf_sampling/evaluate_emulator.py --checkpoint-loc results/checkpoints/latest
     """
 
     parser = argparse.ArgumentParser(description='Run emulated HMC on many galaxies')
