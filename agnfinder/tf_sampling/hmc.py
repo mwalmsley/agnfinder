@@ -20,7 +20,25 @@ class SamplerHMC(Sampler):
         self.init_method = init_method
 
     def sample(self):
+        start_time = datetime.datetime.now()
+
         log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation, batch_dim=self.n_chains)
+        initial_state = self.get_initial_state()
+
+        logging.info('Initial state: \n')
+        for state in initial_state.numpy():
+            logging.info(['{:.2f}'.format(param) for param in state])
+        logging.info('True params: \n')
+        logging.info(['{:.2f}'.format(param) for param in self.problem.true_params])
+
+        samples = self.run_hmc(log_prob_fn, initial_state)
+
+        # print('True vs. median recovered parameters: ', list(zip(self.problem.true_params, np.median(samples, axis=1))))
+        end_time = datetime.datetime.now()
+        logging.info('Total time for galaxy: {}s'.format( (end_time - start_time).total_seconds()))
+        return samples
+
+    def get_initial_state(self):
         if self.init_method == 'correct':
             true_params_stacked = np.vstack([self.problem.true_params.astype(np.float32) for n in range(self.n_chains)])
             initial_state = tf.constant(true_params_stacked)
@@ -30,13 +48,13 @@ class SamplerHMC(Sampler):
         elif self.init_method == 'random':
             initial_state = many_random_starts(self.problem.forward_model, self.problem.true_observation, self.problem.n_dim, self.n_chains)
         elif self.init_method == 'optimised':
-            initial_state = optimized_start(self.problem.forward_model, self.problem.true_observation, self.problem.n_dim, self.n_chains, steps=3000)
+            initial_state = optimised_start(self.problem.forward_model, self.problem.true_observation, self.problem.n_dim, self.n_chains, steps=3000)
         else:
             raise ValueError('Initialisation method {} not recognised'.format(self.init_method))
+        return initial_state
 
-
-        print('Initial state vs true params: {}'.format(list(zip(initial_state[0, :].numpy(), self.problem.true_params))))
-        print('Ready to go - beginning sampling at {}'.format(datetime.datetime.now().ctime()))
+    def run_hmc(self, log_prob_fn, initial_state):
+        logging.info('Ready to go - beginning sampling at {}'.format(datetime.datetime.now().ctime()))
         start_time = datetime.datetime.now()
         samples, is_accepted = hmc(
             log_prob_fn=log_prob_fn,
@@ -46,32 +64,17 @@ class SamplerHMC(Sampler):
         )
         samples = samples.numpy()
         is_accepted = is_accepted.numpy()
-
-        # do not flatten, instead keep chains for later diagnostics
-        # flat_samples = samples.numpy().reshape(-1, 7)
-
-        # mask rows with values outside of bounds
-        # do not simply cut from array as consistent shapes are required by hdf5 virtual dataset
-
-        # within bounds is true for all params (dim 2) where any param is out of bounds
-        # all_params_within_bounds = (np.max(samples, axis=2) < 1.) & (np.min(samples, axis=2) > 0.)
-        # within_bounds = np.stack([all_params_within_bounds for _ in range(samples.shape[2])], axis=2)
-        # np.copyto(samples, np.nan, where=~within_bounds)  # inplace 
-        # masked_samples = np.ma.masked_invalid(samples)
-        masked_samples = samples  # temp
         end_time = datetime.datetime.now()
         elapsed = end_time - start_time
         ms_per_sample = 1000 * elapsed.total_seconds() / (self.n_samples * self.n_chains)  # not counting burn-in as a sample, so really quicker
-        print('Sampling {} x {} chains complete in {}, {} ms per sample'.format(self.n_samples, self.n_chains, elapsed, ms_per_sample))
+        print('Sampling {} x {} chains complete in {}, {:.3f} ms per sample'.format(self.n_samples, self.n_chains, elapsed, ms_per_sample))
         
         print('Acceptance ratio: {:.4f}'.format(is_accepted))
         if is_accepted < 0.01:
             logging.critical('HMC failed to adapt - is step size too small? Is there some burn-in?')
         elif is_accepted < 0.3:
             print('Warning - acceptance ratio is low!')
-
-        print('True vs. median recovered parameters: ', list(zip(self.problem.true_params, np.ma.median(masked_samples, axis=0))))
-        return masked_samples
+        return samples
 
 # don't decorate
 def hmc(log_prob_fn, initial_state, num_results=int(10e3), num_burnin_steps=int(1e3)):
@@ -103,33 +106,60 @@ def hmc(log_prob_fn, initial_state, num_results=int(10e3), num_burnin_steps=int(
     return samples, is_accepted
 
 
-def find_best_params(forward_model, observation, param_dim, n_chains, steps, optimizer=tf.keras.optimizers.Adam()):
-    log_prob_fn = get_log_prob_fn(forward_model, observation, batch_dim=1)  # for now
-    params = tf.Variable(np.ones((1, param_dim), dtype=np.float32) * 0.5, dtype=tf.float32)
+def optimised_start(forward_model, observation, param_dim, n_chains, steps, initial_guess=None):
+    start_time = datetime.datetime.now()
+    n_best_params = int(n_chains / 3)
+    assert n_best_params  # mustn't be 0
+     # get n_chains of optimised parameter vectors, for speed
+    all_best_params = find_best_params(forward_model, observation, param_dim, n_chains, steps)
+    # keep only the best
+    best_params = keep_top_params(all_best_params, forward_model, observation, n_chains, n_best_params)
+    # randomly copy the best as needed to get back to n_chains starting points (all of which are now optimised)
+    chosen_params = tf.gather(best_params, tf.random.uniform(minval=0, maxval=n_best_params-1, dtype=tf.int32, shape=[n_chains]))
+    end_time = datetime.datetime.now()
+    elapsed = (end_time - start_time).total_seconds()
+    logging.info('Done {} optimisations in {} seconds.'.format(n_chains, elapsed))
+    logging.info('Picked {} starts from {} best params'.format(n_chains, n_best_params))
+    return chosen_params
+
+def find_best_params(forward_model, observation, param_dim, batch_dim, steps, initial_guess=None):
+    log_prob_fn = get_log_prob_fn(forward_model, observation, batch_dim=batch_dim)
+    if initial_guess is not None:
+        params = tf.Variable(tf.stack([initial_guess for _ in range(batch_dim)], axis=0), dtype=tf.float32)
+    else:
+        params = tf.Variable(tf.random.uniform(shape=(batch_dim, param_dim), dtype=np.float32), dtype=tf.float32)
+    best_params = find_minima(lambda x: -log_prob_fn(x),  params, steps)  # a very important minus sign...
+    return best_params
+
+
+# TODO convert to be tf.function() friendly, creating no ops
+# TODO measure convergence and adjust steps, learning rate accordingly
+def find_minima(func, initial_guess, steps=1000,  optimizer=tf.keras.optimizers.Adam()):
+    # logging.info('Initial guess neglogprob: {}'.format(['{:4.1f}'.format(x) for x in func(initial_guess)]))
     for _ in range(steps):
         with tf.GradientTape() as tape:
-            loss_value = -log_prob_fn(params)  # a very important minus sign...
-            grads = tape.gradient(loss_value, [params])[0]
-            grads_and_vars = [(grads, params)]
-            optimizer.apply_gradients(grads_and_vars)
-    return params
+            func_value = func(initial_guess)
+            grads = tape.gradient(func_value, [initial_guess])[0]
+            grads_and_vars = [(grads, initial_guess)]
+            optimizer.apply_gradients(grads_and_vars)  # inplace
+            tf.assign(initial_guess, tf.clip_by_value(initial_guess, 0.01, 0.99))
+    # logging.info('Final neglogprob: {}'.format(['{:4.1f}'.format(x) for x in func(initial_guess)]))
+    return initial_guess
 
 
-def optimized_start(forward_model, observation, param_dim, n_chains, steps=1000):
-    best_params = find_best_params(forward_model, observation, param_dim, n_chains, steps)
-    initial_state = tf.reshape(tf.stack([best_params for n in range(n_chains)]), (n_chains, param_dim))
-    return initial_state
-
-
-def many_random_starts(forward_model, true_observation, param_dim, n_chains):
+def many_random_starts(forward_model, observation, param_dim, n_chains):
     overproposal_factor = 10
     overproposed_initial_state = tf.random.uniform(shape=(n_chains * overproposal_factor, param_dim))
-    log_prob_fn = get_log_prob_fn(forward_model, true_observation, batch_dim=n_chains * overproposal_factor)
-    start_time = datetime.datetime.now()
-    initial_log_probs = log_prob_fn(overproposed_initial_state)
-    end_time = datetime.datetime.now()
-    ms_elapsed = (end_time - start_time).total_seconds() * 1000
-    ms_per_sample =  ms_elapsed / (n_chains * overproposal_factor)
-    print('{} samples at {:.4f} ms per sample'.format(n_chains*overproposal_factor, ms_per_sample))
-    initial_state = tf.gather(overproposed_initial_state, tf.argsort(initial_log_probs))[int((overproposal_factor - 1) * n_chains):]
+    initial_state = keep_top_params(
+        overproposed_initial_state,
+        forward_model,
+        observation,
+        n_chains * overproposal_factor,  # specified explicitly but might not need to
+        n_chains)
+    return initial_state
+
+def keep_top_params(all_params, forward_model, true_observation, initial_dim, final_dim):
+    log_prob_fn = get_log_prob_fn(forward_model, true_observation, batch_dim=initial_dim)
+    initial_log_probs = log_prob_fn(all_params)
+    initial_state = tf.gather(all_params, tf.argsort(initial_log_probs, direction='DESCENDING'))[:final_dim]
     return initial_state

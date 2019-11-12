@@ -8,8 +8,7 @@ class SamplingProblem():
     def __init__(self, true_observation, true_params, forward_model):
         self.true_observation = true_observation
         self.true_params = true_params
-        logging.warning('Temporarily adding minus sign to forward model')
-        self.forward_model = lambda *args, **kwargs: -forward_model(*args, **kwargs)
+        self.forward_model = lambda *args, **kwargs: forward_model(*args, **kwargs)
 
     @property
     def n_dim(self):
@@ -44,7 +43,7 @@ def get_log_prob_fn(forward_model, true_observation, batch_dim=None):
         x_out_of_bounds = is_out_of_bounds(x)
         penalty = tf.cast(x_out_of_bounds, tf.float32) * tf.constant(1000., dtype=tf.float32)
         log_prob_with_penalty = log_prob - penalty  # no effect if x in bounds, else divide (subtract) a big penalty
-        return log_prob
+        return log_prob_with_penalty
     return log_prob_fn
 
 

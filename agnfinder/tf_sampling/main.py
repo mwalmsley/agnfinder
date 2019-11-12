@@ -1,4 +1,5 @@
 import os
+import logging
 import json
 import argparse
 
@@ -14,6 +15,7 @@ from agnfinder.tf_sampling.hmc import SamplerHMC
 
 def test_log_prob_fn(problem):
 
+    test_figure_dir = 'tests/test_figures'
     true_params_2d = tf.reshape(problem.true_params, (1, 7))
 
     plt.figure()
@@ -23,10 +25,13 @@ def test_log_prob_fn(problem):
     plt.ylabel('Predicted mag')
     plt.legend()
     plt.tight_layout()
-    plt.savefig('results/model_vs_sim_at_logp_test_case.png')
+    plt.savefig(os.path.join(test_figure_dir, 'model_vs_sim_at_logp_test_case.png'))
 
     log_prob_fn = api.get_log_prob_fn(problem.forward_model, problem.true_observation, batch_dim=1)
 
+    # look at slices of log prob, where one param varies (0, 1) and the rest are the true solution
+    # ideally, log prob is maximised in each case where the free param is near the true value
+    # might not always be true due to degeneracy, but should mostly be true
     for param_index in range(6):
         plt.figure()
         param_values = np.linspace(0.01, 0.99, 100)
@@ -41,7 +46,7 @@ def test_log_prob_fn(problem):
         plt.axvline(true_params_2d[0, param_index].numpy(), c='k', label='True')
         plt.legend()
         plt.tight_layout()
-        plt.savefig('results/log_prob_modified_param_{}.png'.format(param_index))
+        plt.savefig(os.path.join(test_figure_dir, 'log_prob_modified_param_{}.png'.format(param_index)))
 
 if __name__ == '__main__':
 
@@ -54,6 +59,8 @@ if __name__ == '__main__':
 
     """
     tf.enable_eager_execution()
+
+    logging.getLogger().setLevel(logging.INFO)  # some third party library is mistakenly setting the logging somewhere...
 
     parser = argparse.ArgumentParser(description='Sample emulator')
     parser.add_argument('--checkpoint-loc', type=str, dest='checkpoint_loc')
@@ -82,8 +89,9 @@ if __name__ == '__main__':
     problem = SamplingProblem(true_observation, true_params, forward_model=emulator)
 
     # test_log_prob_fn(problem)  # seems like the real parameters are very unlikely and not a minima for the log prob fn (at least nearby). sad times!
-    
-    init_method = 'random'
+    # exit()
+    # init_method = 'random'
+    init_method = 'optimised'
     sampler = SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
     samples = sampler()
 

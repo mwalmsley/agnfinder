@@ -6,6 +6,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import arviz
+import corner
+from tqdm import tqdm
 
 from agnfinder.tf_sampling import run_sampler
 
@@ -54,7 +56,7 @@ def get_geweke(samples):
 
 def check_parameter_bias(galaxies, true_params):
     fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(16, 8))
-    params = ['mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling']  # TODO
+    params = ['mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling']
     for param_n, _ in enumerate(params):
         best_guesses = []
         y_errors = []
@@ -89,11 +91,20 @@ def check_parameter_bias(galaxies, true_params):
     fig.tight_layout()
     return fig, axes
 
+def write_corner_plots(galaxies, save_dir):
+    labels = ['mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling']
+    for n, galaxy in tqdm(enumerate(galaxies)):
+        figure = corner.corner(galaxy.reshape(-1, 7), labels=labels)  # middle dim is per chain
+        figure.savefig(os.path.join(save_dir, 'galaxy_{}_corner.png'.format(n)))
 
-def main(save_dir):
+
+def main(samples_dir):
+
+    # if not os.path.isfile(os.path.join(samples_dir, 'all_virtual.h5')):
+    #     run_sampler.aggregate_performance(samples_dir, 6000, 96)  # TODO
 
     logging.info('Loading samples')
-    samples, true_params, _ = run_sampler.read_performance(save_dir)  # zeroth index of samples is galaxy, first is sample, second is params
+    samples, true_params, _ = run_sampler.read_performance(samples_dir)  # zeroth index of samples is galaxy, first is sample, second is params
     logging.info('{} galaxies found'.format(len(samples)))
 
     valid_galaxies, valid_galaxy_indices = get_valid_galaxy_indices(samples)
@@ -101,10 +112,15 @@ def main(save_dir):
 
     # print(valid_galaxies.shape, valid_true_params.shape)
 
+    save_dir = os.path.join(samples_dir, 'evaluation')
+    if not os.path.isdir(save_dir):
+        os.mkdir(save_dir)
     logging.info('Checking parameter bias')
     fig, _ = check_parameter_bias(valid_galaxies, valid_true_params)
     fig.savefig(os.path.join(save_dir, 'parameter_bias.pdf'))
     fig.savefig(os.path.join(save_dir, 'parameter_bias.png'))
+
+    # write_corner_plots(valid_galaxies, save_dir)
 
 
 if __name__ == '__main__':
@@ -113,7 +129,7 @@ if __name__ == '__main__':
     Check if the emulated HMC sampling is correctly recovering the original galaxy parameters for the forward model.
 
     Example use:
-    python agnfinder/tf_sampling/evaluate_performance.py --save-dir results/emulated_sampling/latest_1_32000_random
+    python agnfinder/tf_sampling/evaluate_performance.py --save-dir results/emulated_sampling/latest_3000_32_optimised
     """
 
     parser = argparse.ArgumentParser(description='Find AGN!')

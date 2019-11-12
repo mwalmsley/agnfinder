@@ -12,31 +12,7 @@ os.environ['TF_XLA_FLAGS']='--tf_xla_cpu_global_jit'
 from agnfinder.tf_sampling import deep_emulator, api, hmc
 
 
-def record_performance_on_galaxies(checkpoint_loc, n_galaxies_to_check, n_burnin, n_samples, n_chains, init_method, save_dir):
-    emulator = deep_emulator.get_trained_keras_emulator(deep_emulator.tf_model(), checkpoint_loc, new=False)
-
-    _, _, x_test, y_test = deep_emulator.data()
-    x_test = x_test.astype(np.float32)
-    y_test = y_test.astype(np.float32)
-
-    if not os.path.isdir(save_dir):
-        os.mkdir(save_dir)
-
-    for i in tqdm(range(n_galaxies_to_check)):
-        record_performance(x_test, i, y_test, emulator, n_burnin, n_samples, n_chains, init_method, save_dir)
-
-
-def record_performance(x_test, i, y_test, emulator, n_burnin, n_samples, n_chains, init_method, save_dir):
-
-    # if i == 0:  # for now, always sample this galaxy as a test case
-    #     logging.warning('Overriding actual params with fixed test case!')
-    #     with open('data/lfi_test_case.json', 'r') as f:
-    #         test_pair = json.load(f)
-    #         true_params = np.array(test_pair['true_params']).astype(np.float32)
-    #         true_observation = np.array(test_pair['true_observation']).astype(np.float32)
-    # else:
-    true_params = x_test[i]
-    true_observation = -y_test[i]
+def run_on_single_galaxy(name, true_observation, true_params, emulator, n_burnin, n_samples, n_chains, init_method, save_dir):
 
     logging.warning('True params: {}'.format(true_params))
     logging.warning('True observation: {}'.format(true_observation))
@@ -45,8 +21,9 @@ def record_performance(x_test, i, y_test, emulator, n_burnin, n_samples, n_chain
     sampler = hmc.SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
     samples = sampler()
 
+    # TODO this should never actually happen now as directory is named according to shape
     # explicitly remove old files to avoid shape mismatch issues
-    save_file = os.path.join(save_dir, 'galaxy_{}_performance.h5'.format(i))
+    save_file = get_galaxy_save_file(name, save_dir)
     if os.path.isfile(save_file):
         os.remove(save_file)
 
@@ -61,6 +38,10 @@ def record_performance(x_test, i, y_test, emulator, n_burnin, n_samples, n_chain
         f.create_dataset('samples', data=samples)
         f.create_dataset('true_params', data=true_params)
         f.create_dataset('true_observations', data=true_observation)
+
+
+def get_galaxy_save_file(i, save_dir):
+    return os.path.join(save_dir, 'galaxy_{}_performance.h5'.format(i))
 
 
 def aggregate_performance(save_dir, n_samples, n_chains):
@@ -106,43 +87,3 @@ def read_performance(save_dir):
 
 def aggregate_filename(save_dir):
     return os.path.join(save_dir, 'all_virtual.h5')
-
-if __name__ == '__main__':
-
-    """
-    Run the emulated HMC method on many galaxies.
-    Evaluating performance at recovering posteriors can be done in `evaluate_performance.py`
-
-    Example use: 
-    python agnfinder/tf_sampling/run_sampler.py --checkpoint-loc results/checkpoints/latest --output-dir results/emulated_sampling
-
-    """
-    parser = argparse.ArgumentParser(description='Run emulated HMC on many galaxies')
-    parser.add_argument('--checkpoint-loc', type=str, dest='checkpoint_loc')
-    parser.add_argument('--output-dir', dest='output_dir', type=str)  # in which save_dir while be created
-    parser.add_argument('--n-galaxies', type=int, default=1, dest='n_galaxies')
-    parser.add_argument('--n-burnin', type=int, default=1000, dest='n_burnin')
-    parser.add_argument('--n-samples', type=int, default=1000, dest='n_samples')
-    parser.add_argument('--n-chains', type=int, default=32, dest='n_chains')
-    parser.add_argument('--init', type=str, dest='init_method', default='random', help='Can be one of: random, roughly_correct, optimised')
-    args = parser.parse_args()
-
-    tf.enable_eager_execution() 
-    
-    logging.getLogger().setLevel(logging.WARNING)  # some third party library is mistakenly setting the logging somewhere...
-
-    checkpoint_loc =  args.checkpoint_loc
-    output_dir = args.output_dir
-    assert checkpoint_loc is not None
-    assert output_dir is not None
-    n_galaxies = args.n_galaxies
-    n_burnin = args.n_burnin
-    n_samples = args.n_samples
-    n_chains = args.n_chains
-    init_method = args.init_method
-    save_dir = os.path.join(output_dir, 'latest_{}_{}_{}_{}'.format(n_galaxies, n_samples, n_chains, init_method))
-
-    record_performance_on_galaxies(checkpoint_loc, n_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir)
-    aggregate_performance(save_dir, n_samples, n_chains)
-    samples, true_params, true_observations = read_performance(save_dir)
-    print(samples.shape, true_params.shape, true_observations.shape)
