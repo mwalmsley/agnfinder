@@ -11,6 +11,9 @@ rsync -avz --exclude 'results' repos/agnfinder mwalmsley@glamdring.physics.ox.ac
 rsync -avz mwalmsley@glamdring.physics.ox.ac.uk:repos/agnfinder/results/ /media/mike/internal/agnfinder/results/...
 
 ssh mwalmsley@glamdring.physics.ox.ac.uk
+q
+
+watch tail -30 /var/logs
 
 # UCSC Cluster
 

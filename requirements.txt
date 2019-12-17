@@ -26,6 +26,7 @@ tensorflow-probability
 keras
 hyperopt
 hyperas
+arviz
 
 git+https://github.com/bd-j/sedpy
 git+https://github.com/bd-j/prospector.git

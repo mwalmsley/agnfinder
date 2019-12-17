@@ -38,9 +38,9 @@ def example_sed():
     noise = np.random.normal(loc=0., scale=0.05, size=len(mag_cols))
     return dict(zip(mag_cols, mag_trend + noise))
 
-def test_visualise_mags(example_sed):
-    fig, ax = plt.subplots()
-    visualise_templates.visualise_mags(example_sed, ax)  # inplace
-    fig.tight_layout()
-    fig.savefig(os.path.join(TEST_FIGURE_DIR, 'visualise_mags.png'))
+# def test_visualise_mags(example_sed):
+#     fig, ax = plt.subplots()
+#     visualise_templates.visualise_mags(example_sed, ax)  # inplace
+#     fig.tight_layout()
+#     fig.savefig(os.path.join(TEST_FIGURE_DIR, 'visualise_mags.png'))
     
