@@ -17,11 +17,9 @@ from prospect.fitting import fit_model
 from agnfinder.prospector import cpz_builders, visualise, fitting, load_photometry
 from agnfinder import columns
 
-
-def load_galaxy(catalog_loc, index=0, forest_class=None, spectro_class=None):
-    # catalog_loc could be '../cpz_paper_sample_week3.parquet'
+def load_catalog(catalog_loc):
+      # catalog_loc could be '../cpz_paper_sample_week3.parquet'
     logging.info('Using {} as catalog'.format(catalog_loc))
-
     cols = columns.cpz_cols['metadata'] + columns.cpz_cols['unified'] + columns.cpz_cols['galex'] + columns.cpz_cols['sdss'] + columns.cpz_cols['cfht'] + columns.cpz_cols['kids'] + columns.cpz_cols['vvv'] + columns.cpz_cols['wise'] + columns.cpz_cols['random_forest']
     if catalog_loc.endswith('.parquet'):
         df = pd.read_parquet(catalog_loc, columns=cols)
@@ -31,6 +29,11 @@ def load_galaxy(catalog_loc, index=0, forest_class=None, spectro_class=None):
     required_cols = [f.mag_col for f in filters] + [f.error_col for f in filters]
     df = df.dropna(subset=required_cols)
     logging.info('parquet loaded')
+    return df
+
+
+def load_galaxy(catalog_loc, index=0, forest_class=None, spectro_class=None):
+    df = load_catalog(catalog_loc)
     df_with_spectral_z = df[~pd.isnull(df['redshift'])].query('redshift > 1e-2').query('redshift < 4').reset_index()
     if forest_class is not None:
         logging.warning('Selecting forest-identified {} galaxies'.format(forest_class))

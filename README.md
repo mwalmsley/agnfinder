@@ -16,8 +16,11 @@ You can find each of these files [here](https://1drv.ms/u/s!ApOZ4Ims-i3xh4RGm2IE
 ## Installation
 
 AGNFinder requires python-fsps, which itself requires FSPS. 
-FSPS installation instructions are [here](https://github.com/cconroy20/fsps/blob/master/doc/INSTALL).
-**Follow these now**. Setting the $SPS_HOME environmental variable in the shell from which you run Python is crucial, or the subsequent python-fsps install will fail.
+FSPS installation instructions are [here](https://github.com/cconroy20/fsps/blob/master/doc/INSTALL). 
+**Follow these now**. 
+- To download the files: `git clone https://github.com/cconroy20/fsps.git`
+- Before commit `eb4341d`, I found (Ubunutu) I needed to change the compiler flags line in `src/Makefile` as follows: F90FLAGS = -O3 -march=native -cpp -fPIC. With the latest master version, this has been fixed.
+- Setting the $SPS_HOME environmental variable in the shell from which you run Python is crucial, or the subsequent python-fsps install will fail.
 
 Clone the repo and install the required Python packages (you're using an environment manager like conda or virtualenv, right?):
 
@@ -41,6 +44,7 @@ To use the HMC emulator, see `tf_sampling/README.md`.
 
 - `MemoryError` while running `pip install -r requirements.txt` = Tensorflow is a big package and small computers can struggle. To resolve, try `pip install tensorflow==1.15 --no-cache-dir` (or as requirements.txt says).
 - `Filter transmission file /data/miniconda3/envs/agnfinder/lib/python3.6/site-packages/sedpy/data/filters/u_sloan.par does not exist!` = you didn't copy the sedpy filters. See above.
+- Kernel crashing when using FSPS, e.g. making the SED model? Check tests/minimal_fsps_example.py runs correctly. If not, you need to fix FSPS. I had the error: At line 359 of file sps_setup.f90 (unit = 95, file = '/home/mike/repos/fsps//SPECTRA/Hot_spectra/WMBASIC_z0.0400.spec'), Fortran runtime error: Bad real number in item 12 of list input. Turned out, that file (a list of numbers) had somehow become corrupted gibberish halfway through. 
 
 ## Data Notes
 

@@ -72,19 +72,23 @@ def calculate_sed(model, theta, obs, sps):
     return model_spectra, model_photometry, observer_wavelengths
 
 
-def plot_model_at_obs(ax, model, theta, obs, sps, trace=False):
+def plot_model_at_obs(ax, model, theta, obs, sps, trace=False, spectra_kwargs=None, photo_kwargs=None, spectra_label='Model spectrum', photo_label='Model photometry'):
 
     model_spectra, model_photometry, observer_wavelengths = calculate_sed(model, theta, obs, sps)
 
-    if trace:
+    if trace:  # expecting to plot many
         spectra_kwargs = dict(lw=0.3, color='k', alpha=0.05)
         photo_kwargs = dict(marker='o', alpha=0.01)
     else:
-        spectra_kwargs = dict(label='Model spectrum', lw=0.7, color='navy', alpha=0.7)
-        photo_kwargs = dict(label='Model photometry', marker='s', alpha=0.8)
+        if spectra_kwargs is None:
+            spectra_kwargs = dict(lw=0.7, color='navy', alpha=0.7)  # defaults for spectra
+        if photo_kwargs is None:
+            photo_kwargs = dict(marker='s', alpha=0.8)  # defaults for photometry
 
-    ax.loglog(observer_wavelengths, model_spectra, **spectra_kwargs) # model spectra, observer frame
-    ax.scatter(obs["phot_wave"], model_photometry, s=15., color='blue', **photo_kwargs) # model photometry, observer frame
+    ax.loglog(observer_wavelengths, model_spectra, label=spectra_label, **spectra_kwargs) # model spectra, observer frame
+    ax.scatter(obs["phot_wave"], model_photometry, label=photo_label, s=15., color='blue', **photo_kwargs) # model photometry, observer frame
+    ax.set_xlabel('Observed Wavelength (A)') 
+    ax.set_ylabel('Flux Density at Wavelength (Arbitrary Units)')
 
 def get_components(sps):
     return Components(

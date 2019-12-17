@@ -69,12 +69,23 @@ def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn
     :returns model:
         An instance of prospect.models.SedModel
     """
-
+    logging.debug(redshift)
+    logging.debug(fixed_metallicity)
+    logging.debug(dust)
+    logging.debug(agn_mass)
+    logging.debug(agn_eb_v)
+    logging.debug(agn_torus_mass)
+    logging.debug(igm_absorbtion)
+    logging.debug(extras)
     # TODO increase galaxy extinction to 0.6
 
     # Get (a copy of) one of the prepackaged model set dictionaries.
     # This is, somewhat confusingly, a dictionary of dictionaries, keyed by parameter name
     model_params = TemplateLibrary["parametric_sfh"]  # add sfh and tau
+    # dust2 init -.6, uniform [0, 2] uniform prior
+    # delay-tau model with tau [0.1, 30] log-uniform prior
+    # tage (burst start?) init 1, uniform (tophat) [0.001, 13.8]
+
     model_params['dust_type'] = {"N": 1, "isfree": False, "init": 2}  # Calzetti, as opposed to 0 for power law 
     # fixed: Kroupa IMF
 
