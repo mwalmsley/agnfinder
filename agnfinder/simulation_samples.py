@@ -93,7 +93,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('n_samples', type=int)
     parser.add_argument('--catalog-loc', dest='catalog_loc', type=str)
-    parser.add_argument('--save-dir', dest='save_dir', type=str)
+    parser.add_argument('--save-dir', dest='save_dir', type=str, default='data')
     parser.add_argument('--emulate-ssp', default=False, action='store_true')
     parser.add_argument('--noise', default=False, action='store_true')
     args = parser.parse_args()
