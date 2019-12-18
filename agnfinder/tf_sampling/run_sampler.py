@@ -14,8 +14,9 @@ from agnfinder.tf_sampling import deep_emulator, api, hmc
 
 def run_on_single_galaxy(name, true_observation, true_params, emulator, n_burnin, n_samples, n_chains, init_method, save_dir):
 
-    logging.warning('True params: {}'.format(true_params))
     logging.warning('True observation: {}'.format(true_observation))
+    if true_params is not None:
+        logging.warning('True params: {}'.format(true_params))
 
     problem = api.SamplingProblem(true_observation, true_params, forward_model=emulator)
     sampler = hmc.SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
@@ -32,12 +33,12 @@ def run_on_single_galaxy(name, true_observation, true_params, emulator, n_burnin
         logging.warning('Samples not required shape - skipping save to avoid virtual dataset issues')
         logging.warning('actual {} vs expected {}'.format(samples.shape, expected_shape))
     else:
-        
         f = h5py.File(save_file, mode='w')
         logging.warning('shape of samples: {}'.format(samples.shape))
         f.create_dataset('samples', data=samples)
-        f.create_dataset('true_params', data=true_params)
         f.create_dataset('true_observations', data=true_observation)
+        if true_params is not None:
+            f.create_dataset('true_params', data=true_params)
 
 
 def get_galaxy_save_file(i, save_dir):

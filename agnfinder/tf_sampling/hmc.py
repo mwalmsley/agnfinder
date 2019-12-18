@@ -28,8 +28,9 @@ class SamplerHMC(Sampler):
         logging.info('Initial state: \n')
         for state in initial_state.numpy():
             logging.info(['{:.2f}'.format(param) for param in state])
-        logging.info('True params: \n')
-        logging.info(['{:.2f}'.format(param) for param in self.problem.true_params])
+        if self.problem.true_params is not None:
+            logging.info('True params: \n')
+            logging.info(['{:.2f}'.format(param) for param in self.problem.true_params])
 
         samples = self.run_hmc(log_prob_fn, initial_state)
 
@@ -40,9 +41,11 @@ class SamplerHMC(Sampler):
 
     def get_initial_state(self):
         if self.init_method == 'correct':
+            assert self.problem.true_params is not None
             true_params_stacked = np.vstack([self.problem.true_params.astype(np.float32) for n in range(self.n_chains)])
             initial_state = tf.constant(true_params_stacked)
         elif self.init_method == 'roughly_correct':
+            assert self.problem.true_params is not None
             not_quite_true_params = np.vstack([self.problem.true_params for n in range(self.n_chains)] + np.random.rand(self.n_chains, len(self.problem.true_params)) * 0.03).astype(np.float32)
             initial_state = tf.constant(not_quite_true_params)
         elif self.init_method == 'random':

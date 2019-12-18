@@ -12,6 +12,7 @@ rsync -avz mwalmsley@glamdring.physics.ox.ac.uk:repos/agnfinder/results/ /media/
 
 ssh mwalmsley@glamdring.physics.ox.ac.uk
 q
+n
 
 watch tail -30 /var/logs
 
@@ -37,3 +38,9 @@ pyprof2calltree -k -i myscript.cprof
 python agnfinder/prospector/main.py --index=0 --galaxy=qso
 
 python agnfinder/lfi/train.py data/photometry_simulation_100000.hdf5 --test
+
+export REPO=/mnt/zfsusers/mwalmsley/repos/agnfinder
+export PYTHON=/mnt/zfsusers/mwalmsley/envs/agnfitter/bin/python
+export QUEUE=planet
+export CATALOG=/mnt/zfsusers/mwalmsley/repos/agnfinder/data/cpz_paper_sample_week3.parquet
+addqueue -c "1 hour" -q $QUEUE -n 12 -m 3 $PYTHON $REPO/agnfinder/simulation_samples.py 10000 --catalog-loc data/cpz_paper_sample_week3.parquet

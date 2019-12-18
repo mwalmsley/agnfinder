@@ -8,9 +8,6 @@ import tensorflow as tf
 from agnfinder.tf_sampling import run_sampler, deep_emulator
 
 if __name__ == '__main__':
-
-    # raise ValueError('Does main print?')
-
     """
     Example use:
         python agnfinder/tf_sampling/run_sampler_parallel.py  --index $INDEX --checkpoint-loc results/checkpoints/latest --output-dir results/emulated_sampling
@@ -26,21 +23,30 @@ if __name__ == '__main__':
     parser.add_argument('--init', type=str, dest='init_method', default='optimised', help='Can be one of: random, roughly_correct, optimised')
     args = parser.parse_args()
 
-    # raise ValueError('Does this print?')
-
     tf.enable_eager_execution()  # for now, this is required
 
-    _, _, x_test, y_test = deep_emulator.data()
-    x_test = x_test.astype(np.float32)
-    y_test = y_test.astype(np.float32)
+    if args.catalog_loc is None:  # use hypercube
+        _, _, x_test, y_test = deep_emulator.data()
+        x_test = x_test.astype(np.float32)
+        y_test = y_test.astype(np.float32)
+        true_params = x_test[args.index]
+        true_observation = y_test[args.index]
+        # to preserve memory
+        del x_test
+        del y_test
+
+    else:  # use data specified in photometry cube
+        true_params = None
+        true_observation = # load from appropriate hdf5 index
 
     run_sampler.run_on_single_galaxy(
         name=args.index,
-        true_observation=y_test[args.index],
-        true_params=x_test[args.index],
+        true_observation=true_observation,
+        true_params=true_params,
         emulator=deep_emulator.get_trained_keras_emulator(deep_emulator.tf_model(), args.checkpoint_loc, new=False),
         n_burnin=args.n_burnin,
         n_samples=args.n_samples,
         n_chains=args.n_chains,
         init_method=args.init_method,
-        save_dir=args.output_dir)
+        save_dir=args.output_dir
+    )
