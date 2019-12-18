@@ -15,7 +15,6 @@ def record_performance_on_galaxies(checkpoint_loc, max_galaxies, n_burnin, n_sam
     _, _, x_test, y_test = deep_emulator.data()
     x_test = x_test.astype(np.float32)
     y_test = y_test.astype(np.float32)
-
     if not os.path.isdir(save_dir):
         os.mkdir(save_dir)
 
@@ -23,7 +22,7 @@ def record_performance_on_galaxies(checkpoint_loc, max_galaxies, n_burnin, n_sam
         if not os.path.isfile(run_sampler.get_galaxy_save_file(i, save_dir)):
             true_params = x_test[i]
             true_observation = y_test[i]
-            run_sampler.run_on_single_galaxy(i, true_params, true_observation, emulator, n_burnin, n_samples, n_chains, init_method, save_dir)
+            run_sampler.run_on_single_galaxy(i, true_observation, true_params, emulator, n_burnin, n_samples, n_chains, init_method, save_dir)
 
 
 if __name__ == '__main__':
@@ -33,7 +32,7 @@ if __name__ == '__main__':
     Evaluating performance at recovering posteriors can be done in `evaluate_performance.py`
 
     Example use: 
-    python agnfinder/tf_sampling/run_sampler.py --checkpoint-loc results/checkpoints/latest --output-dir results/emulated_sampling
+    python agnfinder/tf_sampling/run_sampler_singlethreaded.py --checkpoint-loc results/checkpoints/latest --output-dir results/emulated_sampling
 
     """
     parser = argparse.ArgumentParser(description='Run emulated HMC on many galaxies')

@@ -73,7 +73,9 @@ class QuasarTemplate(InterpolatedTemplate):
 
 
 class TorusTemplate(InterpolatedTemplate):
-
+    # TODO this will no longer be parameter-less (AGN mass scaling happening outside)
+    # instead, should take inclination as an arg in eval_template?
+    # bit messy with AGN mass externally though?
 
     def _eval_template(self, wavelengths, long_only=False):
         fluxes = 10 ** self._interpolated_template(np.log10(wavelengths))  # in angstroms still!
@@ -121,7 +123,7 @@ def normalise_template(interp):
     log_wavelengths = np.log10(np.logspace(np.log10(1e2), np.log10(1e7), 500000)) # in angstroms
     total_flux = simps(10 ** interp(log_wavelengths), 10 ** log_wavelengths, dx=1, even='avg')
     # return normalised flux in log space (remembering that division is subtraction)
-    # -30 so that agn mass is similar to galaxy mass
+    # -21 so that agn mass is similar to galaxy mass (actually not the case? Not sure why -21, perhaps arbitrary)
     return lambda x: interp(x) - np.log10(total_flux) - 21
 
 QUASAR_DATA_LOC = 'data/quasar_template_shang.txt'

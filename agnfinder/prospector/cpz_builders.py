@@ -274,15 +274,12 @@ class CSPSpecBasisAGN(CSPSpecBasis):
         # rename to match
         mass_frac = mfrac_sum
         stellar_spectrum = spectrum
-        
-        """Explicit call of super"""
-        # wave, stellar_spectrum, mass_frac = super().get_galaxy_spectrum(**params)
 
         # insert blue AGN template here into spectrum
-        template_quasar_flux = self.quasar_template(wave, short_only=True)
+        template_quasar_flux = self.quasar_template(wave, short_only=True)  # normalised scale
         quasar_flux = template_quasar_flux * self.params['agn_mass'] * 1e14
 
-        template_torus_flux = self.torus_template(wave, long_only=True)
+        template_torus_flux = self.torus_template(wave, long_only=True)  # normalised scale
         torus_flux = template_torus_flux * self.params['agn_torus_mass'] * 1e14
 
         # must always be specified, even if None

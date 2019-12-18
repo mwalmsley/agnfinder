@@ -129,7 +129,7 @@ if __name__ == '__main__':
     Check if the emulated HMC sampling is correctly recovering the original galaxy parameters for the forward model.
 
     Example use:
-    python agnfinder/tf_sampling/evaluate_performance.py --save-dir results/emulated_sampling/latest_3000_32_optimised
+    python agnfinder/tf_sampling/evaluate_performance.py --save-dir results/emulated_sampling/latest_6000_96_optimised
     """
 
     parser = argparse.ArgumentParser(description='Find AGN!')

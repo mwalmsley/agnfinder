@@ -37,7 +37,7 @@ def tf_model():
 
 # because hyperas is weird, this isn't allowed any arguments - not even via closure! TODO
 def data():
-    loc = 'data/photometry_simulation_1000000.hdf5'
+    loc = 'data/photometry_simulation_100000.hdf5'
     logging.warning('Using data loc {}'.format(loc))
     assert os.path.isfile(loc)
     with h5py.File(loc, 'r') as f:
