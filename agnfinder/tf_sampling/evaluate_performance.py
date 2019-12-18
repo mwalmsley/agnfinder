@@ -8,6 +8,7 @@ from matplotlib import cm
 import arviz
 import corner
 from tqdm import tqdm
+import seaborn as sns
 
 from agnfinder.tf_sampling import run_sampler
 
@@ -46,38 +47,58 @@ def low_acceptance_suspected(samples, threshold=0.3):
     return len(np.unique(samples, axis=0)) < len(samples) * threshold
 
 
-def get_rhat(samples, var_names):
+def get_rhat(samples):
     assert len(samples.shape) == 2  # should be (sample, chain) shape, same parameter
-    return arviz.rhat(np.swapaxes(samples, 0, 1), var_names=var_names)  # arxiv onvention (chain, sample) not (sample, chain) like me
+    return arviz.rhat(np.swapaxes(samples, 0, 1))  # arxiv convention is (chain, sample) not (sample, chain) like me
+
 
 def get_geweke(samples):
     assert len(samples.shape) == 2  # should be (sample, chain) shape, same parameter
     return arviz.geweke(samples.flatten())
 
+
+def get_convergence_metrics(galaxies, n_params):
+    for param_n in range(n_params):
+        all_rhats = np.zeros((len(galaxies), n_params))
+        all_gewekes = np.zeros((len(galaxies), n_params, 20))
+        for galaxy_n, galaxy in enumerate(galaxies):
+            samples_of_param = galaxy[:, :, param_n]
+            # TODO can probably calculate these for all params at once via arviz
+            rhat = get_rhat(samples_of_param)
+            geweke = get_geweke(samples_of_param)
+            all_rhats[galaxy_n, param_n] = rhat
+            all_gewekes[galaxy_n, param_n] = geweke[:, 1]  # index 1 is the gewecke values, 0 is the trace indices
+    return all_rhats, all_gewekes
+
+def visualise_convergence_metrics(rhats, geweckes):
+    pass  # not yet implemented
+
 def check_parameter_bias(galaxies, true_params):
-    fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(16, 8))
     params = ['mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling']
-    for param_n, _ in enumerate(params):
+
+    # TODO move out to main
+    # rhats, gewekes = get_convergence_metrics(galaxies, n_params=len(params))
+    # visualise_convergence_metrics(rhats, geweckes)
+
+    # fig, axes = plot_error_bars_vs_truth(params, galaxies, true_params)
+    fig, axes = plot_posterior_stripes(params, galaxies, true_params)
+    return fig, axes
+
+def plot_error_bars_vs_truth(params, galaxies, true_params):
+    fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(16, 8))
+    all_axes = [ax for col in axes for ax in col]
+    for param_n in range(len(params)):
         best_guesses = []
         y_errors = []
-        all_axes = [ax for col in axes for ax in col]
-        all_rhats = []
-        all_geweke = []
         ax = all_axes[param_n]
         for galaxy in galaxies:
             samples_of_param = galaxy[:, :, param_n]
             best_guess = np.median(samples_of_param)
-            quantiles = np.quantile(samples_of_param, q=[0.1, 0.9])  # three sigma quantiles, bit dodgy as not normal but \o/
+            quantiles = np.quantile(samples_of_param, q=[0.1, 0.9])  # 80% credible interval
             y_error = np.abs(quantiles - best_guess)
-            rhat = get_rhat(samples_of_param, var_names=params)
-            geweke = get_geweke(samples_of_param)
             best_guesses.append(best_guess)
             y_errors.append(y_error)
-            all_rhats.append(rhat)
-            all_geweke.append(geweke)
-        
-        logging.info('{} rhats (should be ~1): {}'.format(params[param_n], ['{:.3f}'.format(x) for x in all_rhats]))
-        logging.info('{} geweke (should be -1 to 1, osc.): {}'.format(params[param_n], ['{:.3f}'.format(x) for x in all_rhats]))
+
         # colors = cm.magma(all_rhats)
         colors = None
         ax.errorbar(true_params[:, param_n], best_guesses, yerr=np.swapaxes(np.array(y_errors), 0, 1), fmt='none', c='black', zorder=1)
@@ -91,6 +112,37 @@ def check_parameter_bias(galaxies, true_params):
     fig.tight_layout()
     return fig, axes
 
+
+def plot_posterior_stripes(params, galaxies, true_params, n_param_bins=50, n_posterior_bins=50):
+    fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(16, 8))
+    all_axes = [ax for col in axes for ax in col]
+    sns.set_context('notebook')
+    sns.set_style('white')
+
+    # with a made up array, get the bins to use
+    dummy_array = np.zeros(42)  # anything
+    _, param_bins = np.histogram(dummy_array, range=(0., 1.), bins=n_param_bins)
+    _, posterior_bins = np.histogram(dummy_array, range=(0., 1.), bins=n_posterior_bins)
+
+    for param_n in range(len(params)):
+        ax = all_axes[param_n]
+        posterior_record = np.zeros((n_param_bins, n_posterior_bins)) * np.nan
+        for galaxy_n, galaxy in enumerate(galaxies):
+            samples_of_param = galaxy[:, :, param_n].flatten()
+            true_param = true_params[galaxy_n, param_n]
+            true_param_index = np.digitize(true_param, param_bins)  # find the bin index for true_param
+            stripe, _ = np.histogram(samples_of_param, density=True, bins=posterior_bins)
+            posterior_record[true_param_index] = stripe  # currently will only show the latest, should do nan-safe mean
+        ax.pcolormesh(param_bins, posterior_bins, np.transpose(posterior_record), cmap='Blues')
+        ax.grid(False)
+        ax.plot([0., 1.], [0., 1.], 'k--', alpha=0.3)
+        ax.set_title('{}'.format(params[param_n]))
+        ax.set_xlabel('Truth')
+        ax.set_ylabel(r'Sampled Posterior')
+    fig.tight_layout()
+    return fig, axes
+
+
 def write_corner_plots(galaxies, save_dir):
     labels = ['mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling']
     for n, galaxy in tqdm(enumerate(galaxies)):
@@ -98,7 +150,7 @@ def write_corner_plots(galaxies, save_dir):
         figure.savefig(os.path.join(save_dir, 'galaxy_{}_corner.png'.format(n)))
 
 
-def main(samples_dir):
+def main(samples_dir, save_corner):
 
     # if not os.path.isfile(os.path.join(samples_dir, 'all_virtual.h5')):
     #     run_sampler.aggregate_performance(samples_dir, 6000, 96)  # TODO
@@ -120,7 +172,8 @@ def main(samples_dir):
     fig.savefig(os.path.join(save_dir, 'parameter_bias.pdf'))
     fig.savefig(os.path.join(save_dir, 'parameter_bias.png'))
 
-    # write_corner_plots(valid_galaxies, save_dir)
+    if save_corner:  # optional as somewhat slow
+        write_corner_plots(valid_galaxies, save_dir)
 
 
 if __name__ == '__main__':
@@ -134,9 +187,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('--save-dir', dest='save_dir', type=str)
+    parser.add_argument('--corner', dest='save_corner', action='store_true', default=False)
     args = parser.parse_args()
-    save_dir = args.save_dir
-
     logging.getLogger().setLevel(logging.INFO)  # some third party library is mistakenly setting the logging somewhere...
 
-    main(save_dir)
+    main(args.save_dir, args.save_corner)
