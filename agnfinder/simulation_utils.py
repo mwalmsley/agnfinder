@@ -19,7 +19,7 @@ def denormalise_hypercube(normalised_hcube, limits):
         theta_to_sample[:, key_n] = (theta_to_sample[:, key_n] * (lims[1] - lims[0]) + lims[0]) 
         print(key, theta_to_sample[:, key_n].min(), theta_to_sample[:, key_n].max())
         if key.startswith('log'):
-            logging.warning('Automatically exponentiating {}'.format(key))
+            logging.info('Automatically exponentiating {}'.format(key))
             theta_to_sample[:, key_n] = 10 ** theta_to_sample[:, key_n]
     return theta_to_sample
 
@@ -71,4 +71,4 @@ def save_samples(save_loc, theta_names, theta, normalised_theta, simulator_outpu
         if wavelengths is not None:
             ds_wavelengths = grp.create_dataset('wavelengths', data=wavelengths)
             ds_wavelengths.attrs['description'] = 'Observer wavelengths to visualise simulator photometry'
-    logging.warning(f'Saved samples to {save_loc}')
+    logging.info(f'Saved samples to {save_loc}')

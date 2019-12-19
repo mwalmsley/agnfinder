@@ -35,11 +35,16 @@ def tf_model():
         metrics=['mean_absolute_error'])
     return model
 
-# because hyperas is weird, this isn't allowed any arguments - not even via closure! TODO
+# because hyperas is weird, this isn't allowed any arguments - not even via closure! TODO use keras-tuner instead, better/cleaner
 def data():
-    loc = 'data/photometry_simulation_100000.hdf5'
+    # CHANGE ME to point to your hypercube
+    relative_loc = 'data/photometry_simulation_1000000.hdf5'  # when running from repo root
+    external_loc = '/media/mike/beta/agnfinder/photometry_simulation_1000000.hdf5'
+    if os.path.isfile(relative_loc):
+        loc = relative_loc
+    elif os.path.isfile(external_loc):
+        loc = external_loc
     logging.warning('Using data loc {}'.format(loc))
-    assert os.path.isfile(loc)
     with h5py.File(loc, 'r') as f:
         theta = f['samples']['normalised_theta'][...]
         # hacky extra normalisation here, not great TODO
@@ -124,6 +129,9 @@ def find_best_model(max_evals=40):
 
 
 if __name__ == '__main__':
+    """
+    You can run this (with no args) to train a new emulator (which will be saved as below)
+    """
 
     tf.enable_eager_execution()
 
