@@ -4,7 +4,7 @@ import logging
 
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import cm
+
 import arviz
 import corner
 from tqdm import tqdm
@@ -73,16 +73,6 @@ def get_convergence_metrics(galaxies, n_params):
 def visualise_convergence_metrics(rhats, geweckes):
     pass  # not yet implemented
 
-def check_parameter_bias(galaxies, true_params):
-    params = ['mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling']
-
-    # TODO move out to main
-    # rhats, gewekes = get_convergence_metrics(galaxies, n_params=len(params))
-    # visualise_convergence_metrics(rhats, geweckes)
-
-    # fig, axes = plot_error_bars_vs_truth(params, galaxies, true_params)
-    fig, axes = plot_posterior_stripes(params, galaxies, true_params)
-    return fig, axes
 
 def plot_error_bars_vs_truth(params, galaxies, true_params):
     fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(16, 8))
@@ -109,36 +99,6 @@ def plot_error_bars_vs_truth(params, galaxies, true_params):
         ax.set_ylim([0, 1])
         ax.set_xlabel('Truth')
         ax.set_ylabel(r'Best guess, 80% credible interval')
-    fig.tight_layout()
-    return fig, axes
-
-
-def plot_posterior_stripes(params, galaxies, true_params, n_param_bins=50, n_posterior_bins=50):
-    fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(16, 8))
-    all_axes = [ax for col in axes for ax in col]
-    sns.set_context('notebook')
-    sns.set_style('white')
-
-    # with a made up array, get the bins to use
-    dummy_array = np.zeros(42)  # anything
-    _, param_bins = np.histogram(dummy_array, range=(0., 1.), bins=n_param_bins)
-    _, posterior_bins = np.histogram(dummy_array, range=(0., 1.), bins=n_posterior_bins)
-
-    for param_n in range(len(params)):
-        ax = all_axes[param_n]
-        posterior_record = np.zeros((n_param_bins, n_posterior_bins)) * np.nan
-        for galaxy_n, galaxy in enumerate(galaxies):
-            samples_of_param = galaxy[:, :, param_n].flatten()
-            true_param = true_params[galaxy_n, param_n]
-            true_param_index = np.digitize(true_param, param_bins)  # find the bin index for true_param
-            stripe, _ = np.histogram(samples_of_param, density=True, bins=posterior_bins)
-            posterior_record[true_param_index] = stripe  # currently will only show the latest, should do nan-safe mean
-        ax.pcolormesh(param_bins, posterior_bins, np.transpose(posterior_record), cmap='Blues')
-        ax.grid(False)
-        ax.plot([0., 1.], [0., 1.], 'k--', alpha=0.3)
-        ax.set_title('{}'.format(params[param_n]))
-        ax.set_xlabel('Truth')
-        ax.set_ylabel(r'Sampled Posterior')
     fig.tight_layout()
     return fig, axes
 
@@ -187,8 +147,11 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('--save-dir', dest='save_dir', type=str)
+    parser.add_argument('--aggregate', dest='aggregate', action='store_true', default=False)
     parser.add_argument('--corner', dest='save_corner', action='store_true', default=False)
     args = parser.parse_args()
     logging.getLogger().setLevel(logging.INFO)  # some third party library is mistakenly setting the logging somewhere...
 
+    if args.aggregate:
+        run_sampler.aggregate_performance(args.save_dir, 15000, 96)
     main(args.save_dir, args.save_corner)

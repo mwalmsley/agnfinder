@@ -75,6 +75,9 @@ def aggregate_performance(save_dir, n_samples, n_chains):
 def read_performance(save_dir):
     # if the code hangs while reading, there's a shape mismatch between sources and virtual layout - probably samples.
     file_loc = aggregate_filename(save_dir)
+    return read_h5(file_loc)
+
+def read_h5(file_loc):
     with h5py.File(file_loc, 'r') as f:
         logging.debug('Reading {}'.format(file_loc))
         logging.debug(list(f.keys()))
