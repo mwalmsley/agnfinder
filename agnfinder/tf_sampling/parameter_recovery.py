@@ -70,11 +70,13 @@ def get_cmap(hue_val):
     return ListedColormap(newcolors)
 
 if __name__ == '__main__':
+    """
+    Example use:
+    python agnfinder/tf_sampling/parameter_recovery.py --save-dir results/extra_filters/latest_6000_96_optimised
+    """
 
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('--save-dir', dest='save_dir', type=str)
-    parser.add_argument('--aggregate', dest='aggregate', action='store_true', default=False)
-    parser.add_argument('--corner', dest='save_corner', action='store_true', default=False)
     args = parser.parse_args()
     logging.getLogger().setLevel(logging.INFO)  # some third party library is mistakenly setting the logging somewhere...
 
@@ -93,5 +95,6 @@ if __name__ == '__main__':
         true_params[n] = galaxy_true_params
 
     fig, axes = plot_posterior_stripes(params, marginals, true_params)
+    fig.tight_layout()
     # plt.gcf()
     plt.show()

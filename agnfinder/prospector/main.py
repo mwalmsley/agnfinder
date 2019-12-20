@@ -44,7 +44,7 @@ def load_galaxy(catalog_loc, index=0, forest_class=None, spectro_class=None):
     return df.iloc[index]
 
 
-def construct_problem(galaxy, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, emulate_ssp):
+def construct_problem(galaxy, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, emulate_ssp, filters):
     run_params = {}
 
     # model params
@@ -64,10 +64,9 @@ def construct_problem(galaxy, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_
 
     logging.info('Run params: {}'.format(run_params))
 
-    obs = cpz_builders.build_cpz_obs(galaxy, reliable=True)
+    obs = cpz_builders.build_cpz_obs(galaxy, reliable=True, filters=filters)
     logging.info(obs)
 
-    # demo_model = demo_builders.build_model(**run_params)
     model = cpz_builders.build_model(**run_params)
     logging.info(model)
 

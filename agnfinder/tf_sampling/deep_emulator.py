@@ -27,7 +27,7 @@ def tf_model():
         tf.keras.layers.Dense(128, activation='relu'),
         tf.keras.layers.Dense(1024, activation='relu'),
         tf.keras.layers.Dropout(0.08),
-        tf.keras.layers.Dense(12)
+        tf.keras.layers.Dense(24)
         ])
     model.compile(
         optimizer='adam',
@@ -38,12 +38,12 @@ def tf_model():
 # because hyperas is weird, this isn't allowed any arguments - not even via closure! TODO use keras-tuner instead, better/cleaner
 def data():
     # CHANGE ME to point to your hypercube
-    relative_loc = 'data/photometry_simulation_1000000.hdf5'  # when running from repo root
+    relative_loc = 'data/extra_filters/photometry_simulation_100000.hdf5'  # when running from repo root
     external_loc = '/media/mike/beta/agnfinder/photometry_simulation_1000000.hdf5'
     if os.path.isfile(relative_loc):
         loc = relative_loc
-    elif os.path.isfile(external_loc):
-        loc = external_loc
+    # elif os.path.isfile(external_loc):
+        # loc = external_loc
     logging.warning('Using data loc {}'.format(loc))
     with h5py.File(loc, 'r') as f:
         theta = f['samples']['normalised_theta'][...]
@@ -142,6 +142,6 @@ if __name__ == '__main__':
     # print(best_model.evaluate(test_features, test_labels))
 
     # create_new_emulator
-    checkpoint_loc = 'results/checkpoints/latest_tf'  # last element is checkpoint name
+    checkpoint_loc = 'results/checkpoints/extra_filters'  # last element is checkpoint name
     model = tf_model()
     trained_clf = get_trained_keras_emulator(model, checkpoint_loc, new=True)

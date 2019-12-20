@@ -114,3 +114,4 @@ results/*.png
 data/*.png
 *.parquet
 .vscode/*
+data/extra_filters

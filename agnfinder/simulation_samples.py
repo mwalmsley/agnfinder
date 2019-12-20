@@ -35,7 +35,7 @@ def simulate(n_samples, catalog_loc, save_loc, emulate_ssp, noise):
     photometry = simulation_utils.sample(
         theta=galaxy_params,
         n_samples=n_samples,
-        output_dim=12,  # reliable bands only
+        output_dim=24,  #  NOW INCLUDING MORE FILTERS
         simulator=simulator
     )
 
@@ -51,7 +51,7 @@ def simulate(n_samples, catalog_loc, save_loc, emulate_ssp, noise):
 def get_forward_model(catalog_loc, emulate_ssp, noise):
     galaxy_index = 1
     galaxy = main.load_galaxy(catalog_loc, galaxy_index)
-    redshift = galaxy['redshift']
+    redshift = galaxy['redshift']  # by default, uses the redshift of first galaxy (.3 I think) for all galaxies to make hypercube
     agn_mass = True
     agn_eb_v = True
     agn_torus_mass = True
@@ -63,7 +63,21 @@ def get_forward_model(catalog_loc, emulate_ssp, noise):
     else:
         get_sigma = None
 
-    _, obs, model, sps = main.construct_problem(galaxy, redshift=redshift, agn_mass=agn_mass, agn_eb_v=agn_eb_v, agn_torus_mass=agn_torus_mass, igm_absorbtion=igm_absorbtion, emulate_ssp=emulate_ssp)
+    extra_filters = [
+        'herschel_spire_250',
+        'herschel_spire_350',
+        'herschel_spire_500',
+        'spitzer_irac_ch3',
+        'spitzer_irac_ch4',
+        'spitzer_mips_160',
+        'spitzer_mips_24',
+        'spitzer_mips_70'
+    ]
+    # standard_filters = ['{}_galex'.format(b) for b in ['NUV', 'FUV']] + ['{}_cfhtl'.format(b) for b in ['g', 'r', 'u', 'z']] + ['{}_kids'.format(b) for b in ['i', 'r']] + ['VISTA_{}'.format(b) for b in ['H', 'J', 'Ks', 'Y', 'Z']] + ['{}_sloan'.format(b) for b in ['u', 'g', 'r', 'i', 'z']] + ['wise_{}'.format(x) for x in ['w1', 'w2']]
+    standard_filters = ['{}_galex'.format(b) for b in ['NUV', 'FUV']] + ['{}_kids'.format(b) for b in ['i', 'r']] + ['VISTA_{}'.format(b) for b in ['H', 'J', 'Ks', 'Y', 'Z']] + ['{}_sloan'.format(b) for b in ['u', 'g', 'r', 'i', 'z']] + ['wise_{}'.format(x) for x in ['w1', 'w2']]
+    filters = standard_filters + extra_filters
+    print('Total filters: {}'.format(len(filters)))
+    _, obs, model, sps = main.construct_problem(galaxy, redshift=redshift, agn_mass=agn_mass, agn_eb_v=agn_eb_v, agn_torus_mass=agn_torus_mass, igm_absorbtion=igm_absorbtion, emulate_ssp=emulate_ssp, filters=filters)
 
     _ = visualise.calculate_sed(model, model.theta, obs, sps)  # TODO might not be needed for obs phot wavelengths
     phot_wavelengths = obs['phot_wave']
@@ -87,8 +101,7 @@ if __name__ == '__main__':
     Optionally, use the GP emulator for the forward model. Not a great idea, as this is slower than the original forward model, but I implemented it already...
 
     Example use: 
-        export REPO_LOC=/home/mike/repos/agnfinder
-        /media/mike/Windows/linux_cache/miniconda37/envs/agnfinder/bin/python $REPO_LOC/agnfinder/simulation_samples.py 10000 --catalog-loc /media/mike/beta/agnfinder/cpz_paper_sample_week3.parquet --save-dir $REPO_LOC/data
+        python agnfinder/simulation_samples.py 10000 --catalog-loc /media/mike/beta/agnfinder/cpz_paper_sample_week3.parquet --save-dir data
     """
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('n_samples', type=int)

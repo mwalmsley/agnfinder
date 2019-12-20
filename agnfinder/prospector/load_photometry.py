@@ -1,4 +1,5 @@
 import logging
+import os
 from collections import namedtuple
 
 import numpy as np
@@ -58,7 +59,15 @@ def get_filters(reliable):
         return galex + sdss+ cfht + kids + vista + wise  # note that these are *not* in wavelength order!
 
 
-def load_maggies_from_galaxy(galaxy, reliable):
+def load_maggies_from_galaxy(galaxy, reliable, filters=None, dummy=True):
+    if dummy:
+        assert filters
+        loaded_filters = load_filters(filters)
+        maggies = np.ones(len(loaded_filters))
+        errors = np.ones(len(loaded_filters))
+        return loaded_filters, maggies, errors
+
+    # find the valid filters, and check there are the 12 necessary ones (TODO should refactor)
     all_filters = get_filters(reliable)
     valid_filters = [f for f in all_filters if filter_has_valid_data(f, galaxy)]
     if reliable and len(valid_filters) != 12:
@@ -66,7 +75,7 @@ def load_maggies_from_galaxy(galaxy, reliable):
     logging.info('valid filters: {}'.format(valid_filters))
 
     # Instantiate the `Filter()` objects using methods in `sedpy`
-    filters = observate.load_filters([f.bandpass_file for f in valid_filters])
+    loaded_filters = observate.load_filters([f.bandpass_file for f in valid_filters])
 
     # Now we store the measured fluxes for a single object, **in the same order as "filters"**
     # These should be in apparent AB magnitudes
@@ -86,7 +95,16 @@ def load_maggies_from_galaxy(galaxy, reliable):
     maggies_unc = np.array(maggies_unc).astype(float)
     logging.info('maggis errors: {}'.format(maggies_unc))
 
-    return filters, maggies, maggies_unc
+    return loaded_filters, maggies, maggies_unc
+
+def load_filters(filters):
+    # filter_root = '/media/mike/Windows/linux_cache/miniconda37/envs/agnfinder/lib/python3.7/site-packages/sedpy/data/filters'  # TODO hardcoded
+    # assert os.path.isdir(filter_root)
+    # filter_locs = [os.path.join(filter_root, f) for f in filters]
+    for loc in filters:
+        print(loc)
+    return observate.load_filters(filters)
+    # return [observate.load_filters(f) for f in filter_locs]
 
 
 def filter_has_valid_data(filter_tuple, galaxy):

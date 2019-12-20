@@ -44,3 +44,9 @@ export PYTHON=/mnt/zfsusers/mwalmsley/envs/agnfitter/bin/python
 export QUEUE=planet
 export CATALOG=/mnt/zfsusers/mwalmsley/repos/agnfinder/data/cpz_paper_sample_week3.parquet
 addqueue -c "1 hour" -q $QUEUE -n 12 -m 3 $PYTHON $REPO/agnfinder/simulation_samples.py 10000 --catalog-loc data/cpz_paper_sample_week3.parquet
+
+python agnfinder/simulation_samples.py 100000 --catalog-loc /media/mike/beta/agnfinder/cpz_paper_sample_week3.parquet --save-dir data/extra_filters
+python agnfinder/tf_sampling/deep_emulator.py
+python agnfinder/tf_sampling/run_sampler_singlethreaded.py --checkpoint-loc results/checkpoints/extra_filters --output-dir results/extra_filters
+python agnfinder/tf_sampling/get_marginals.py --save-dir results/extra_filters/latest_6000_96_optimised
+python agnfinder/tf_sampling/parameter_recovery.py --save-dir results/extra_filters/latest_6000_96_optimised
