@@ -17,7 +17,7 @@ def denormalise_hypercube(normalised_hcube, limits):
         # 0, 1 -> -2, 6
         # 0, 8
         theta_to_sample[:, key_n] = (theta_to_sample[:, key_n] * (lims[1] - lims[0]) + lims[0]) 
-        print(key, theta_to_sample[:, key_n].min(), theta_to_sample[:, key_n].max())
+        # print(key, theta_to_sample[:, key_n].min(), theta_to_sample[:, key_n].max())
         if key.startswith('log'):
             logging.info('Automatically exponentiating {}'.format(key))
             theta_to_sample[:, key_n] = 10 ** theta_to_sample[:, key_n]

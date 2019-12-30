@@ -20,13 +20,25 @@ from sklearn.metrics import mean_squared_error
 
 def tf_model():
     # note: the relu's make a huge improvement here over default (sigmoid?)
+
+    # previous default
+    # model = tf.keras.Sequential([
+    #     tf.keras.layers.Dense(256, input_dim=7, activation='relu'),
+    #     tf.keras.layers.Dense(1024, activation='relu'),
+    #     tf.keras.layers.Dense(128, activation='relu'),
+    #     tf.keras.layers.Dense(128, activation='relu'),
+    #     tf.keras.layers.Dense(1024, activation='relu'),
+    #     tf.keras.layers.Dropout(0.08),
+    #     tf.keras.layers.Dense(12)
+    #     ])
+
+    # current best from hyperband w/ 10m cube, 15 epochs
     model = tf.keras.Sequential([
-        tf.keras.layers.Dense(256,input_dim=7, activation='relu'),
-        tf.keras.layers.Dense(1024, activation='relu'),
-        tf.keras.layers.Dense(128, activation='relu'),
-        tf.keras.layers.Dense(128, activation='relu'),
-        tf.keras.layers.Dense(1024, activation='relu'),
-        tf.keras.layers.Dropout(0.08),
+        tf.keras.layers.Dense(192, input_dim=7, activation='relu'),
+        tf.keras.layers.Dense(448, activation='relu'),
+        tf.keras.layers.Dense(192, activation='relu'),
+        tf.keras.layers.Dense(576, activation='relu'),
+        tf.keras.layers.Dropout(0.004),
         tf.keras.layers.Dense(12)
         ])
     model.compile(
@@ -47,17 +59,25 @@ def data():
     logging.warning('Using data loc {}'.format(loc))
     with h5py.File(loc, 'r') as f:
         theta = f['samples']['normalised_theta'][...]
-        # hacky extra normalisation here, not great TODO
-        simulated_y = -1 * np.log10(f['samples']['simulated_y'][...])
-    features = theta
-    labels = simulated_y
-    x_train, x_test, y_train, y_test = train_test_split(features, labels, random_state=1)
+        # very important to remember to also do this to real data!
+        normalised_photometry = normalise_photometry(f['samples']['simulated_y'][...])
+    # theta as features, normalised_photometry as labels
+    x_train, x_test, y_train, y_test = train_test_split(theta, normalised_photometry, random_state=1, test_size=0.02)
     return x_train, y_train, x_test, y_test
+
 
 def train_manual(model, train_features, train_labels, test_features, test_labels):
     early_stopping = keras.callbacks.EarlyStopping()
-    model.fit(train_features, train_labels, epochs=3, batch_size=64, validation_split=0.2, callbacks=[early_stopping])
+    model.fit(train_features, train_labels, epochs=15, validation_data=(test_features, test_labels), callbacks=[early_stopping])
     return model
+
+
+def normalise_photometry(photometry):
+    return -1 * np.log10(photometry)
+
+
+def denormalise_photometry(normed_photometry):
+    return 10 ** (-1 * normed_photometry)
 
 
 def create_model(x_train, y_train, x_test, y_test):
@@ -106,7 +126,8 @@ def train_boosted_trees():
     print(mean_squared_error(y_test, clf.predict(x_test))) 
 
 
-def get_trained_keras_emulator(emulator, checkpoint_loc, new=False):
+def get_trained_keras_emulator(emulator, checkpoint_dir, new=False):
+    checkpoint_loc = os.path.join(checkpoint_dir, 'model')
     if new:
         logging.info('Training new emulator')
         emulator = train_manual(emulator, *data())
@@ -142,6 +163,8 @@ if __name__ == '__main__':
     # print(best_model.evaluate(test_features, test_labels))
 
     # create_new_emulator
-    checkpoint_loc = 'results/checkpoints/latest_tf'  # last element is checkpoint name
+    checkpoint_dir = 'results/checkpoints/10m_5_epochs'  # last element is checkpoint name
+    if not os.path.isdir(checkpoint_dir):
+        os.mkdir(checkpoint_dir)
     model = tf_model()
-    trained_clf = get_trained_keras_emulator(model, checkpoint_loc, new=True)
+    trained_clf = get_trained_keras_emulator(model, checkpoint_dir, new=True)

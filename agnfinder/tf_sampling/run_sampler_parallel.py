@@ -35,15 +35,16 @@ if __name__ == '__main__':
         x_test = x_test.astype(np.float32)
         y_test = y_test.astype(np.float32)
         true_params = x_test[args.index]
-        true_observation = y_test[args.index]
+        true_observation = deep_emulator.denormalise_photometry(y_test[args.index])
         # to preserve memory
         del x_test
         del y_test
-
     else:  # use data specified in photometry cube
         assert args.cube_loc is None
         true_params = None
         true_observation = 'TODO' # load from appropriate hdf5 index
+
+    save_dir = os.path.join(args.output_dir, 'latest_{}_{}_{}'.format(args.n_samples, args.n_chains, args.init_method))
 
     run_sampler.run_on_single_galaxy(
         name=args.index,
@@ -54,5 +55,5 @@ if __name__ == '__main__':
         n_samples=args.n_samples,
         n_chains=args.n_chains,
         init_method=args.init_method,
-        save_dir=args.output_dir
+        save_dir=save_dir
     )

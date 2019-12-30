@@ -8,6 +8,10 @@ from agnfinder.tf_sampling import run_sampler
 import h5py
 
 if __name__ == '__main__':
+    """
+    Example use:
+        python agnfinder/tf_sampling/get_marginals.py --save-dir /media/mike/beta/agnfinder_results/with_3_epoch_p98_6k_96
+    """
 
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('--save-dir', dest='save_dir', type=str)

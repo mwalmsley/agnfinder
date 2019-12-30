@@ -6,6 +6,8 @@ ping -c 2 -s 999 glamdring.physics.ox.ac.uk
 
 **Sync agnfinder code to Oxford cluster**
 rsync -avz --exclude 'results' repos/agnfinder mwalmsley@glamdring.physics.ox.ac.uk:repos
+rsync -avz repos/agnfinder/results/checkpoints mwalmsley@glamdring.physics.ox.ac.uk:repos/agnfinder/results
+
 
 **sync results from Oxford cluster**
 rsync -avz mwalmsley@glamdring.physics.ox.ac.uk:repos/agnfinder/results/ /media/mike/internal/agnfinder/results/...

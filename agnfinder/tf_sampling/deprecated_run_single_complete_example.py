@@ -12,42 +12,6 @@ from agnfinder.tf_sampling import deep_emulator, api
 from agnfinder.tf_sampling.api import SamplingProblem
 from agnfinder.tf_sampling.hmc import SamplerHMC
 
-
-def test_log_prob_fn(problem):
-
-    test_figure_dir = 'tests/test_figures'
-    true_params_2d = tf.reshape(problem.true_params, (1, 7))
-
-    plt.figure()
-    plt.scatter(range(12), problem.forward_model(true_params_2d), label='model prediction')
-    plt.scatter(range(12), problem.true_observation, label='full simulation (truth)')
-    plt.xlabel('Band (ordered indices)')
-    plt.ylabel('Predicted mag')
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(os.path.join(test_figure_dir, 'model_vs_sim_at_logp_test_case.png'))
-
-    log_prob_fn = api.get_log_prob_fn(problem.forward_model, problem.true_observation, batch_dim=1)
-
-    # look at slices of log prob, where one param varies (0, 1) and the rest are the true solution
-    # ideally, log prob is maximised in each case where the free param is near the true value
-    # might not always be true due to degeneracy, but should mostly be true
-    for param_index in range(6):
-        plt.figure()
-        param_values = np.linspace(0.01, 0.99, 100)
-        log_prob = np.zeros(100)
-        for n in range(100):
-            modified_values = true_params_2d.numpy()
-            modified_values[0, param_index] = param_values[n]
-            log_prob[n] = log_prob_fn(tf.Variable(modified_values)).numpy()
-        plt.plot(param_values, log_prob, label='Log prob')
-        plt.xlabel('Param {}'.format(param_index))
-        plt.ylabel('Log prob with modified param')
-        plt.axvline(true_params_2d[0, param_index].numpy(), c='k', label='True')
-        plt.legend()
-        plt.tight_layout()
-        plt.savefig(os.path.join(test_figure_dir, 'log_prob_modified_param_{}.png'.format(param_index)))
-
 if __name__ == '__main__':
 
     """

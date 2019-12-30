@@ -51,7 +51,7 @@ def simulate(n_samples, catalog_loc, save_loc, emulate_ssp, noise):
 def get_forward_model(catalog_loc, emulate_ssp, noise):
     galaxy_index = 1
     galaxy = main.load_galaxy(catalog_loc, galaxy_index)
-    redshift = galaxy['redshift']
+    redshift = galaxy['redshift']  # TODO should specify explicitly next time I make a big cube
     agn_mass = True
     agn_eb_v = True
     agn_torus_mass = True

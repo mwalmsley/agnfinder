@@ -17,20 +17,24 @@ if __name__ == '__main__':
     Check if the emulator is giving photometry similar to the 'true' forward model.
 
     Example use:
-    python agnfinder/tf_sampling/evaluate_emulator.py --checkpoint-loc results/checkpoints/latest
+    python agnfinder/tf_sampling/evaluate_emulator.py --checkpoint-loc results/checkpoints/latest-tf
     """
 
     parser = argparse.ArgumentParser(description='Run emulated HMC on many galaxies')
-    parser.add_argument('--checkpoint-loc', type=str, dest='checkpoint_loc')
+    parser.add_argument('--checkpoint', type=str, dest='checkpoint_dir')
     args = parser.parse_args()
 
-    checkpoint_loc = args.checkpoint_loc
-    _, _, x_test, y_test = deep_emulator.data()
+    checkpoint_dir = args.checkpoint_dir
+    x_train, y_train, x_test, y_test = deep_emulator.data()
 
+    x_train, y_train = x_train[:10000], y_train[:10000]  # for speed
     x_test, y_test = x_test[:10000], y_test[:10000]  # for speed
 
-    emulator = deep_emulator.get_trained_keras_emulator(deep_emulator.tf_model(), checkpoint_loc, new=False)
+    emulator = deep_emulator.get_trained_keras_emulator(deep_emulator.tf_model(), checkpoint_dir, new=False)
+
+    emulator.evaluate(x_train, y_train, use_multiprocessing=True)
     emulator.evaluate(x_test, y_test, use_multiprocessing=True)
+
     y_pred = emulator.predict(x_test, use_multiprocessing=True)
 
     print('Explained Var (max 1): {:.5f}'.format(metrics.explained_variance_score(y_test, y_pred)))

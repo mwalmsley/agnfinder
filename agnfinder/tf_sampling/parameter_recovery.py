@@ -31,7 +31,7 @@ def plot_posterior_stripes(params, marginals, true_params, n_param_bins=50, n_po
     dummy_array = np.zeros(42)  # anything
     _, param_bins = np.histogram(dummy_array, range=(0., 1.), bins=n_param_bins)
 
-    coloring_param_index = 6
+    coloring_param_index = 5
     for param_n in range(len(params)):
         ax = all_axes[param_n]
         posterior_record = np.zeros((n_param_bins, n_posterior_bins)) * np.nan
@@ -43,9 +43,10 @@ def plot_posterior_stripes(params, marginals, true_params, n_param_bins=50, n_po
             if true_param_index < n_param_bins:  # exclude =50 edge case TODO
                 posterior_record[true_param_index] = stripe  # currently will only show the latest, should do nan-safe mean
 
-        posterior_record = posterior_record / np.max(posterior_record[~np.isnan(posterior_record)])
+        ceiling = np.quantile(posterior_record[~np.isnan(posterior_record)], .98)
+        posterior_record = np.clip(posterior_record, 0, ceiling)
 
-        # ax.pcolormesh(param_bins, posterior_bins, np.transpose(posterior_record), cmap='Blues')  
+        # ax.pcolormesh(param_bins, param_bins, np.transpose(posterior_record), cmap='Blues')  
         for galaxy_n, galaxy in enumerate(marginals):
             custom_cmap = get_cmap(true_params[galaxy_n, coloring_param_index])
             true_param = true_params[galaxy_n, param_n]
@@ -55,7 +56,7 @@ def plot_posterior_stripes(params, marginals, true_params, n_param_bins=50, n_po
         ax.imshow(np.transpose(posterior_colors, axes=[1, 0, 2]), origin='lower')
         
         ax.grid(False)
-        ax.plot([0., 50.], [0., 50.], 'k--', alpha=0.3)
+        # ax.plot([0., 50.], [0., 50.], 'k--', alpha=0.3)
         ax.set_title('{}'.format(params[param_n]))
         ax.set_xlabel('Truth')
         ax.set_ylabel(r'Sampled Posterior')
@@ -73,8 +74,6 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('--save-dir', dest='save_dir', type=str)
-    parser.add_argument('--aggregate', dest='aggregate', action='store_true', default=False)
-    parser.add_argument('--corner', dest='save_corner', action='store_true', default=False)
     args = parser.parse_args()
     logging.getLogger().setLevel(logging.INFO)  # some third party library is mistakenly setting the logging somewhere...
 
