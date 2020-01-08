@@ -7,7 +7,7 @@ import tensorflow as tf
 from tensorflow import keras
 import h5py
 
-from hyperopt import Trials, STATUS_OK, tpe
+# from hyperopt import Trials, STATUS_OK, tpe
 from keras.layers.core import Dense, Dropout, Activation
 from keras.models import Sequential
 
@@ -80,46 +80,6 @@ def denormalise_photometry(normed_photometry):
     return 10 ** (-1 * normed_photometry)
 
 
-def create_model(x_train, y_train, x_test, y_test):
-    """
-    Model providing function:
-
-    Create Keras model with double curly brackets dropped-in as needed.
-    Return value has to be a valid python dictionary with two customary keys:
-        - loss: Specify a numeric evaluation metric to be minimized
-        - status: Just use STATUS_OK and see hyperopt documentation if not feasible
-    The last one is optional, though recommended, namely:
-        - model: specify the model just created so that we can later use it again.
-    """
-    model = Sequential()
-    model.add(Dense({{choice([256, 512, 1024])}}, input_dim=7))
-    model.add(Activation({{choice(['relu', 'sigmoid'])}}))
-    model.add(Dense({{choice([256, 512, 1024])}}))
-    model.add(Activation({{choice(['relu', 'sigmoid'])}}))
-    model.add(Dense({{choice([128, 256, 512, 1024])}}))
-    model.add(Activation({{choice(['relu', 'sigmoid'])}}))
-    model.add(Dense({{choice([128, 256, 512, 1024])}}))
-    model.add(Activation({{choice(['relu', 'sigmoid'])}}))
-    model.add(Dense({{choice([128, 256, 512, 1024])}}))
-    model.add(Dropout({{uniform(0, 1)}}))
-    model.add(Dense(12))
-    model.add(Activation({{choice(['relu', 'sigmoid'])}}))
-
-    model.compile(loss='mean_squared_error', metrics=['mean_absolute_error'],
-                    optimizer='adam')
-
-    result = model.fit(x_train, y_train,
-                batch_size={{choice([64, 128])}},
-                epochs=40,
-                verbose=2,
-                validation_split=0.2)
-    #get the highest validation accuracy of the training epochs TODO bad...?
-    n_best = 5
-    best_val_losses = np.sort(result.history['val_loss'])[:n_best].mean()
-    print('Mean best loss (of {}) of epoch:'.format(n_best), best_val_losses)
-    return {'loss': best_val_losses, 'status': STATUS_OK, 'model': model}
-
-
 def train_boosted_trees():
     x_train, y_train, x_test, y_test = data()
     clf = GradientBoostingRegressor().fit(x_train, y_train)
@@ -137,30 +97,16 @@ def get_trained_keras_emulator(emulator, checkpoint_dir, new=False):
         emulator.load_weights(checkpoint_loc)  # modifies inplace
     return emulator
 
-
-def find_best_model(max_evals=40):
-    best_run, _ = optim.minimize(model=create_model,
-                                        data=data,
-                                        algo=tpe.suggest,
-                                        max_evals=max_evals,
-                                        trials=Trials())
-
-    print("Best performing model chosen hyper-parameters:")
-    print(best_run)
-
-
 if __name__ == '__main__':
     """
     You can run this (with no args) to train a new emulator (which will be saved as below)
+
+    To find better model hyperparams, see Google Colab
     """
 
     tf.enable_eager_execution()
 
     # train_boosted_trees()
-
-    # find_best_model()
-    # print("Evalutation of best performing model:")
-    # print(best_model.evaluate(test_features, test_labels))
 
     # create_new_emulator
     checkpoint_dir = 'results/checkpoints/10m_5_epochs'  # last element is checkpoint name
