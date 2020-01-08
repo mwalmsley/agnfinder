@@ -80,18 +80,18 @@ class SamplerHMC(Sampler):
         return samples
 
 # don't decorate
-def hmc(log_prob_fn, initial_state, num_results=int(10e3), num_burnin_steps=int(1e3)):
+def hmc(log_prob_fn, initial_state, num_chains, num_results=int(10e3), num_burnin_steps=int(1e3)):
 
     # Initialize the HMC transition kernel.
     adaptive_hmc = tfp.mcmc.SimpleStepSizeAdaptation(
         tfp.mcmc.HamiltonianMonteCarlo(
             target_log_prob_fn=log_prob_fn,
             num_leapfrog_steps=3,
-            step_size=2,
+            step_size=.1,
             state_gradients_are_stopped=True),
         num_adaptation_steps=int(num_burnin_steps * 0.8))
 
-    @tf.function
+    # @tf.function
     def run_chain():
         # Run the chain (with burn-in).
         samples, is_accepted = tfp.mcmc.sample_chain(
