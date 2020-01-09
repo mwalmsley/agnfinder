@@ -18,11 +18,13 @@ def record_performance_on_galaxies(checkpoint_loc, max_galaxies, n_burnin, n_sam
     if not os.path.isdir(save_dir):
         os.mkdir(save_dir)
 
-    for i in tqdm(range(max_galaxies)):
-        if not os.path.isfile(run_sampler.get_galaxy_save_file(i, save_dir)):
-            true_params = x_test[i]
-            true_observation = deep_emulator.denormalise_photometry(y_test[i])
-            run_sampler.run_on_single_galaxy(i, true_observation, true_params, emulator, n_burnin, n_samples, n_chains, init_method, save_dir)
+
+    # for i in tqdm(range(max_galaxies)):
+    i = 1977  # galaxy in 10m param cube w/ all params close to 0.5
+    # if not os.path.isfile(run_sampler.get_galaxy_save_file(i, save_dir)):
+    true_params = x_test[i]
+    true_observation = deep_emulator.denormalise_photometry(y_test[i])
+    run_sampler.run_on_single_galaxy(i, true_observation, true_params, emulator, n_burnin, n_samples, n_chains, init_method, save_dir)
 
 
 if __name__ == '__main__':
@@ -32,6 +34,7 @@ if __name__ == '__main__':
     Evaluating performance at recovering posteriors can be done in `evaluate_performance.py`
 
     Example use: 
+    python agnfinder/tf_sampling/run_sampler_singlethreaded.py --checkpoint-loc results/checkpoints/latest --output-dir results/emulated_sampling --n-chains 4 --n-samples 100 --n-burnin 100 --init random
     python agnfinder/tf_sampling/run_sampler_singlethreaded.py --checkpoint-loc results/checkpoints/latest --output-dir results/emulated_sampling
 
     """

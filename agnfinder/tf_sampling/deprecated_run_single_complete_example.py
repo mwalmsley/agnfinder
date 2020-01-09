@@ -19,7 +19,7 @@ if __name__ == '__main__':
     See README.md in this folder for more.
 
     Example use:
-    python agnfinder/tf_sampling/main.py --checkpoint-loc results/checkpoints/latest --test-json data/lfi_test_case.json --n-chains 32 --n-samples 1000 --n-burnin 1500
+    python agnfinder/tf_sampling/deprecated_run_single_complete_example.py --checkpoint-loc results/checkpoints/latest --test-json data/lfi_test_case.json --n-chains 32 --n-samples 1000 --n-burnin 1500
 
     """
     tf.enable_eager_execution()

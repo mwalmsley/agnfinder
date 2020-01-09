@@ -4,15 +4,7 @@ import logging
 import numpy as np
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
-from tensorflow import keras
 import h5py
-
-# from hyperopt import Trials, STATUS_OK, tpe
-from keras.layers.core import Dense, Dropout, Activation
-from keras.models import Sequential
-
-from hyperas import optim
-from hyperas.distributions import choice, uniform
 
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.metrics import mean_squared_error
@@ -47,7 +39,6 @@ def tf_model():
         metrics=['mean_absolute_error'])
     return model
 
-# because hyperas is weird, this isn't allowed any arguments - not even via closure! TODO use keras-tuner instead, better/cleaner
 def data():
     # CHANGE ME to point to your hypercube
     relative_loc = 'data/photometry_simulation_1000000.hdf5'  # when running from repo root
@@ -56,6 +47,8 @@ def data():
         loc = relative_loc
     elif os.path.isfile(external_loc):
         loc = external_loc
+    else:
+        raise FileNotFoundError
     logging.warning('Using data loc {}'.format(loc))
     with h5py.File(loc, 'r') as f:
         theta = f['samples']['normalised_theta'][...]
