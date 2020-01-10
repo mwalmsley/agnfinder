@@ -1,13 +1,13 @@
 import logging
 
-from tqdm import tqdm
+import tqdm
 import numpy as np
 import h5py
 import pyDOE2
 
 
-def get_unit_latin_hypercube(dims, samples):
-    return pyDOE2.lhs(n=dims, samples=samples, criterion='correlation')
+def get_unit_latin_hypercube(dims, n_samples):
+    return pyDOE2.lhs(n=dims, samples=n_samples, criterion='correlation')
 
 
 def denormalise_hypercube(normalised_hcube, limits):
@@ -17,9 +17,9 @@ def denormalise_hypercube(normalised_hcube, limits):
         # 0, 1 -> -2, 6
         # 0, 8
         theta_to_sample[:, key_n] = (theta_to_sample[:, key_n] * (lims[1] - lims[0]) + lims[0]) 
-        print(key, theta_to_sample[:, key_n].min(), theta_to_sample[:, key_n].max())
+        # print(key, theta_to_sample[:, key_n].min(), theta_to_sample[:, key_n].max())
         if key.startswith('log'):
-            logging.warning('Automatically exponentiating {}'.format(key))
+            logging.info('Automatically exponentiating {}'.format(key))
             theta_to_sample[:, key_n] = 10 ** theta_to_sample[:, key_n]
     return theta_to_sample
 
@@ -33,29 +33,42 @@ def denormalise_theta(normalised_theta, limits):
     return theta
 
 
-def sample(theta_df, n_samples, output_dim, simulator):
-    theta_names = theta_df.columns.values  # df with columns (theta_1, theta_2, ...)
-    X = np.zeros((n_samples, len(theta_names)))
-    Y = np.zeros((n_samples, output_dim))
-    for n, theta_tuple in tqdm(enumerate(theta_df.itertuples(name='theta'))):
-        X[n] = [getattr(theta_tuple, p) for p in theta_names]
-        Y[n] = simulator(X[n])
-    return X, Y
+def sample(theta, n_samples, output_dim, simulator):
+    """
+    Calculate simulator(theta) for every vector (row) in theta
+    
 
-def save_samples(save_loc, free_params, theta_df, normalised_theta_df, simulated_y, wavelengths=None):
+    Args:
+        theta ([type]): [description]
+        n_samples ([type]): [description]
+        output_dim ([type]): [description]
+        simulator ([type]): [description]
+    
+    Returns:
+        X: array of simulator input parameters
+        Y: array of simulator output vectors, matching X index (and *I think* theta_df index)
+    """
+    Y = np.zeros((n_samples, output_dim))  # simulator output vectors
+    for n in tqdm.tqdm(range(len(theta))):
+        Y[n] = simulator(theta[n])
+    return Y
+
+
+def save_samples(save_loc, theta_names, theta, normalised_theta, simulator_outputs, wavelengths=None):
     with h5py.File(save_loc, 'w') as f:
         grp = f.create_group('samples')
-        ds_x = grp.create_dataset('theta', data=theta_df.values)
-        ds_x.attrs['columns'] = list(theta_df.columns.values)
+        ds_x = grp.create_dataset('theta', data=theta)
+        ds_x.attrs['columns'] = list(theta_names)
         ds_x.attrs['description'] = 'Parameters used by simulator'
         
-        ds_x_norm = grp.create_dataset('normalised_theta', data=normalised_theta_df.values)
+        ds_x_norm = grp.create_dataset('normalised_theta', data=normalised_theta)
         ds_x_norm.attrs['description'] = 'Normalised parameters used by simulator'
 
-        ds_y = grp.create_dataset('simulated_y', data=simulated_y)
+        ds_y = grp.create_dataset('simulated_y', data=simulator_outputs)
         ds_y.attrs['description'] = 'Response of simulator'
         
         # hacky
         if wavelengths is not None:
             ds_wavelengths = grp.create_dataset('wavelengths', data=wavelengths)
             ds_wavelengths.attrs['description'] = 'Observer wavelengths to visualise simulator photometry'
+    logging.info(f'Saved samples to {save_loc}')

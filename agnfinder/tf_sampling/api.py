@@ -3,6 +3,8 @@ import logging
 import numpy as np
 import tensorflow as tf
 
+from agnfinder.tf_sampling import deep_emulator
+
 class SamplingProblem():
 
     def __init__(self, true_observation, true_params, forward_model):
@@ -36,9 +38,11 @@ def get_log_prob_fn(forward_model, true_observation, batch_dim=None):
     # first dimension of true params must match first dimension of x, or will fail
     @tf.function
     def log_prob_fn(x):  # 0th axis is batch/chain dim, 1st is param dim
-        expected_photometry = forward_model(x, training=False)  # model expects a batch dimension, which here is the chains
-        deviation = tf.abs(10 ** expected_photometry - 10 ** true_observation_stacked)
-        sigma = (10 ** expected_photometry) * 0.05
+        # expected photometry has been normalised by deep_emulator.normalise_photometry, remember - it's neg log10 mags
+        expected_photometry = deep_emulator.denormalise_photometry(forward_model(x, training=False))  # model expects a batch dimension, which here is the chains
+        true_photometry = true_observation_stacked  # make sure you denormalise this in the first place, if loading from data()
+        deviation = tf.abs(expected_photometry - true_photometry)
+        sigma = expected_photometry * 0.05  # i.e. 5% sigma, will read in soon-ish
         log_prob = -tf.reduce_sum(deviation / sigma, axis=1)  # very negative = unlikely, near -0 = likely
         x_out_of_bounds = is_out_of_bounds(x)
         penalty = tf.cast(x_out_of_bounds, tf.float32) * tf.constant(1000., dtype=tf.float32)

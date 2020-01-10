@@ -69,12 +69,23 @@ def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn
     :returns model:
         An instance of prospect.models.SedModel
     """
-
+    logging.debug(redshift)
+    logging.debug(fixed_metallicity)
+    logging.debug(dust)
+    logging.debug(agn_mass)
+    logging.debug(agn_eb_v)
+    logging.debug(agn_torus_mass)
+    logging.debug(igm_absorbtion)
+    logging.debug(extras)
     # TODO increase galaxy extinction to 0.6
 
     # Get (a copy of) one of the prepackaged model set dictionaries.
     # This is, somewhat confusingly, a dictionary of dictionaries, keyed by parameter name
     model_params = TemplateLibrary["parametric_sfh"]  # add sfh and tau
+    # dust2 init -.6, uniform [0, 2] uniform prior
+    # delay-tau model with tau [0.1, 30] log-uniform prior
+    # tage (burst start?) init 1, uniform (tophat) [0.001, 13.8]
+
     model_params['dust_type'] = {"N": 1, "isfree": False, "init": 2}  # Calzetti, as opposed to 0 for power law 
     # fixed: Kroupa IMF
 
@@ -263,15 +274,12 @@ class CSPSpecBasisAGN(CSPSpecBasis):
         # rename to match
         mass_frac = mfrac_sum
         stellar_spectrum = spectrum
-        
-        """Explicit call of super"""
-        # wave, stellar_spectrum, mass_frac = super().get_galaxy_spectrum(**params)
 
         # insert blue AGN template here into spectrum
-        template_quasar_flux = self.quasar_template(wave, short_only=True)
+        template_quasar_flux = self.quasar_template(wave, short_only=True)  # normalised scale
         quasar_flux = template_quasar_flux * self.params['agn_mass'] * 1e14
 
-        template_torus_flux = self.torus_template(wave, long_only=True)
+        template_torus_flux = self.torus_template(wave, long_only=True)  # normalised scale
         torus_flux = template_torus_flux * self.params['agn_torus_mass'] * 1e14
 
         # must always be specified, even if None

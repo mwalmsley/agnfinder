@@ -15,15 +15,16 @@ def record_performance_on_galaxies(checkpoint_loc, max_galaxies, n_burnin, n_sam
     _, _, x_test, y_test = deep_emulator.data()
     x_test = x_test.astype(np.float32)
     y_test = y_test.astype(np.float32)
-
     if not os.path.isdir(save_dir):
         os.mkdir(save_dir)
 
-    for i in tqdm(range(max_galaxies)):
-        if not os.path.isfile(run_sampler.get_galaxy_save_file(i, save_dir)):
-            true_params = x_test[i]
-            true_observation = y_test[i]
-            run_sampler.run_on_single_galaxy(i, true_params, true_observation, emulator, n_burnin, n_samples, n_chains, init_method, save_dir)
+
+    # for i in tqdm(range(max_galaxies)):
+    i = 1977  # galaxy in 10m param cube w/ all params close to 0.5
+    # if not os.path.isfile(run_sampler.get_galaxy_save_file(i, save_dir)):
+    true_params = x_test[i]
+    true_observation = deep_emulator.denormalise_photometry(y_test[i])
+    run_sampler.run_on_single_galaxy(i, true_observation, true_params, emulator, n_burnin, n_samples, n_chains, init_method, save_dir)
 
 
 if __name__ == '__main__':
@@ -33,12 +34,13 @@ if __name__ == '__main__':
     Evaluating performance at recovering posteriors can be done in `evaluate_performance.py`
 
     Example use: 
-    python agnfinder/tf_sampling/run_sampler.py --checkpoint-loc results/checkpoints/latest --output-dir results/emulated_sampling
+    python agnfinder/tf_sampling/run_sampler_singlethreaded.py --checkpoint-loc results/checkpoints/latest --output-dir results/emulated_sampling --n-chains 4 --n-samples 100 --n-burnin 100 --init random
+    python agnfinder/tf_sampling/run_sampler_singlethreaded.py --checkpoint-loc results/checkpoints/latest --output-dir results/emulated_sampling
 
     """
     parser = argparse.ArgumentParser(description='Run emulated HMC on many galaxies')
     parser.add_argument('--checkpoint-loc', type=str, dest='checkpoint_loc')
-    parser.add_argument('--output-dir', dest='output_dir', type=str)  # in which save_dir while be created
+    parser.add_argument('--output-dir', dest='output_dir', type=str)  # in which save_dir will be created
     parser.add_argument('--max-galaxies', type=int, default=1, dest='max_galaxies')
     parser.add_argument('--n-burnin', type=int, default=1000, dest='n_burnin')  # below 1000, may not find good step size
     parser.add_argument('--n-samples', type=int, default=6000, dest='n_samples')  # 6000 works well?
@@ -48,7 +50,7 @@ if __name__ == '__main__':
 
     tf.enable_eager_execution() 
     
-    logging.getLogger().setLevel(logging.WARNING)  # some third party library is mistakenly setting the logging somewhere...
+    logging.getLogger().setLevel(logging.INFO)  # some third party library is mistakenly setting the logging somewhere...
 
     checkpoint_loc =  args.checkpoint_loc
     output_dir = args.output_dir

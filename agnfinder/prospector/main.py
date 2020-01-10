@@ -17,11 +17,9 @@ from prospect.fitting import fit_model
 from agnfinder.prospector import cpz_builders, visualise, fitting, load_photometry
 from agnfinder import columns
 
-
-def load_galaxy(catalog_loc, index=0, forest_class=None, spectro_class=None):
-    # catalog_loc could be '../cpz_paper_sample_week3.parquet'
+def load_catalog(catalog_loc):
+      # catalog_loc could be '../cpz_paper_sample_week3.parquet'
     logging.info('Using {} as catalog'.format(catalog_loc))
-
     cols = columns.cpz_cols['metadata'] + columns.cpz_cols['unified'] + columns.cpz_cols['galex'] + columns.cpz_cols['sdss'] + columns.cpz_cols['cfht'] + columns.cpz_cols['kids'] + columns.cpz_cols['vvv'] + columns.cpz_cols['wise'] + columns.cpz_cols['random_forest']
     if catalog_loc.endswith('.parquet'):
         df = pd.read_parquet(catalog_loc, columns=cols)
@@ -32,13 +30,18 @@ def load_galaxy(catalog_loc, index=0, forest_class=None, spectro_class=None):
     df = df.dropna(subset=required_cols)
     logging.info('parquet loaded')
     df_with_spectral_z = df[~pd.isnull(df['redshift'])].query('redshift > 1e-2').query('redshift < 4').reset_index()
+    return df_with_spectral_z
+
+
+def load_galaxy(catalog_loc, index=0, forest_class=None, spectro_class=None):
+    df = load_catalog(catalog_loc)  # will filter to galaxies with z only - see above
     if forest_class is not None:
         logging.warning('Selecting forest-identified {} galaxies'.format(forest_class))
-        df_with_spectral_z = df_with_spectral_z.sort_values('Pr[{}]_case_III'.format(forest_class), ascending=False).reset_index()  # to pick quasars
+        df = df.sort_values('Pr[{}]_case_III'.format(forest_class), ascending=False).reset_index()  # to pick quasars
     if spectro_class is not None:
         logging.warning('Selecting spectro-identified {} galaxies'.format(spectro_class))
-        df_with_spectral_z = df_with_spectral_z.query('hclass == {}'.format(spectro_class)).reset_index()  # to pick quasars
-    return df_with_spectral_z.iloc[index]
+        df = df.query('hclass == {}'.format(spectro_class)).reset_index()  # to pick quasars
+    return df.iloc[index]
 
 
 def construct_problem(galaxy, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, emulate_ssp):

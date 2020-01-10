@@ -55,7 +55,7 @@ def get_filters(reliable):
     if reliable:
         return sdss + vista + wise
     else:
-        return galex + sdss+ cfht + kids + vista + wise
+        return galex + sdss+ cfht + kids + vista + wise  # note that these are *not* in wavelength order!
 
 
 def load_maggies_from_galaxy(galaxy, reliable):
