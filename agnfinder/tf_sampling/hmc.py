@@ -96,7 +96,7 @@ def hmc(log_prob_fn, initial_state, n_samples=int(10e3), n_burnin=int(1e3)):
     transition_kernel = tfp.mcmc.HamiltonianMonteCarlo(
         target_log_prob_fn=log_prob_fn,
         step_size=initial_step_sizes,
-        num_leapfrog_steps=100
+        num_leapfrog_steps=10
     )
     # step size adaption
     # https://github.com/tensorflow/probability/issues/549
