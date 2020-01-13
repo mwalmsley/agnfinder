@@ -35,7 +35,7 @@ class Sampler():
 def get_log_prob_fn(forward_model, true_observation):
     assert tf.rank(true_observation).numpy() == 2  # must have batch dim
     # first dimension of true params must match first dimension of x, or will fail
-    @tf.function
+    @tf.function(experimental_compile=True)
     def log_prob_fn(x):  # 0th axis is batch/chain dim, 1st is param dim
         # expected photometry has been normalised by deep_emulator.normalise_photometry, remember - it's neg log10 mags
         expected_photometry = deep_emulator.denormalise_photometry(forward_model(x, training=False))  # model expects a batch dimension, which here is the chains

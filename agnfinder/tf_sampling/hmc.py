@@ -117,7 +117,7 @@ def hmc(log_prob_fn, initial_state, n_samples=int(10e3), n_burnin=int(1e3)):
     )
 
     # seperate function so it can be decorated
-    @tf.function
+    @tf.function(experimental_compile=True)
     def run_chain():
         # Run the chain (with burn-in).
         # chain_output = tfp.mcmc.sample_chain(
