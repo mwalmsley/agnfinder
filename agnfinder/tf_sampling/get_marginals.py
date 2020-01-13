@@ -29,7 +29,6 @@ if __name__ == '__main__':
         marginals = np.zeros((7, 50))
         for param_n in range(7):
             samples, _, _ = run_sampler.read_h5(galaxy_loc)
-            print(samples.shape)
             param_marginals, _ = np.histogram(samples[:, :, param_n], density=True, bins=param_bins)
             marginals[param_n] = param_marginals
         f = h5py.File(galaxy_loc, mode='r+')

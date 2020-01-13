@@ -76,6 +76,6 @@ if __name__ == '__main__':
     save_dir = os.path.join(output_dir, 'latest_{}_{}_{}'.format(n_samples, n_chains, init_method))
 
     record_performance_on_galaxies(checkpoint_loc, max_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir)
-    run_sampler.aggregate_performance(save_dir, n_samples, chains_per_galaxy=1)
-    samples, true_params, true_observations = run_sampler.read_performance(save_dir)
-    print(samples.shape, true_params.shape, true_observations.shape)
+    # run_sampler.aggregate_performance(save_dir, n_samples, chains_per_galaxy=1)
+    # samples, true_params, true_observations = run_sampler.read_performance(save_dir)
+    # print(samples.shape, true_params.shape, true_observations.shape)

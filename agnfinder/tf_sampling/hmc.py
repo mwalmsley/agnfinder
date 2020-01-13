@@ -34,11 +34,42 @@ class SamplerHMC(Sampler):
                 logging.info('True params:')
                 logging.info(self.problem.true_params)
 
-        samples = self.run_hmc(log_prob_fn, initial_state)
+        initial_samples, is_accepted = self.run_hmc(log_prob_fn, initial_state, burnin_only=True)
 
+        print(is_accepted.numpy())
+        print(is_accepted.numpy().shape)
+        # identify which samples aren't adapted
+        succesfully_adapted = tf.reduce_mean(is_accepted, axis=0) > tf.ones([self.n_chains]) * .2
+        print(succesfully_adapted.numpy())
+
+        # filter samples, true_observation (and true_params) to remove them
+        initial_samples_filtered = tf.boolean_mask(
+            initial_samples,
+            mask=succesfully_adapted,
+            axis=1
+        )
+        self.problem.true_observation = tf.boolean_mask(
+            self.problem.true_observation,
+            mask=succesfully_adapted,
+            axis=0
+        )
+        self.problem.true_params = tf.boolean_mask(
+            self.problem.true_params,
+            mask=succesfully_adapted,
+            axis=0
+        )
+        self.n_chains = tf.reduce_sum(tf.cast(succesfully_adapted, tf.int32))
+
+        # get new log_prob_fn
+        log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation)
+        
+        # continue, for real this time
+        final_samples, is_accepted = self.run_hmc(log_prob_fn, initial_samples_filtered[-1], burnin_only=False)
+
+        # TODO am I supposed to be filtering for accepted samples? is_accepted has the same shape as samples, and is binary.
         end_time = datetime.datetime.now()
-        logging.info('Total time for galaxy: {}s'.format( (end_time - start_time).total_seconds()))
-        return samples
+        logging.info('Total time for galaxies: {}s'.format( (end_time - start_time).total_seconds()))
+        return final_samples
 
     def get_initial_state(self):
         if self.init_method == 'correct':
@@ -56,30 +87,31 @@ class SamplerHMC(Sampler):
             raise ValueError('Initialisation method {} not recognised'.format(self.init_method))
         return initial_state
 
-    def run_hmc(self, log_prob_fn, initial_state):
+    def run_hmc(self, log_prob_fn, initial_state, burnin_only=False):
+
+        if burnin_only:
+            n_samples = 1000
+        else:
+            n_samples = self.n_samples
+        
         logging.info('Ready to go - beginning sampling at {}'.format(datetime.datetime.now().ctime()))
         start_time = datetime.datetime.now()
-        samples, trace = hmc(
+        samples, initial_trace = hmc(
             log_prob_fn=log_prob_fn,
             initial_state=initial_state,
-            n_samples=self.n_samples,
+            n_samples=n_samples,  # before stopping and checking that adaption has succeeded
             n_burnin=self.n_burnin
         )
-        is_accepted = tf.cast(trace['is_accepted'], dtype=tf.float32).numpy()
-        samples = samples.numpy()
         end_time = datetime.datetime.now()
         elapsed = end_time - start_time
-        ms_per_sample = 1000 * elapsed.total_seconds() / (self.n_samples * self.n_chains)  # not counting burn-in as a sample, so really quicker
+        samples = samples.numpy()
+        ms_per_sample = 1000 * elapsed.total_seconds() / np.prod(samples.shape)  # not counting burn-in as a sample, so really quicker
         logging.info('Sampling {} x {} chains complete in {}, {:.3f} ms per sample'.format(self.n_samples, self.n_chains, elapsed, ms_per_sample))
         
-        logging.info('Mean acceptance ratio over all chains: {:.4f}'.format(np.mean(is_accepted)))
-        mean_acceptance_per_chain = np.mean(is_accepted, axis=0)
-        for chain_i, chain_acceptance in enumerate(mean_acceptance_per_chain):
-            if chain_acceptance < 0.01:
-                logging.critical(f'HMC failed to adapt for chain {chain_i} - is step size too small? Is there some burn-in?')
-            elif chain_acceptance < 0.3:
-                logging.critical(f'Acceptance ratio is low for chain {chain_i}: ratio {chain_acceptance}')
-        return samples
+        is_accepted = tf.cast(initial_trace['is_accepted'], dtype=tf.float32)
+        record_acceptance(is_accepted.numpy())
+
+        return samples, is_accepted
 
 # don't decorate with tf.function
 def hmc(log_prob_fn, initial_state, n_samples=int(10e3), n_burnin=int(1e3)):
@@ -144,6 +176,16 @@ def hmc(log_prob_fn, initial_state, n_samples=int(10e3), n_burnin=int(1e3)):
     samples, trace = run_chain()
 
     return samples, trace
+
+def record_acceptance(is_accepted):
+    logging.info('Mean acceptance ratio over all chains: {:.4f}'.format(np.mean(is_accepted)))
+    mean_acceptance_per_chain = np.mean(is_accepted, axis=0)
+    for chain_i, chain_acceptance in enumerate(mean_acceptance_per_chain):
+        if chain_acceptance < 0.01:
+            logging.critical(f'HMC failed to adapt for chain {chain_i} - is step size too small? Is there some burn-in?')
+        elif chain_acceptance < 0.3:
+            logging.critical(f'Acceptance ratio is low for chain {chain_i}: ratio {chain_acceptance}')
+
 
 def optimised_start(forward_model, observations, param_dim, n_chains, steps, initial_guess=None):
     assert initial_guess is None  # not yet implemented
