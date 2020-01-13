@@ -39,7 +39,7 @@ class SamplerHMC(Sampler):
         print(is_accepted.numpy())
         print(is_accepted.numpy().shape)
         # identify which samples aren't adapted
-        succesfully_adapted = tf.reduce_mean(is_accepted, axis=0) > tf.ones([self.n_chains]) * .2
+        succesfully_adapted = tf.reduce_mean(is_accepted, axis=0) > tf.ones([self.n_chains]) * .4
         print(succesfully_adapted.numpy())
 
         # filter samples, true_observation (and true_params) to remove them
