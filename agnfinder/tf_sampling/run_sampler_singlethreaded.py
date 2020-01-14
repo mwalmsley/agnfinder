@@ -47,7 +47,7 @@ def record_performance_on_galaxies(checkpoint_loc, max_galaxies, n_burnin, n_sam
         # true_params = None TODO quite awkward as I often use it in asserts or for expected param dim
         logging.warning(f'Using {len(df)} real galaxies - forcing n_chains from {n_chains} to {len(df)} accordingly')
         n_chains = len(df)  # overriding whatever the arg was
-        galaxy_indices = np.arange(len(df))
+        galaxy_indices = df.index  # I should *really* reset the index beforehand so this is 1....33
 
     else:
         # fake galaxies, drawn from our priors and used as emulator training data
