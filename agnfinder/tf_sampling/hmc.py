@@ -110,7 +110,7 @@ class SamplerHMC(Sampler):
         elapsed = end_time - start_time
         samples = samples.numpy()
         ms_per_sample = 1000 * elapsed.total_seconds() / np.prod(samples.shape)  # not counting burn-in as a sample, so really quicker
-        logging.info('Sampling {} x {} chains complete in {}, {:.3f} ms per sample'.format(self.n_samples, self.n_chains, elapsed, ms_per_sample))
+        logging.info('Sampling {} x {} chains complete in {}, {:.3f} ms per sample'.format(n_samples, self.n_chains, elapsed, ms_per_sample))
         
         is_accepted = tf.cast(initial_trace['is_accepted'], dtype=tf.float32)
         record_acceptance(is_accepted.numpy())
