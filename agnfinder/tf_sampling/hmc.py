@@ -22,82 +22,115 @@ class SamplerHMC(Sampler):
     def sample(self):
         start_time = datetime.datetime.now()
 
-        log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation, batch_dim=self.n_chains)
+        log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation)
         initial_state = self.get_initial_state()
 
-        logging.info('\nInitial state:')
-        for state in initial_state.numpy():
-            logging.info(['{:.2f}'.format(param) for param in state])
-        logging.info('\nMedian initial state:')
-        logging.info(['{:.2f}'.format(param) for param in np.median(initial_state, axis=0)])
-        if self.problem.true_params is not None:
-            logging.info('\nTrue params:')
-            logging.info(['{:.2f}'.format(param) for param in self.problem.true_params])
+        with np.printoptions(precision=2, suppress=False):
+            logging.info('\nInitial state: ')
+            logging.info(initial_state.numpy())
+            logging.info('Median initial state:')
+            logging.info(np.median(initial_state.numpy(), axis=0))
+            if self.problem.true_params is not None:
+                logging.info('True params:')
+                logging.info(self.problem.true_params)
 
-        samples = self.run_hmc(log_prob_fn, initial_state)
+        initial_samples, is_accepted = self.run_hmc(log_prob_fn, initial_state, burnin_only=True)
 
-        # print('True vs. median recovered parameters: ', list(zip(self.problem.true_params, np.median(samples, axis=1))))
+        logging.debug(is_accepted.numpy().shape)
+        logging.debug(is_accepted.numpy())
+        # identify which samples aren't adapted
+        accepted_per_galaxy = tf.reduce_mean(is_accepted, axis=0)
+        successfully_adapted = accepted_per_galaxy > tf.ones([self.n_chains]) * .4
+
+        for n, adapted in enumerate(successfully_adapted.numpy()):
+            if not adapted:
+                logging.warning('Removing galaxy {} due to low acceptance (p={:.2f})'.format(n, accepted_per_galaxy[n]))
+
+        # filter samples, true_observation (and true_params) to remove them
+        initial_samples_filtered = tf.boolean_mask(
+            initial_samples,
+            mask=successfully_adapted,
+            axis=1
+        )
+        self.problem.true_observation = tf.boolean_mask(
+            self.problem.true_observation,
+            mask=successfully_adapted,
+            axis=0
+        )
+        self.problem.true_params = tf.boolean_mask(
+            self.problem.true_params,
+            mask=successfully_adapted,
+            axis=0
+        )
+        self.n_chains = tf.reduce_sum(tf.cast(successfully_adapted, tf.int32))
+
+        # get new log_prob_fn
+        log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation)
+        
+        # continue, for real this time
+        final_samples, is_accepted = self.run_hmc(log_prob_fn, initial_samples_filtered[-1], burnin_only=False)
+
+        # TODO am I supposed to be filtering for accepted samples? is_accepted has the same shape as samples, and is binary.
         end_time = datetime.datetime.now()
-        logging.info('Total time for galaxy: {}s'.format( (end_time - start_time).total_seconds()))
-        return samples
+        logging.info('Total time for galaxies: {}s'.format( (end_time - start_time).total_seconds()))
+        return final_samples, successfully_adapted.numpy()  # needed to know which samples are which galaxy
 
     def get_initial_state(self):
         if self.init_method == 'correct':
             assert self.problem.true_params is not None
-            true_params_stacked = np.vstack([self.problem.true_params.astype(np.float32) for n in range(self.n_chains)])
-            initial_state = tf.constant(true_params_stacked)
+            initial_state = tf.constant(self.problem.true_params, dtype=tf.float32)
         elif self.init_method == 'roughly_correct':
             assert self.problem.true_params is not None
             initial_state = roughly_correct_start(self.problem.true_params, self.n_chains)
         elif self.init_method == 'random':
-            initial_state = many_random_starts(self.problem.forward_model, self.problem.true_observation, self.problem.n_dim, self.n_chains)
+            initial_state = tf.random.uniform(self.problem.true_params.shape, minval=0., maxval=1.)
+            # initial_state = many_random_starts(self.problem.forward_model, self.problem.true_observation, self.problem.param_dim, self.n_chains)
         elif self.init_method == 'optimised':
-            initial_state = optimised_start(self.problem.forward_model, self.problem.true_observation, self.problem.n_dim, self.n_chains, steps=3000)
+            initial_state = optimised_start(self.problem.forward_model, self.problem.true_observation, self.problem.param_dim, self.n_chains, steps=3000)
         else:
             raise ValueError('Initialisation method {} not recognised'.format(self.init_method))
         return initial_state
 
-    def run_hmc(self, log_prob_fn, initial_state):
+    def run_hmc(self, log_prob_fn, initial_state, burnin_only=False):
+
+        if burnin_only:
+            n_samples = 1000
+        else:
+            n_samples = self.n_samples
+        
         logging.info('Ready to go - beginning sampling at {}'.format(datetime.datetime.now().ctime()))
         start_time = datetime.datetime.now()
-        samples, trace = hmc(
+        samples, initial_trace = hmc(
             log_prob_fn=log_prob_fn,
             initial_state=initial_state,
-            n_samples=self.n_samples,
+            n_samples=n_samples,  # before stopping and checking that adaption has succeeded
             n_burnin=self.n_burnin
         )
-        is_accepted = tf.reduce_mean(tf.cast(trace['is_accepted'], dtype=tf.float32))
-        samples = samples.numpy()
-        is_accepted = is_accepted.numpy()
         end_time = datetime.datetime.now()
         elapsed = end_time - start_time
-        ms_per_sample = 1000 * elapsed.total_seconds() / (self.n_samples * self.n_chains)  # not counting burn-in as a sample, so really quicker
-        print('Sampling {} x {} chains complete in {}, {:.3f} ms per sample'.format(self.n_samples, self.n_chains, elapsed, ms_per_sample))
+        samples = samples.numpy()
+        ms_per_sample = 1000 * elapsed.total_seconds() / np.prod(samples.shape)  # not counting burn-in as a sample, so really quicker
+        logging.info('Sampling {} x {} chains complete in {}, {:.3f} ms per sample'.format(self.n_samples, self.n_chains, elapsed, ms_per_sample))
         
-        print('Acceptance ratio: {:.4f}'.format(is_accepted))
-        if is_accepted < 0.01:
-            logging.critical('HMC failed to adapt - is step size too small? Is there some burn-in?')
-        elif is_accepted < 0.3:
-            print('Warning - acceptance ratio is low!')
-        return samples
+        is_accepted = tf.cast(initial_trace['is_accepted'], dtype=tf.float32)
+        record_acceptance(is_accepted.numpy())
 
-# don't decorate
+        return samples, is_accepted
+
+# don't decorate with tf.function
 def hmc(log_prob_fn, initial_state, n_samples=int(10e3), n_burnin=int(1e3)):
 
     assert len(initial_state.shape) == 2  # should be (chain, variables)
 
-    # NUTS
     initial_step_size = 1.  # starting point, will be updated by step size adaption
     initial_step_sizes = tf.fill(initial_state.shape, initial_step_size)  # each chain will have own step size
-    transition_kernel = tfp.mcmc.NoUTurnSampler(
-        target_log_prob_fn=log_prob_fn,
-        step_size=initial_step_sizes
-    )
-    transition_kernel = tfp.mcmc.HamiltonianMonteCarlo(
-        target_log_prob_fn=log_prob_fn,
-        step_size=initial_step_sizes,
-        num_leapfrog_steps=10
-    )
+    # this is crucial now that each chain is potentially a different observation
+
+    # NUTS
+    # transition_kernel = tfp.mcmc.NoUTurnSampler(
+    #     target_log_prob_fn=log_prob_fn,
+    #     step_size=initial_step_sizes
+    # )
     # step size adaption
     # https://github.com/tensorflow/probability/issues/549
     # adaptive_kernel = tfp.mcmc.DualAveragingStepSizeAdaptation(
@@ -107,14 +140,20 @@ def hmc(log_prob_fn, initial_state, n_samples=int(10e3), n_burnin=int(1e3)):
     #     step_size_getter_fn=lambda pkr: pkr.step_size,
     #     log_accept_prob_getter_fn=lambda pkr: pkr.log_accept_ratio
     # )
+
+    # or HMC
+    transition_kernel = tfp.mcmc.HamiltonianMonteCarlo(
+        target_log_prob_fn=log_prob_fn,
+        step_size=initial_step_sizes,
+        num_leapfrog_steps=10
+    )
     adaptive_kernel = tfp.mcmc.DualAveragingStepSizeAdaptation(
         transition_kernel,
         num_adaptation_steps=int(n_burnin * 0.8),
     )
 
-
     # seperate function so it can be decorated
-    @tf.function
+    @tf.function(experimental_compile=True)
     def run_chain():
         # Run the chain (with burn-in).
         # chain_output = tfp.mcmc.sample_chain(
@@ -142,31 +181,30 @@ def hmc(log_prob_fn, initial_state, n_samples=int(10e3), n_burnin=int(1e3)):
 
     return samples, trace
 
+def record_acceptance(is_accepted):
+    logging.info('Mean acceptance ratio over all chains: {:.4f}'.format(np.mean(is_accepted)))
+    mean_acceptance_per_chain = np.mean(is_accepted, axis=0)
+    for chain_i, chain_acceptance in enumerate(mean_acceptance_per_chain):
+        if chain_acceptance < 0.01:
+            logging.critical(f'HMC failed to adapt for chain {chain_i} - is step size too small? Is there some burn-in?')
+        elif chain_acceptance < 0.3:
+            logging.critical('Acceptance ratio is low for chain {}: ratio {:.2f}'.format(chain_i, chain_acceptance))
 
-def optimised_start(forward_model, observation, param_dim, n_chains, steps, initial_guess=None):
+
+def optimised_start(forward_model, observations, param_dim, n_chains, steps, initial_guess=None):
+    assert initial_guess is None  # not yet implemented
     start_time = datetime.datetime.now()
-    # n_best_params = int(n_chains / 3)
-    # assert n_best_params  # mustn't be 0
-     # get n_chains of optimised parameter vectors, for speed
-    all_best_params = find_best_params(forward_model, observation, param_dim, n_chains, steps)
-    # keep only the best
-    # best_params = keep_top_params(all_best_params, forward_model, observation, n_chains, n_best_params)
-    # randomly copy the best as needed to get back to n_chains starting points (all of which are now optimised)
-    # chosen_params = tf.gather(best_params, tf.random.uniform(minval=0, maxval=n_best_params-1, dtype=tf.int32, shape=[n_chains]))
-    chosen_params = tf.reshape(all_best_params, [n_chains, param_dim])
+    best_params = find_best_params(forward_model, observations, param_dim, n_chains, steps)
+    # chosen_params = tf.reshape(all_best_params, [n_chains, param_dim])
     end_time = datetime.datetime.now()
     elapsed = (end_time - start_time).total_seconds()
-    logging.info('Done {} optimisations in {} seconds.'.format(n_chains, elapsed))
-    # logging.info('Picked {} starts from {} best params'.format(n_chains, n_best_params))
-    return chosen_params
+    logging.info('Done {} optimisations over {} steps in {} seconds.'.format(n_chains, steps, elapsed))
+    return best_params
 
-def find_best_params(forward_model, observation, param_dim, batch_dim, steps, initial_guess=None):
-    log_prob_fn = get_log_prob_fn(forward_model, observation, batch_dim=batch_dim)
-    if initial_guess is not None:
-        params = tf.Variable(tf.stack([initial_guess for _ in range(batch_dim)], axis=0), dtype=tf.float32)
-    else:
-        params = tf.Variable(tf.random.uniform(shape=(batch_dim, param_dim), dtype=np.float32), dtype=tf.float32)
-    best_params = find_minima(lambda x: -log_prob_fn(x),  params, steps)  # a very important minus sign...
+def find_best_params(forward_model, observations, param_dim, batch_dim, steps):
+    log_prob_fn = get_log_prob_fn(forward_model, observations)
+    initial_params = tf.Variable(tf.random.uniform([batch_dim, param_dim], dtype=np.float32), dtype=tf.float32)
+    best_params = find_minima(lambda x: -log_prob_fn(x), initial_params, steps)  # a very important minus sign...
     return best_params
 
 
@@ -186,25 +224,26 @@ def find_minima(func, initial_guess, steps=1000,  optimizer=tf.keras.optimizers.
 
 
 def many_random_starts(forward_model, observation, param_dim, n_chains, overproposal_factor=None):
-    if overproposal_factor is None:
-        assert n_chains < 100
-        overproposal_factor = int(10 - (7 * 0.01 * n_chains))  # down from 10. Customised for laptop memory TODO tweak for Glamdring?
-    overproposed_initial_state = tf.random.uniform(shape=(n_chains * overproposal_factor, param_dim))
-    initial_state = keep_top_params(
-        overproposed_initial_state,
-        forward_model,
-        observation,
-        n_chains * overproposal_factor,  # specified explicitly but might not need to
-        n_chains)
-    return initial_state
+    raise NotImplementedError('Deprecated now that each chain is a galaxy')
+    # if overproposal_factor is None:
+    #     assert n_chains < 100
+    #     overproposal_factor = int(10 - (7 * 0.01 * n_chains))  # down from 10. Customised for laptop memory TODO tweak for Glamdring?
+    # overproposed_initial_state = tf.random.uniform(shape=(n_chains * overproposal_factor, param_dim))
+    # initial_state = keep_top_params(
+    #     overproposed_initial_state,
+    #     forward_model,
+    #     observation,
+    #     n_chains * overproposal_factor,  # specified explicitly but might not need to
+    #     n_chains)
+    # return initial_state
 
 def keep_top_params(all_params, forward_model, true_observation, initial_dim, final_dim):
-    log_prob_fn = get_log_prob_fn(forward_model, true_observation, batch_dim=initial_dim)
+    log_prob_fn = get_log_prob_fn(forward_model, true_observation)
     initial_log_probs = log_prob_fn(all_params)
     initial_state = tf.gather(all_params, tf.argsort(initial_log_probs, direction='DESCENDING'))[:final_dim]
     return initial_state
 
 def roughly_correct_start(true_params, n_chains):
-    not_quite_true_params = np.vstack([true_params for n in range(n_chains)] + np.random.rand(n_chains, len(true_params)) * 0.03).astype(np.float32)
-    initial_state = tf.constant(not_quite_true_params)
+    not_quite_true_params = true_params + np.random.rand(n_chains, len(true_params)) * 0.03
+    initial_state = tf.constant(not_quite_true_params, dtype=tf.float32)
     return initial_state

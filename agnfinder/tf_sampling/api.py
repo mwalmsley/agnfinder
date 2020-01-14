@@ -8,13 +8,15 @@ from agnfinder.tf_sampling import deep_emulator
 class SamplingProblem():
 
     def __init__(self, true_observation, true_params, forward_model):
+        assert true_observation.ndim == 2
+        assert true_params.ndim == 2
         self.true_observation = true_observation
         self.true_params = true_params
         self.forward_model = lambda *args, **kwargs: forward_model(*args, **kwargs)
 
     @property
-    def n_dim(self):
-        return len(self.true_params)
+    def param_dim(self):
+        return self.true_params.shape[1]  # 0th is batch, 1st is params
 
 
 class Sampler():
@@ -30,17 +32,14 @@ class Sampler():
 
 
 # @tf.function  # inputs become tensors when you wrap
-def get_log_prob_fn(forward_model, true_observation, batch_dim=None):
-    if batch_dim is not None:
-        true_observation_stacked = tf.stack([true_observation for n in range(batch_dim)], axis=0)
-    else:
-        true_observation_stacked = tf.reshape(true_observation, (1, -1))
+def get_log_prob_fn(forward_model, true_observation):
+    assert tf.rank(true_observation).numpy() == 2  # must have batch dim
     # first dimension of true params must match first dimension of x, or will fail
-    @tf.function
+    @tf.function(experimental_compile=True)
     def log_prob_fn(x):  # 0th axis is batch/chain dim, 1st is param dim
         # expected photometry has been normalised by deep_emulator.normalise_photometry, remember - it's neg log10 mags
         expected_photometry = deep_emulator.denormalise_photometry(forward_model(x, training=False))  # model expects a batch dimension, which here is the chains
-        true_photometry = true_observation_stacked  # make sure you denormalise this in the first place, if loading from data()
+        true_photometry = true_observation  # make sure you denormalise this in the first place, if loading from data()
         deviation = tf.abs(expected_photometry - true_photometry)
         sigma = expected_photometry * 0.05  # i.e. 5% sigma, will read in soon-ish
         log_prob = -tf.reduce_sum(deviation / sigma, axis=1)  # very negative = unlikely, near -0 = likely
