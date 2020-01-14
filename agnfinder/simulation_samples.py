@@ -50,8 +50,8 @@ def simulate(n_samples, catalog_loc, save_loc, emulate_ssp, noise):
 
 def get_forward_model(catalog_loc, emulate_ssp, noise):
     galaxy_index = 1
-    galaxy = main.load_galaxy(catalog_loc, galaxy_index)
-    redshift = galaxy['redshift']  # TODO should specify explicitly next time I make a big cube
+    galaxy = main.load_galaxy(catalog_loc, galaxy_index)  # actually we only use this for the filters now, but prospector is set up to expect a galaxy
+    redshift = 0.155
     agn_mass = True
     agn_eb_v = True
     agn_torus_mass = True
@@ -87,8 +87,7 @@ if __name__ == '__main__':
     Optionally, use the GP emulator for the forward model. Not a great idea, as this is slower than the original forward model, but I implemented it already...
 
     Example use: 
-        export REPO_LOC=/home/mike/repos/agnfinder
-        /media/mike/Windows/linux_cache/miniconda37/envs/agnfinder/bin/python $REPO_LOC/agnfinder/simulation_samples.py 10000 --catalog-loc /media/mike/beta/agnfinder/cpz_paper_sample_week3.parquet --save-dir $REPO_LOC/data
+        python agnfinder/simulation_samples.py 1000 --catalog-loc /media/mike/beta/agnfinder/cpz_paper_sample_week3.parquet --save-dir data
     """
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('n_samples', type=int)

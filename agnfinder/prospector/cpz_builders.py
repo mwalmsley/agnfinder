@@ -179,7 +179,7 @@ def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn
 def build_sps(zcontinuous=1, **extras):
     """
     :param zcontinuous: 
-        A vlue of 1 insures that we use interpolation between SSPs to 
+        A value of 1 insures that we use interpolation between SSPs to 
         have a continuous metallicity parameter (`logzsol`)
         See python-FSPS documentation for details
     """
