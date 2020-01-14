@@ -54,7 +54,7 @@ def aggregate_performance(save_dir, n_samples, chains_per_galaxy):
     logging.debug('Creating virtual dataset')
     performance_files = [os.path.join(save_dir, x) for x in os.listdir(save_dir) if x.endswith('_performance.h5')]
     n_sources = len(performance_files)
-    logging.info('Using source files: {}'.format(performance_files))
+    logging.info('Using source files: {} (max 10 shown)'.format(performance_files[:10]))
     logging.debug('Specifing expected data')
     samples_vl = h5py.VirtualLayout(shape=(n_sources, n_samples, chains_per_galaxy, 7), dtype='f')
     true_params_vl = h5py.VirtualLayout(shape=(n_sources, 7), dtype='f')

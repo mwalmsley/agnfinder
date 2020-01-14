@@ -36,29 +36,33 @@ class SamplerHMC(Sampler):
 
         initial_samples, is_accepted = self.run_hmc(log_prob_fn, initial_state, burnin_only=True)
 
-        print(is_accepted.numpy())
-        print(is_accepted.numpy().shape)
+        logging.debug(is_accepted.numpy().shape)
+        logging.debug(is_accepted.numpy())
         # identify which samples aren't adapted
-        succesfully_adapted = tf.reduce_mean(is_accepted, axis=0) > tf.ones([self.n_chains]) * .4
-        print(succesfully_adapted.numpy())
+        accepted_per_galaxy = tf.reduce_mean(is_accepted, axis=0)
+        successfully_adapted = accepted_per_galaxy > tf.ones([self.n_chains]) * .4
+
+        for n, adapted in enumerate(successfully_adapted.numpy()):
+            if not adapted:
+                logging.warning('Removing galaxy {} due to low acceptance (p={:.2f})'.format(n, accepted_per_galaxy[n]))
 
         # filter samples, true_observation (and true_params) to remove them
         initial_samples_filtered = tf.boolean_mask(
             initial_samples,
-            mask=succesfully_adapted,
+            mask=successfully_adapted,
             axis=1
         )
         self.problem.true_observation = tf.boolean_mask(
             self.problem.true_observation,
-            mask=succesfully_adapted,
+            mask=successfully_adapted,
             axis=0
         )
         self.problem.true_params = tf.boolean_mask(
             self.problem.true_params,
-            mask=succesfully_adapted,
+            mask=successfully_adapted,
             axis=0
         )
-        self.n_chains = tf.reduce_sum(tf.cast(succesfully_adapted, tf.int32))
+        self.n_chains = tf.reduce_sum(tf.cast(successfully_adapted, tf.int32))
 
         # get new log_prob_fn
         log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation)
@@ -69,7 +73,7 @@ class SamplerHMC(Sampler):
         # TODO am I supposed to be filtering for accepted samples? is_accepted has the same shape as samples, and is binary.
         end_time = datetime.datetime.now()
         logging.info('Total time for galaxies: {}s'.format( (end_time - start_time).total_seconds()))
-        return final_samples, succesfully_adapted.numpy()  # needed to know which samples are which galaxy
+        return final_samples, successfully_adapted.numpy()  # needed to know which samples are which galaxy
 
     def get_initial_state(self):
         if self.init_method == 'correct':
@@ -184,7 +188,7 @@ def record_acceptance(is_accepted):
         if chain_acceptance < 0.01:
             logging.critical(f'HMC failed to adapt for chain {chain_i} - is step size too small? Is there some burn-in?')
         elif chain_acceptance < 0.3:
-            logging.critical(f'Acceptance ratio is low for chain {chain_i}: ratio {chain_acceptance}')
+            logging.critical('Acceptance ratio is low for chain {}: ratio {:.2f}'.format(chain_i, chain_acceptance))
 
 
 def optimised_start(forward_model, observations, param_dim, n_chains, steps, initial_guess=None):
