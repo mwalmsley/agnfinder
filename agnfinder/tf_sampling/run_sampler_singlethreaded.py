@@ -4,8 +4,10 @@ import os
 
 from tqdm import tqdm
 import numpy as np
+import pandas as pd
 import tensorflow as tf  # just for eager toggle
 
+from agnfinder.prospector import load_photometry
 from agnfinder.tf_sampling import run_sampler, deep_emulator
 
 # TODO will change to some kind of unique id for each galaxy, rather than the index
@@ -21,22 +23,46 @@ def get_galaxies_without_results(n_galaxies):
 def record_performance_on_galaxies(checkpoint_loc, max_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir):
     emulator = deep_emulator.get_trained_keras_emulator(deep_emulator.tf_model(), checkpoint_loc, new=False)
 
-    _, _, x_test, y_test = deep_emulator.data()
-    x_test = x_test.astype(np.float32)
-    y_test = y_test.astype(np.float32)
     if not os.path.isdir(save_dir):
         os.mkdir(save_dir)
 
-    n_batches = 1  # TODO hardcode for now
-    for _ in tqdm(range(n_batches)):
+    real = True  # TODO arg
+    if real:
+        # real galaxies, selected from uK_IR sample by highest (?) random forest prob. (`Pr[{class}]_case_III')
+        selection_loc = 'data/uk_ir_selection.parquet'
+        assert os.path.isfile(selection_loc)  # TODO generalise?
+        df = pd.read_parquet(selection_loc)
+        logging.info(f'Loading {len(df)} galaxies')
+        rf_classes = ['passive', 'starforming', 'starburst', 'agn', 'qso', 'outlier']
+        for c in rf_classes:
+            logging.info('{}: {:.2f}'.format(c, df[f'Pr[{c}]_case_III'].sum()))
+
+        true_observation = np.zeros((len(df), 12)).astype(np.float32)  # fixed bands
+        for n in tqdm(range(len(df))):
+            galaxy = df.iloc[n]  # I don't know why iterrows is apparently returning one more row than len(df)??
+            # TODO uncertainties are not yet used! See log prob, currently 5% uncertainty by default
+            _, maggies, maggies_unc = load_photometry.load_maggies_from_galaxy(galaxy, reliable=True)
+            true_observation[n] = maggies.astype(np.float32)
+        true_params = np.zeros((len(df), 7)).astype(np.float32)
+        # true_params = None TODO quite awkward as I often use it in asserts or for expected param dim
+        logging.warning(f'Using {len(df)} real galaxies - forcing n_chains from {n_chains} to {len(df)} accordingly')
+        n_chains = len(df)  # overriding whatever the arg was
+        galaxy_indices = np.arange(len(df))
+
+    else:
+        # fake galaxies, drawn from our priors and used as emulator training data
+        logging.info('Using fake galaxies, drawn randomly from the hypercube')
+        _, _, x_test, y_test = deep_emulator.data()
+        x_test = x_test.astype(np.float32)
+        y_test = y_test.astype(np.float32)
         galaxy_indices = get_galaxies_without_results(n_chains)  # commenting out for now
         # logging.critical('For now, only running on this specific galaxy!')
         # assert n_chains == 1
         # galaxy_indices = [1977]  # galaxy in 10m param cube w/ all params close to 0.5
-
         true_params = x_test[galaxy_indices]  # true params etc. now have a batch dimension
-        true_observation = deep_emulator.denormalise_photometry(y_test[galaxy_indices])
-        run_sampler.sample_galaxy_batch(galaxy_indices, true_observation, true_params, emulator, n_burnin, n_samples, n_chains, init_method, save_dir)
+        true_observation = deep_emulator.denormalise_photometry(y_test[galaxy_indices]) 
+
+    run_sampler.sample_galaxy_batch(galaxy_indices, true_observation, true_params, emulator, n_burnin, n_samples, n_chains, init_method, save_dir)
 
 
 if __name__ == '__main__':
@@ -73,7 +99,8 @@ if __name__ == '__main__':
     n_samples = args.n_samples
     n_chains = args.n_chains
     init_method = args.init_method
-    save_dir = os.path.join(output_dir, 'latest_{}_{}_{}'.format(n_samples, n_chains, init_method))
+    save_dir = os.path.join(output_dir, 'real')
+    # save_dir = os.path.join(output_dir, 'latest_{}_{}_{}'.format(n_samples, n_chains, init_method))
 
     record_performance_on_galaxies(checkpoint_loc, max_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir)
     run_sampler.aggregate_performance(save_dir, n_samples, chains_per_galaxy=1)

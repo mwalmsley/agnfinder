@@ -63,7 +63,7 @@ def load_maggies_from_galaxy(galaxy, reliable):
     valid_filters = [f for f in all_filters if filter_has_valid_data(f, galaxy)]
     if reliable and len(valid_filters) != 12:
         raise ValueError('Some reliable bands are missing - only got {}'.format(valid_filters))
-    logging.info('valid filters: {}'.format(valid_filters))
+    logging.debug('valid filters: {}'.format(valid_filters))
 
     # Instantiate the `Filter()` objects using methods in `sedpy`
     filters = observate.load_filters([f.bandpass_file for f in valid_filters])
@@ -72,19 +72,19 @@ def load_maggies_from_galaxy(galaxy, reliable):
     # These should be in apparent AB magnitudes
     # The units of the fluxes need to be maggies (Jy/3631) so we will do the conversion here too.
     mags = np.array(galaxy[[f.mag_col for f in valid_filters]].values).astype(float)
-    logging.info('magnitudes: {}'.format(mags))
+    logging.debug('magnitudes: {}'.format(mags))
     maggies = 10**(-0.4*mags)
-    logging.info('maggies: {}'.format(maggies))
+    logging.debug('maggies: {}'.format(maggies))
 
     # TODO review error scaling, noise model, lnprobfn - currently a big gap in understanding!
     mag_errors = np.array(galaxy[[f.error_col for f in valid_filters]].values).astype(float) * 5.  # being skeptical...
-    logging.info('mag errors: {}'.format(mag_errors))
+    logging.debug('mag errors: {}'.format(mag_errors))
 
     maggies_unc = []
     for i in range(len(mags)):
         maggies_unc.append(calculate_maggie_uncertainty(mag_errors[i], maggies[i]))
     maggies_unc = np.array(maggies_unc).astype(float)
-    logging.info('maggis errors: {}'.format(maggies_unc))
+    logging.debug('maggis errors: {}'.format(maggies_unc))
 
     return filters, maggies, maggies_unc
 

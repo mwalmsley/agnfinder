@@ -16,6 +16,7 @@ def sample_galaxy_batch(names, true_observation, true_params, emulator, n_burnin
     assert len(true_observation.shape) == 2
     assert len(true_params.shape) == 2
     assert len(names) == true_params.shape[0]
+    assert true_observation.max() < 1e-3  # should be denormalised i.e. actual photometry in maggies
 
     problem = api.SamplingProblem(true_observation, true_params, forward_model=emulator)
     sampler = hmc.SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
@@ -30,7 +31,7 @@ def sample_galaxy_batch(names, true_observation, true_params, emulator, n_burnin
     discarded_names = [k for k, v in names_were_adapted.items() if not v]
 
     if len(discarded_names) != 0:
-        logging.warning('Galaxies {} did not adapt and were discarded')
+        logging.warning('Galaxies {} did not adapt and were discarded'.format(discarded_names))
     else:
         logging.info('All galaxies adapted succesfully')
 
@@ -40,8 +41,17 @@ def sample_galaxy_batch(names, true_observation, true_params, emulator, n_burnin
         galaxy_samples = np.expand_dims(samples[:, galaxy_n], axis=1)
         f.create_dataset('samples', data=galaxy_samples)  # leave the chain dimension as 1 for now
         f.create_dataset('true_observations', data=true_observation[galaxy_n])
+        
         if true_params is not None:
             f.create_dataset('true_params', data=true_params[galaxy_n])
+
+        marginal_bins = 50
+        dummy_array = np.zeros(42)  # anything
+        _, param_bins = np.histogram(dummy_array, range=(0., 1.), bins=marginal_bins)
+        marginals = np.zeros((7, marginal_bins))
+        for param_n in range(7):
+            marginals[param_n], _ = np.histogram(galaxy_samples[:, :, param_n], density=True, bins=param_bins)
+        f.create_dataset('marginals', data=marginals)
 
 
 def get_galaxy_save_file(i, save_dir):
