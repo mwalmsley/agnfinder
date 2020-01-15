@@ -5,7 +5,12 @@ import numpy as np
 import h5py
 import pyDOE2
 
-
+def shift_redshift_theta(norm_redshift, fixed_theta_range, target_theta_range):
+    # adjust spread in norm space
+    norm_redshift = norm_redshift  * (target_theta_range[1] - target_theta_range[0]) / (fixed_theta_range[1] - fixed_theta_range[0])
+    # adjust start in norm space
+    return norm_redshift + target_theta_range[0] / fixed_theta_range[1]
+    
 def get_unit_latin_hypercube(dims, n_samples):
     return pyDOE2.lhs(n=dims, samples=n_samples, criterion='correlation')
 

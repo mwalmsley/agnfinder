@@ -302,17 +302,13 @@ class CSPSpecBasisAGN(CSPSpecBasis):
         self.quasar_flux = extincted_quasar_flux + torus_flux
         self.galaxy_flux = stellar_spectrum
 
+        # should be spectrum in Lsun/Hz per solar mass formed, restframe
         return wave, self.galaxy_flux + self.quasar_flux, mass_frac
 
 
     # def get_spectrum(self, outwave=None, filters=None, peraa=False, **params):
-        # """Get a spectrum and SED for the given params.
-        # """
-
-        # mass_weighted_smspec, mass_weighted_phot, mfrac = super().get_spectrum(outwave=None, filters=None, peraa=False, **params)
-
-        # reverse the mass-weighting of agn component
-
+        # this is the part that does the redshifting and observation, calling .get_galaxy_spectrum midway though
+        # leave it alone!
 
 # fsps.StellarPopulation
 class CustomSSP():
