@@ -10,7 +10,7 @@ from agnfinder.prospector import main, visualise
 from agnfinder import simulation_utils
 
 
-def simulate(n_samples, catalog_loc, save_loc, emulate_ssp, noise):
+def simulate(n_samples, save_loc, emulate_ssp, noise, redshift_range):
 
     # a bit hacky - log* keys will be 10 ** within simulator function below
     free_params = OrderedDict({
@@ -20,7 +20,8 @@ def simulate(n_samples, catalog_loc, save_loc, emulate_ssp, noise):
         'log_tau': [np.log10(.1), np.log10(30)],  # careful, this is log prior! >2, has very little effect
         'log_agn_mass': [-7, np.log10(15)],  # i.e. from 10**-7 to 15 (not 10**15!)
         'agn_eb_v': [0., 0.5],
-        'log_agn_torus_mass': [-7, np.log10(15)]
+        'log_agn_torus_mass': [-7, np.log10(15)],
+        'redshift': [redshift_range[0], redshift_range[1]]
     })
     param_dim = len(free_params.keys())
 
@@ -29,7 +30,7 @@ def simulate(n_samples, catalog_loc, save_loc, emulate_ssp, noise):
     # transform random-ish points back to parameter space (including log if needed)
     galaxy_params = simulation_utils.denormalise_hypercube(hcube, free_params)  
     
-    simulator, phot_wavelengths = get_forward_model(catalog_loc, emulate_ssp, noise=noise)
+    simulator, phot_wavelengths = get_forward_model(emulate_ssp, noise=noise)
 
     # calculate photometry at every vector (row) in parameter-space 
     photometry = simulation_utils.sample(
@@ -48,10 +49,9 @@ def simulate(n_samples, catalog_loc, save_loc, emulate_ssp, noise):
         wavelengths=phot_wavelengths
     )
 
-def get_forward_model(catalog_loc, emulate_ssp, noise):
-    galaxy_index = 1
-    galaxy = main.load_galaxy(catalog_loc, galaxy_index)  # actually we only use this for the filters now, but prospector is set up to expect a galaxy
-    redshift = 0.155
+def get_forward_model(emulate_ssp, noise):
+    # redshift = 3.
+    redshift = True
     agn_mass = True
     agn_eb_v = True
     agn_torus_mass = True
@@ -63,7 +63,7 @@ def get_forward_model(catalog_loc, emulate_ssp, noise):
     else:
         get_sigma = None
 
-    _, obs, model, sps = main.construct_problem(galaxy, redshift=redshift, agn_mass=agn_mass, agn_eb_v=agn_eb_v, agn_torus_mass=agn_torus_mass, igm_absorbtion=igm_absorbtion, emulate_ssp=emulate_ssp)
+    _, obs, model, sps = main.construct_problem(redshift=redshift, agn_mass=agn_mass, agn_eb_v=agn_eb_v, agn_torus_mass=agn_torus_mass, igm_absorbtion=igm_absorbtion, emulate_ssp=emulate_ssp)
 
     _ = visualise.calculate_sed(model, model.theta, obs, sps)  # TODO might not be needed for obs phot wavelengths
     phot_wavelengths = obs['phot_wave']
@@ -87,17 +87,20 @@ if __name__ == '__main__':
     Optionally, use the GP emulator for the forward model. Not a great idea, as this is slower than the original forward model, but I implemented it already...
 
     Example use: 
-        python agnfinder/simulation_samples.py 1000 --catalog-loc /media/mike/beta/agnfinder/cpz_paper_sample_week3.parquet --save-dir data
+        python agnfinder/simulation_samples.py 1000 --z-min 0. --z-max 4. --save-dir data
     """
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('n_samples', type=int)
-    parser.add_argument('--catalog-loc', dest='catalog_loc', type=str)
+    parser.add_argument('--z-min', dest='redshift_min', default=0, type=float)
+    parser.add_argument('--z-max', dest='redshift_max', default=4., type=float)
     parser.add_argument('--save-dir', dest='save_dir', type=str, default='data')
     parser.add_argument('--emulate-ssp', default=False, action='store_true')
     parser.add_argument('--noise', default=False, action='store_true')
     args = parser.parse_args()
 
-    save_name = 'photometry_simulation_{}.hdf5'.format(args.n_samples)
+    redshift_min_string = '{:.4f}'.format(args.redshift_min).replace('.', 'p')
+    redshift_max_string = '{:.4f}'.format(args.redshift_max).replace('.', 'p')
+    save_name = 'photometry_simulation_{}n_z_{}_to_{}.hdf5'.format(args.n_samples, redshift_min_string, redshift_max_string)
     save_loc = os.path.join(args.save_dir, save_name)
 
-    simulate(args.n_samples, args.catalog_loc, save_loc, args.emulate_ssp, args.noise)
+    simulate(args.n_samples, save_loc, args.emulate_ssp, args.noise, (args.redshift_min, args.redshift_max))

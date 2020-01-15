@@ -44,10 +44,11 @@ def load_galaxy(catalog_loc, index=0, forest_class=None, spectro_class=None):
     return df.iloc[index]
 
 
-def construct_problem(galaxy, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, emulate_ssp):
+def construct_problem(redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, emulate_ssp, galaxy=None):
     run_params = {}
 
     # model params
+    # these get passed to build_model and build_sps
     run_params["object_redshift"] = None
     run_params["fixed_metallicity"] = 0.  # solar
     run_params["add_duste"] = True
@@ -64,10 +65,9 @@ def construct_problem(galaxy, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_
 
     logging.info('Run params: {}'.format(run_params))
 
-    obs = cpz_builders.build_cpz_obs(galaxy, reliable=True)
+    obs = cpz_builders.build_cpz_obs(galaxy=None, reliable=True)
     logging.info(obs)
 
-    # demo_model = demo_builders.build_model(**run_params)
     model = cpz_builders.build_model(**run_params)
     logging.info(model)
 
@@ -203,6 +203,8 @@ def save_sed_traces(samples, obs, model, sps, file_loc, max_samples=1000, burn_i
 
 
 def main(index, name, catalog_loc, save_dir, forest_class, spectro_class, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, find_ml_estimate, find_mcmc_posterior, find_multinest_posterior, emulate_ssp):
+    # note - this is now deprecated! We don't use Prospector to do the fitting any more, we only want the forward model
+    # Should still work though.
 
     galaxy = load_galaxy(catalog_loc, index, forest_class, spectro_class)
     logging.info('Galaxy: {}'.format(galaxy))
@@ -211,7 +213,7 @@ def main(index, name, catalog_loc, save_dir, forest_class, spectro_class, redshi
     if redshift == 'spectro':
         redshift = galaxy['redshift']
     run_params, obs, model, sps = construct_problem(
-        galaxy,
+        galaxy=galaxy,  # now a kwarg that's none by default, as we usually only want the forward model
         redshift=redshift,
         agn_mass=agn_mass,
         agn_eb_v=agn_eb_v,

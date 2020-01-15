@@ -3,6 +3,7 @@ import os
 
 import numpy as np
 
+from sedpy import observate
 import fsps
 from prospect.utils.obsutils import fix_obs
 from prospect.models.templates import TemplateLibrary
@@ -15,7 +16,7 @@ from agnfinder.prospector import load_photometry
 from agnfinder.fsps_emulation import emulate
 
 
-def build_cpz_obs(galaxy, reliable, **extras):
+def build_cpz_obs(reliable, galaxy=None):
     """Build a dictionary of photometry (and eventually spectra?)
     Arguments are hyperparameters that are likely to change over runs
 
@@ -23,8 +24,15 @@ def build_cpz_obs(galaxy, reliable, **extras):
         A dictionary of observational data to use in the fit.
     """
     obs = {}
-    obs["filters"], obs["maggies"], obs['maggies_unc'] = load_photometry.load_maggies_from_galaxy(galaxy, reliable)
-    print(obs['filters'])
+    if galaxy:
+        obs["filters"], obs["maggies"], obs['maggies_unc'] = load_photometry.load_maggies_from_galaxy(galaxy, reliable)
+    else:
+        # TODO slightly messy two-step process
+        filter_meta = load_photometry.get_filters(reliable=True)
+        obs["filters"] = observate.load_filters([f.bandpass_file for f in filter_meta])
+        obs['maggies'] = np.ones(len(obs['filters']))
+        obs['maggies_unc'] = np.ones(len(obs['filters']))
+
     # Now we need a mask, which says which flux values to consider in the likelihood.
     # IMPORTANT: the mask is *True* for values that you *want* to fit
     obs["phot_mask"] = np.array([True for _ in obs['filters']])
