@@ -22,7 +22,7 @@ class SamplerHMC(Sampler):
     def sample(self):
         start_time = datetime.datetime.now()
 
-        log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation)
+        log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation, self.problem.redshifts)
         initial_state = self.get_initial_state()
 
         with np.printoptions(precision=2, suppress=False):
@@ -65,7 +65,7 @@ class SamplerHMC(Sampler):
         self.n_chains = tf.reduce_sum(tf.cast(successfully_adapted, tf.int32))
 
         # get new log_prob_fn
-        log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation)
+        log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation, self.problem.redshifts)
         
         # continue, for real this time
         final_samples, is_accepted = self.run_hmc(log_prob_fn, initial_samples_filtered[-1], burnin_only=False)
@@ -202,7 +202,7 @@ def optimised_start(forward_model, observations, param_dim, n_chains, steps, ini
     return best_params
 
 def find_best_params(forward_model, observations, param_dim, batch_dim, steps):
-    log_prob_fn = get_log_prob_fn(forward_model, observations)
+    log_prob_fn = get_log_prob_fn(forward_model, observations, self.problem.redshifts)
     initial_params = tf.Variable(tf.random.uniform([batch_dim, param_dim], dtype=np.float32), dtype=tf.float32)
     best_params = find_minima(lambda x: -log_prob_fn(x), initial_params, steps)  # a very important minus sign...
     return best_params
@@ -238,7 +238,7 @@ def many_random_starts(forward_model, observation, param_dim, n_chains, overprop
     # return initial_state
 
 def keep_top_params(all_params, forward_model, true_observation, initial_dim, final_dim):
-    log_prob_fn = get_log_prob_fn(forward_model, true_observation)
+    log_prob_fn = get_log_prob_fn(forward_model, true_observation, self.problem.redshifts)
     initial_log_probs = log_prob_fn(all_params)
     initial_state = tf.gather(all_params, tf.argsort(initial_log_probs, direction='DESCENDING'))[:final_dim]
     return initial_state

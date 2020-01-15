@@ -38,11 +38,13 @@ def record_performance_on_galaxies(checkpoint_loc, max_galaxies, n_burnin, n_sam
             logging.info('{}: {:.2f}'.format(c, df[f'Pr[{c}]_case_III'].sum()))
 
         true_observation = np.zeros((len(df), 12)).astype(np.float32)  # fixed bands
+        redshifts = np.zeros((len(df), 1))
         for n in tqdm(range(len(df))):
             galaxy = df.iloc[n]  # I don't know why iterrows is apparently returning one more row than len(df)??
             # TODO uncertainties are not yet used! See log prob, currently 5% uncertainty by default
             _, maggies, maggies_unc = load_photometry.load_maggies_from_galaxy(galaxy, reliable=True)
             true_observation[n] = maggies.astype(np.float32)
+            redshifts[n] = galaxy['redshift']
         true_params = np.zeros((len(df), 7)).astype(np.float32)
         # true_params = None TODO quite awkward as I often use it in asserts or for expected param dim
         logging.warning(f'Using {len(df)} real galaxies - forcing n_chains from {n_chains} to {len(df)} accordingly')
@@ -59,10 +61,11 @@ def record_performance_on_galaxies(checkpoint_loc, max_galaxies, n_burnin, n_sam
         # logging.critical('For now, only running on this specific galaxy!')
         # assert n_chains == 1
         # galaxy_indices = [1977]  # galaxy in 10m param cube w/ all params close to 0.5
-        true_params = x_test[galaxy_indices]  # true params etc. now have a batch dimension
+        true_params = x_test[galaxy_indices, 1:]  # excluding the 0th redshift param, which we treat as fixed
+        redshifts = x_test[galaxy_indices, :1]  # shape (n_galaxies, 1)
         true_observation = deep_emulator.denormalise_photometry(y_test[galaxy_indices]) 
 
-    run_sampler.sample_galaxy_batch(galaxy_indices, true_observation, true_params, emulator, n_burnin, n_samples, n_chains, init_method, save_dir)
+    run_sampler.sample_galaxy_batch(galaxy_indices, true_observation, redshifts, true_params, emulator, n_burnin, n_samples, n_chains, init_method, save_dir)
 
 
 if __name__ == '__main__':

@@ -7,12 +7,13 @@ from agnfinder.tf_sampling import deep_emulator
 
 class SamplingProblem():
 
-    def __init__(self, true_observation, true_params, forward_model):
+    def __init__(self, true_observation, true_params, forward_model, redshifts):
         assert true_observation.ndim == 2
         assert true_params.ndim == 2
         self.true_observation = true_observation
         self.true_params = true_params
         self.forward_model = lambda *args, **kwargs: forward_model(*args, **kwargs)
+        self.redshifts = redshifts
 
     @property
     def param_dim(self):
@@ -32,13 +33,14 @@ class Sampler():
 
 
 # @tf.function  # inputs become tensors when you wrap
-def get_log_prob_fn(forward_model, true_observation):
+def get_log_prob_fn(forward_model, true_observation, redshifts):
     assert tf.rank(true_observation).numpy() == 2  # must have batch dim
     # first dimension of true params must match first dimension of x, or will fail
     @tf.function(experimental_compile=True)
     def log_prob_fn(x):  # 0th axis is batch/chain dim, 1st is param dim
         # expected photometry has been normalised by deep_emulator.normalise_photometry, remember - it's neg log10 mags
-        expected_photometry = deep_emulator.denormalise_photometry(forward_model(x, training=False))  # model expects a batch dimension, which here is the chains
+        x_with_redshifts = tf.concat([redshifts, x], axis=1)
+        expected_photometry = deep_emulator.denormalise_photometry(forward_model(x_with_redshifts, training=False))  # model expects a batch dimension, which here is the chains
         true_photometry = true_observation  # make sure you denormalise this in the first place, if loading from data()
         deviation = tf.abs(expected_photometry - true_photometry)
         sigma = expected_photometry * 0.05  # i.e. 5% sigma, will read in soon-ish

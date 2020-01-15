@@ -12,13 +12,13 @@ import tensorflow as tf  # just for eager toggle
 from agnfinder.tf_sampling import deep_emulator, api, hmc
 
 # TODO change indices to some kind of unique id, perhaps? will need for real galaxies...
-def sample_galaxy_batch(names, true_observation, true_params, emulator, n_burnin, n_samples, n_chains, init_method, save_dir):
+def sample_galaxy_batch(names, true_observation, redshifts, true_params, emulator, n_burnin, n_samples, n_chains, init_method, save_dir):
     assert len(true_observation.shape) == 2
     assert len(true_params.shape) == 2
     assert len(names) == true_params.shape[0]
     assert true_observation.max() < 1e-3  # should be denormalised i.e. actual photometry in maggies
 
-    problem = api.SamplingProblem(true_observation, true_params, forward_model=emulator)
+    problem = api.SamplingProblem(true_observation, true_params, forward_model=emulator, redshifts=redshifts)
     sampler = hmc.SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
     samples, successfully_adapted = sampler()
 
