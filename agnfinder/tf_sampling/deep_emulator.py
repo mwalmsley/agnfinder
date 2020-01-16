@@ -82,9 +82,15 @@ def load_from_tfrecords(tfrecord_locs, batch_size, shuffle_buffer=10000):
     return ds
 
 
-def train_manual(model, train_features, train_labels, test_features, test_labels):
+def train_on_cubes(model, train_features, train_labels, test_features, test_labels):
     early_stopping = tf.keras.callbacks.EarlyStopping()
-    model.fit((train_features, train_labels), epochs=15, validation_data=(test_features, test_labels), callbacks=[early_stopping])
+    model.fit(train_features, train_labels, epochs=15, validation_data=(test_features, test_labels), callbacks=[early_stopping])
+    return model
+
+
+def train_on_datasets(model, train_ds, test_ds):
+    early_stopping = tf.keras.callbacks.EarlyStopping()
+    model.fit(train_ds, epochs=15, validation_data=test_ds, callbacks=[early_stopping])
     return model
 
 
@@ -108,10 +114,10 @@ def get_trained_keras_emulator(emulator, checkpoint_dir, new=False, cube_dir=Non
         logging.info('Training new emulator')
         if cube_dir is not None:
             assert tfrecord_dir is None
-            emulator = train_manual(emulator, *data(cube_dir))
-        # else:
-            # assert cube_dir is None
-            # emulator = train_manual(emulator, *data(cube_dir))
+            emulator = train_on_cubes(emulator, *data(cube_dir))
+        else:
+            assert cube_dir is None
+            emulator = train_on_datasets(emulator, *data(cube_dir))
         emulator.save_weights(checkpoint_loc)
     else:
         logging.info('Loading previous emulator from {}'.format(checkpoint_loc))
@@ -141,7 +147,7 @@ def cubes_to_tfrecords(cube_dir, tfrecord_dir):
 
 
     # now write as fixed train/test records
-def tfrecords_to_train_test(tfrecord_dir, shards=10):  # will have 1 test shard, otherwise train shards
+def tfrecords_to_train_test(tfrecord_dir, shards_dir, shards=10):  # will have 1 test shard, otherwise train shards
     tfrecord_locs = glob.glob(os.path.join(tfrecord_dir, 'photometry_simulation_*.tfrecord'))
     ds = tf.data.Dataset.from_tensor_slices(tfrecord_locs) 
     ds = ds.interleave(
@@ -153,9 +159,9 @@ def tfrecords_to_train_test(tfrecord_dir, shards=10):  # will have 1 test shard,
         shard_ds = ds.shard(shards, shard_n)
         # shard_ds = shard_ds.map(parse_function)  # no need to parse, writing straight back out
         if shard_n == 0:
-            tfrecord_loc = os.path.join(tfrecord_dir, 'test_{}.tfrecord'.format(shard_n))
+            tfrecord_loc = os.path.join(shards_dir, 'test_{}.tfrecord'.format(shard_n))
         else:
-            tfrecord_loc = os.path.join(tfrecord_dir, 'train_{}.tfrecord'.format(shard_n))
+            tfrecord_loc = os.path.join(shards_dir, 'train_{}.tfrecord'.format(shard_n))
         writer = tf.data.experimental.TFRecordWriter(tfrecord_loc)
         writer.write(shard_ds)
 
@@ -224,8 +230,12 @@ if __name__ == '__main__':
     if not os.path.isdir(checkpoint_dir):
         os.mkdir(checkpoint_dir)
 
+    # convert cubes to tfrecords, one at a time
     # cubes_to_tfrecords(cube_dir, cube_dir)
-    # tfrecords_to_train_test(cube_dir)
+
+    # shuffle (out-of-memory) those tfrecords into 9 train and 1 test shards
+    # tfrecords_to_train_test(cube_dir, cube_dir, shards=10)
 
     model = tf_model()
     trained_clf = get_trained_keras_emulator(model, checkpoint_dir, new=True, cube_dir=cube_dir)
+    trained_clf = get_trained_keras_emulator(model, checkpoint_dir, new=True, tfrecord_dir=cube_dir)
