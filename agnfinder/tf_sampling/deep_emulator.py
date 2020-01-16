@@ -162,8 +162,8 @@ if __name__ == '__main__':
 
     To find better model hyperparams, see Google Colab
     """
-    # tf.config.optimizer.set_jit(True)  # may break everything
-    tf.compat.v1.enable_eager_execution()
+    tf.config.optimizer.set_jit(True)
+    # tf.compat.v1.enable_eager_execution()
 
     # train_boosted_trees()
 
@@ -173,7 +173,7 @@ if __name__ == '__main__':
     if not os.path.isdir(checkpoint_dir):
         os.mkdir(checkpoint_dir)
 
-    cubes_to_tfrecords(cube_dir, cube_dir)
+    # cubes_to_tfrecords(cube_dir, cube_dir)
 
-    # model = tf_model()
-    # trained_clf = get_trained_keras_emulator(model, checkpoint_dir, new=True, cube_dir=cube_dir)
+    model = tf_model()
+    trained_clf = get_trained_keras_emulator(model, checkpoint_dir, new=True, cube_dir=cube_dir)

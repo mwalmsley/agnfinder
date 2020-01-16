@@ -115,3 +115,5 @@ data/*.png
 *.parquet
 .vscode/*
 *.hdf5
+*.tfrecord
+report.txt
