@@ -5,7 +5,7 @@ import glob
 import numpy as np
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
-
+import tqdm as tqdm
 import h5py
 
 from sklearn.ensemble import GradientBoostingRegressor
@@ -42,6 +42,7 @@ def tf_model():
         metrics=['mean_absolute_error'])
     return model
 
+
 def data(cube_dir):  # e.g. data/cubes/latest
     # need to be able to load all cubes into memory at once (though only once, thanks to concatenation instead of loading all and stacking)
     cube_locs = get_cube_locs(cube_dir)
@@ -57,9 +58,33 @@ def data(cube_dir):  # e.g. data/cubes/latest
     return x_train, y_train, x_test, y_test
 
 
+# equivalent to the above, but for out-of-memory size data
+def data_from_tfrecords(tfrecord_dir, batch_size=512):
+    train_locs = glob.glob(os.path.join(cube_dir, 'train_*.hdf5'))
+    test_locs = glob.glob(os.path.join(cube_dir, 'test_*.hdf5'))
+
+    train_ds = load_from_tfrecords(train_locs, batch_size=batch_size)
+    test_ds = load_from_tfrecords(test_locs, batch_size=batch_size)
+
+    return train_ds, test_ds
+
+
+def load_from_tfrecords(tfrecord_locs, batch_size, shuffle_buffer=10000):
+    assert isinstance(tfrecord_locs, list)
+    ds = tf.data.Dataset.from_tensor_slices(tfrecord_locs) 
+    ds = ds.interleave(
+        tf.data.TFRecordDataset,
+        cycle_length=len(tfrecord_locs),
+        block_length=1)
+    ds = ds.shuffle(shuffle_buffer)
+    ds = ds.map(parse_function)
+    ds = ds.batch(batch_size)
+    return ds
+
+
 def train_manual(model, train_features, train_labels, test_features, test_labels):
     early_stopping = tf.keras.callbacks.EarlyStopping()
-    model.fit(train_features, train_labels, epochs=15, validation_data=(test_features, test_labels), callbacks=[early_stopping])
+    model.fit((train_features, train_labels), epochs=15, validation_data=(test_features, test_labels), callbacks=[early_stopping])
     return model
 
 
@@ -77,12 +102,16 @@ def train_boosted_trees(cube_dir):
     print(mean_squared_error(y_test, clf.predict(x_test))) 
 
 
-def get_trained_keras_emulator(emulator, checkpoint_dir, new=False, cube_dir=None):
+def get_trained_keras_emulator(emulator, checkpoint_dir, new=False, cube_dir=None, tfrecord_dir=None):
     checkpoint_loc = os.path.join(checkpoint_dir, 'model')
     if new:
         logging.info('Training new emulator')
-        assert cube_dir is not None  # need cubes to make a new emulator!
-        emulator = train_manual(emulator, *data(cube_dir))
+        if cube_dir is not None:
+            assert tfrecord_dir is None
+            emulator = train_manual(emulator, *data(cube_dir))
+        # else:
+            # assert cube_dir is None
+            # emulator = train_manual(emulator, *data(cube_dir))
         emulator.save_weights(checkpoint_loc)
     else:
         logging.info('Loading previous emulator from {}'.format(checkpoint_loc))
@@ -100,7 +129,7 @@ def get_cube_locs(cube_dir):
 
 def cubes_to_tfrecords(cube_dir, tfrecord_dir):
     cube_locs = get_cube_locs(cube_dir)
-    for cube_loc in cube_locs:
+    for cube_loc in tqdm.tqdm(cube_locs, unit=' cubes saved to tfrecord'):
         logging.debug('Loading and saving cube {}'.format(cube_loc))
         theta, norm_photometry = load_cube(cube_loc)
         ds = tf.data.Dataset.from_tensor_slices((theta, norm_photometry))
@@ -110,14 +139,36 @@ def cubes_to_tfrecords(cube_dir, tfrecord_dir):
         writer.write(serialized_ds)
     logging.info('Saved cubes in {} as tfrecords to {}'.format(cube_dir, tfrecord_dir))
 
+
     # now write as fixed train/test records
-def tfrecords_to_train_test(tfrecord_dir):
+def tfrecords_to_train_test(tfrecord_dir, shards=10):  # will have 1 test shard, otherwise train shards
     tfrecord_locs = glob.glob(os.path.join(tfrecord_dir, 'photometry_simulation_*.tfrecord'))
-    ds = tf.data.TFRecordDataset(tfrecord_locs)  # TODO must load interleaved
+    ds = tf.data.Dataset.from_tensor_slices(tfrecord_locs) 
+    ds = ds.interleave(
+        tf.data.TFRecordDataset,
+        cycle_length=len(tfrecord_locs),
+        block_length=1)
+    ds = ds.shuffle(10000)
+    for shard_n in tqdm.tqdm(range(shards), unit=' tfrecord shards saved'):
+        shard_ds = ds.shard(shards, shard_n)
+        # shard_ds = shard_ds.map(parse_function)  # no need to parse, writing straight back out
+        if shard_n == 0:
+            tfrecord_loc = os.path.join(tfrecord_dir, 'test_{}.tfrecord'.format(shard_n))
+        else:
+            tfrecord_loc = os.path.join(tfrecord_dir, 'train_{}.tfrecord'.format(shard_n))
+        writer = tf.data.experimental.TFRecordWriter(tfrecord_loc)
+        writer.write(shard_ds)
 
 
-def parse_example():
-    pass
+def parse_function(example_proto):
+    # Create a description of the features.
+    feature_description = {
+        'theta': tf.io.FixedLenFeature([], tf.float32),
+        'norm_photometry': tf.io.FixedLenFeature([], tf.float32)
+    }
+    # Parse the input `tf.Example` proto using the dictionary above.
+    return tf.io.parse_single_example(example_proto, feature_description)
+
 
 def _floats_feature(x):  # should be a 1D array or list
   return tf.train.Feature(float_list=tf.train.FloatList(value=list(x)))
@@ -174,6 +225,7 @@ if __name__ == '__main__':
         os.mkdir(checkpoint_dir)
 
     # cubes_to_tfrecords(cube_dir, cube_dir)
+    # tfrecords_to_train_test(cube_dir)
 
     model = tf_model()
     trained_clf = get_trained_keras_emulator(model, checkpoint_dir, new=True, cube_dir=cube_dir)

@@ -64,6 +64,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         true_observation = deep_emulator.denormalise_photometry(y_test[galaxy_indices]) 
 
     print(redshifts.shape, true_observation.shape, true_params.shape)
+    print(true_observation)
     assert len(redshifts) == len(true_observation) == len(true_params)
     run_sampler.sample_galaxy_batch(galaxy_indices, true_observation, redshifts, true_params, emulator, n_burnin, n_samples, n_chains, init_method, save_dir)
 
