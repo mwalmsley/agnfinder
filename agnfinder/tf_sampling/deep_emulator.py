@@ -111,7 +111,7 @@ def cubes_to_tfrecords(cube_dir, tfrecord_dir):
     logging.info('Saved cubes in {} as tfrecords to {}'.format(cube_dir, tfrecord_dir))
 
     # now write as fixed train/test records
-def tfrecords_to_train_test(tfrecord_dir)
+def tfrecords_to_train_test(tfrecord_dir):
     tfrecord_locs = glob.glob(os.path.join(tfrecord_dir, 'photometry_simulation_*.tfrecord'))
     ds = tf.data.load_interleaved()
 
