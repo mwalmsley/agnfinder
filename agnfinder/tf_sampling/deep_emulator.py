@@ -60,12 +60,14 @@ def data(cube_dir):  # e.g. data/cubes/latest
 
 # equivalent to the above, but for out-of-memory size data
 def data_from_tfrecords(tfrecord_dir, batch_size=512):
-    train_locs = glob.glob(os.path.join(cube_dir, 'train_*.hdf5'))
-    test_locs = glob.glob(os.path.join(cube_dir, 'test_*.hdf5'))
-
+    train_locs = glob.glob(os.path.join(cube_dir, 'train_*.tfrecord'))
+    test_locs = glob.glob(os.path.join(cube_dir, 'test_*.tfrecord'))
+    assert train_locs
+    assert test_locs
+    logging.info('Train locs: {}'.format(train_locs))
+    logging.info('Test locs: {}'.format(test_locs))
     train_ds = load_from_tfrecords(train_locs, batch_size=batch_size)
     test_ds = load_from_tfrecords(test_locs, batch_size=batch_size)
-
     return train_ds, test_ds
 
 
@@ -117,7 +119,7 @@ def get_trained_keras_emulator(emulator, checkpoint_dir, new=False, cube_dir=Non
             emulator = train_on_cubes(emulator, *data(cube_dir))
         else:
             assert cube_dir is None
-            emulator = train_on_datasets(emulator, *data(cube_dir))
+            emulator = train_on_datasets(emulator, *data_from_tfrecords(tfrecord_dir))
         emulator.save_weights(checkpoint_loc)
     else:
         logging.info('Loading previous emulator from {}'.format(checkpoint_loc))
@@ -157,7 +159,7 @@ def tfrecords_to_train_test(tfrecord_dir, shards_dir, shards=10):  # will have 1
     ds = ds.shuffle(10000)
     for shard_n in tqdm.tqdm(range(shards), unit=' tfrecord shards saved'):
         shard_ds = ds.shard(shards, shard_n)
-        # shard_ds = shard_ds.map(parse_function)  # no need to parse, writing straight back out
+        # no need to parse, writing straight back out
         if shard_n == 0:
             tfrecord_loc = os.path.join(shards_dir, 'test_{}.tfrecord'.format(shard_n))
         else:
@@ -169,11 +171,12 @@ def tfrecords_to_train_test(tfrecord_dir, shards_dir, shards=10):  # will have 1
 def parse_function(example_proto):
     # Create a description of the features.
     feature_description = {
-        'theta': tf.io.FixedLenFeature([], tf.float32),
-        'norm_photometry': tf.io.FixedLenFeature([], tf.float32)
+        'theta': tf.io.FixedLenFeature([8], tf.float32),
+        'norm_photometry': tf.io.FixedLenFeature([12], tf.float32)
     }
     # Parse the input `tf.Example` proto using the dictionary above.
-    return tf.io.parse_single_example(example_proto, feature_description)
+    parsed_example = tf.io.parse_single_example(example_proto, feature_description)
+    return parsed_example['theta'], parsed_example['norm_photometry']
 
 
 def _floats_feature(x):  # should be a 1D array or list
@@ -219,6 +222,10 @@ if __name__ == '__main__':
 
     To find better model hyperparams, see Google Colab
     """
+
+
+    logging.getLogger().setLevel(logging.INFO)
+
     tf.config.optimizer.set_jit(True)
     # tf.compat.v1.enable_eager_execution()
 
@@ -235,7 +242,15 @@ if __name__ == '__main__':
 
     # shuffle (out-of-memory) those tfrecords into 9 train and 1 test shards
     # tfrecords_to_train_test(cube_dir, cube_dir, shards=10)
+    
+    # tfrecord_locs = glob.glob(os.path.join(cube_dir, 'test_0.tfrecord'))
+    # print(tfrecord_locs)
+    # exit()
+    # ds = load_from_tfrecords(tfrecord_locs, batch_size=128)
+    # elements = ds.take(/10)
+    # for t, p in elements:
+        # print(t, p)
 
     model = tf_model()
-    trained_clf = get_trained_keras_emulator(model, checkpoint_dir, new=True, cube_dir=cube_dir)
+    # trained_clf = get_trained_keras_emulator(model, checkpoint_dir, new=True, cube_dir=cube_dir)
     trained_clf = get_trained_keras_emulator(model, checkpoint_dir, new=True, tfrecord_dir=cube_dir)
