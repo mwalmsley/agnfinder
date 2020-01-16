@@ -19,13 +19,12 @@ if __name__ == '__main__':
     Example use:
     python agnfinder/tf_sampling/evaluate_emulator.py --checkpoint-loc results/checkpoints/latest-tf
     """
-
     parser = argparse.ArgumentParser(description='Run emulated HMC on many galaxies')
-    parser.add_argument('--checkpoint', type=str, dest='checkpoint_dir')
+    parser.add_argument('--checkpoint', type=str, dest='checkpoint_dir', default='results/checkpoints/latest')
     args = parser.parse_args()
 
     checkpoint_dir = args.checkpoint_dir
-    x_train, y_train, x_test, y_test = deep_emulator.data()
+    x_train, y_train, x_test, y_test = deep_emulator.data(cube_dir='data/cubes/latest')
 
     x_train, y_train = x_train[:10000], y_train[:10000]  # for speed
     x_test, y_test = x_test[:10000], y_test[:10000]  # for speed
