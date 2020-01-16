@@ -16,7 +16,9 @@ def sample_galaxy_batch(names, true_observation, redshifts, true_params, emulato
     assert len(true_observation.shape) == 2
     assert len(true_params.shape) == 2
     assert len(names) == true_params.shape[0]
-    assert true_observation.max() < 1e-3  # should be denormalised i.e. actual photometry in maggies
+    if true_observation.max() < 1e-3:  # should be denormalised i.e. actual photometry in maggies
+        logging.info('True observation is {}'.format(true_observation))
+        logging.critical('True observation max is {} - make sure it is in maggies, not mags!'.format(true_observation))
 
     problem = api.SamplingProblem(true_observation, true_params, forward_model=emulator, redshifts=redshifts)
     sampler = hmc.SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
