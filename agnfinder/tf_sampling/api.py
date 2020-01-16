@@ -44,7 +44,7 @@ def get_log_prob_fn(forward_model, true_observation, redshifts):
         true_photometry = true_observation  # make sure you denormalise this in the first place, if loading from data()
         deviation = tf.abs(expected_photometry - true_photometry)
         sigma = expected_photometry * 0.05  # i.e. 5% sigma, will read in soon-ish
-        log_prob = -tf.reduce_sum(deviation / sigma, axis=1)  # very negative = unlikely, near -0 = likely
+        log_prob = -tf.reduce_sum(input_tensor=deviation / sigma, axis=1)  # very negative = unlikely, near -0 = likely
         x_out_of_bounds = is_out_of_bounds(x)
         penalty = tf.cast(x_out_of_bounds, tf.float32) * tf.constant(1000., dtype=tf.float32)
         log_prob_with_penalty = log_prob - penalty  # no effect if x in bounds, else divide (subtract) a big penalty
@@ -53,4 +53,4 @@ def get_log_prob_fn(forward_model, true_observation, redshifts):
 
 
 def is_out_of_bounds(x):  # x expected to have (batch, param) shape
-    return tf.reduce_any( tf.cast(x > 1., tf.bool) | tf.cast(x < 0., tf.bool),  axis=1)
+    return tf.reduce_any( input_tensor=tf.cast(x > 1., tf.bool) | tf.cast(x < 0., tf.bool),  axis=1)

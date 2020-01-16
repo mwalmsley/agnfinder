@@ -113,7 +113,8 @@ def cubes_to_tfrecords(cube_dir, tfrecord_dir):
     # now write as fixed train/test records
 def tfrecords_to_train_test(tfrecord_dir):
     tfrecord_locs = glob.glob(os.path.join(tfrecord_dir, 'photometry_simulation_*.tfrecord'))
-    ds = tf.data.load_interleaved()
+    ds = tf.data.TFRecordDataset(tfrecord_locs)  # TODO must load interleaved
+
 
 def parse_example():
     pass
@@ -162,7 +163,7 @@ if __name__ == '__main__':
     To find better model hyperparams, see Google Colab
     """
     # tf.config.optimizer.set_jit(True)  # may break everything
-    tf.enable_eager_execution()
+    tf.compat.v1.enable_eager_execution()
 
     # train_boosted_trees()
 

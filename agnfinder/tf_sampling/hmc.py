@@ -39,7 +39,7 @@ class SamplerHMC(Sampler):
         logging.debug(is_accepted.numpy().shape)
         logging.debug(is_accepted.numpy())
         # identify which samples aren't adapted
-        accepted_per_galaxy = tf.reduce_mean(is_accepted, axis=0)
+        accepted_per_galaxy = tf.reduce_mean(input_tensor=is_accepted, axis=0)
         successfully_adapted = accepted_per_galaxy > tf.ones([self.n_chains]) * .4
 
         for n, adapted in enumerate(successfully_adapted.numpy()):
@@ -48,21 +48,21 @@ class SamplerHMC(Sampler):
 
         # filter samples, true_observation (and true_params) to remove them
         initial_samples_filtered = tf.boolean_mask(
-            initial_samples,
+            tensor=initial_samples,
             mask=successfully_adapted,
             axis=1
         )
         self.problem.true_observation = tf.boolean_mask(
-            self.problem.true_observation,
+            tensor=self.problem.true_observation,
             mask=successfully_adapted,
             axis=0
         )
         self.problem.true_params = tf.boolean_mask(
-            self.problem.true_params,
+            tensor=self.problem.true_params,
             mask=successfully_adapted,
             axis=0
         )
-        self.n_chains = tf.reduce_sum(tf.cast(successfully_adapted, tf.int32))
+        self.n_chains = tf.reduce_sum(input_tensor=tf.cast(successfully_adapted, tf.int32))
 
         # get new log_prob_fn
         log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation, self.problem.redshifts)
@@ -218,7 +218,7 @@ def find_minima(func, initial_guess, steps=1000,  optimizer=tf.keras.optimizers.
             grads = tape.gradient(func_value, [initial_guess])[0]
             grads_and_vars = [(grads, initial_guess)]
             optimizer.apply_gradients(grads_and_vars)  # inplace
-            tf.assign(initial_guess, tf.clip_by_value(initial_guess, 0.01, 0.99))
+            tf.compat.v1.assign(initial_guess, tf.clip_by_value(initial_guess, 0.01, 0.99))
     # logging.info('Final neglogprob: {}'.format(['{:4.1f}'.format(x) for x in func(initial_guess)]))
     return initial_guess
 

@@ -13,7 +13,7 @@ import pydelfi.ndes as ndes
 import pydelfi.delfi as delfi
 from agnfinder.prospector.main import save_samples
 
-tf.logging.set_verbosity(tf.logging.ERROR)
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 
 def demo_simulator(theta, seed=1, simulator_args=None, batch=1):
@@ -72,7 +72,7 @@ class CustomDelfi(delfi.Delfi):
         inputs = {'data': self.nde[0].data}
         
         export_dir = os.path.join(self.results_dir, 'saved_model')
-        tf.saved_model.simple_save(
+        tf.compat.v1.saved_model.simple_save(
             self.sess,
             export_dir,
             inputs,

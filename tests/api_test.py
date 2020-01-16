@@ -11,7 +11,7 @@ def test_is_out_of_bounds():
     x = tf.constant(x)
     
     result = api.is_out_of_bounds(x)
-    with tf.Session() as sess:
+    with tf.compat.v1.Session() as sess:
         result = sess.run(result)
     assert (np.array(result) == np.array([False, True, False, False])).all()
 
@@ -36,7 +36,7 @@ def test_get_log_prob_fn():
     bad_params[1, 0] = 1.1 # zeroth param of chain 1 is out-of-bounds
     bad_log_prob = log_prob_fn(bad_params)
     
-    with tf.Session() as sess:
+    with tf.compat.v1.Session() as sess:
         bad_log_prob, good_log_prob = sess.run([bad_log_prob, good_log_prob])
     print(bad_log_prob, good_log_prob)
     assert bad_log_prob[1] < good_log_prob[1] - 500  # to avoid random passing, must be MUCH lower as per the large penalty

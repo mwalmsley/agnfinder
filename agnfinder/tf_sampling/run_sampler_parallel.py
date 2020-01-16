@@ -27,7 +27,7 @@ if __name__ == '__main__':
     parser.add_argument('--init', type=str, dest='init_method', default='optimised', help='Can be one of: random, roughly_correct, optimised')
     args = parser.parse_args()
 
-    tf.enable_eager_execution()  # for now, this is required
+    tf.compat.v1.enable_eager_execution()  # for now, this is required
 
     if args.cube_loc:  # use hypercube
         assert args.catalog_loc is None

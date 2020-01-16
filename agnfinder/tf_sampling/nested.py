@@ -21,7 +21,7 @@ class SamplerNested(Sampler):
             self.problem.n_dim,
             self.n_repeats
         )
-        sess = tf.Session()
-        sess.run(tf.global_variables_initializer())
+        sess = tf.compat.v1.Session()
+        sess.run(tf.compat.v1.global_variables_initializer())
         likelihoods, samples = sess.run([L, points])
         return samples

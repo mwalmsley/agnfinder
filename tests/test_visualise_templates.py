@@ -43,4 +43,3 @@ def example_sed():
 #     visualise_templates.visualise_mags(example_sed, ax)  # inplace
 #     fig.tight_layout()
 #     fig.savefig(os.path.join(TEST_FIGURE_DIR, 'visualise_mags.png'))
-    

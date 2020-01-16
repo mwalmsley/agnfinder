@@ -9,7 +9,7 @@ import pydelfi.delfi as delfi
 import pydelfi.priors as priors
 from agnfinder.prospector.main import save_samples
 
-tf.logging.set_verbosity(tf.logging.ERROR)
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 def simulator(theta, seed=1, simulator_args=None, batch=1):
     return np.array([np.mean(theta) + 0.1 * np.random.rand()])

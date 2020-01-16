@@ -89,7 +89,7 @@ if __name__ == '__main__':
     parser.add_argument('--init', type=str, dest='init_method', default='optimised', help='Can be one of: random, roughly_correct, optimised')
     args = parser.parse_args()
 
-    tf.enable_eager_execution() 
+    tf.compat.v1.enable_eager_execution() 
     
     logging.getLogger().setLevel(logging.INFO)  # some third party library is mistakenly setting the logging somewhere...
 

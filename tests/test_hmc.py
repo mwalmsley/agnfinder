@@ -11,10 +11,10 @@ from agnfinder.tf_sampling import hmc, deep_emulator
 
 def test_find_minima():
 
-    tf.enable_eager_execution()
+    tf.compat.v1.enable_eager_execution()
 
     observation = tf.constant([0.3, 0.4], dtype=tf.float32)
-    func = lambda x: tf.reduce_sum(tf.abs(x * 2. - observation))
+    func = lambda x: tf.reduce_sum(input_tensor=tf.abs(x * 2. - observation))
     initial_guess_np = [0.7, 0.1]
     best_params = tf.Variable(initial_guess_np)
     steps = 1000  # needs to be about this many, adam takes a lot of steps with default learning rate TODO
@@ -37,7 +37,7 @@ def test_find_minima():
 
 def test_find_best_params(monkeypatch):
 
-    tf.enable_eager_execution()
+    tf.compat.v1.enable_eager_execution()
 
     n_chains = 1
     param_dim = 2
@@ -47,7 +47,7 @@ def test_find_best_params(monkeypatch):
     def mock_get_log_prob_fn(x, y, batch_dim):
         return lambda x: log_prob_fn(x)
 
-    log_prob_fn = lambda x: -tf.reduce_sum(tf.abs(forward_model(x, training=None) - observation))
+    log_prob_fn = lambda x: -tf.reduce_sum(input_tensor=tf.abs(forward_model(x, training=None) - observation))
     monkeypatch.setattr(hmc, 'get_log_prob_fn', mock_get_log_prob_fn)
     steps = 1000
 
@@ -58,7 +58,7 @@ def test_find_best_params(monkeypatch):
 
 def test_find_best_params_batch(monkeypatch):
 
-    tf.enable_eager_execution()
+    tf.compat.v1.enable_eager_execution()
 
     n_chains = 4
     param_dim = 2
@@ -68,7 +68,7 @@ def test_find_best_params_batch(monkeypatch):
     def mock_get_log_prob_fn(x, y, batch_dim):
         return lambda x: log_prob_fn(x)
 
-    log_prob_fn = lambda x: -tf.reduce_sum(tf.abs(forward_model(x, training=None) - observation))
+    log_prob_fn = lambda x: -tf.reduce_sum(input_tensor=tf.abs(forward_model(x, training=None) - observation))
     monkeypatch.setattr(hmc, 'get_log_prob_fn', mock_get_log_prob_fn)
     steps = 1000
 
@@ -80,7 +80,7 @@ def test_find_best_params_batch(monkeypatch):
 
 def test_find_best_params_functional():
 
-    tf.enable_eager_execution()
+    tf.compat.v1.enable_eager_execution()
 
     with open('data/lfi_test_case.json', 'r') as f:
         test_case = json.load(f)
