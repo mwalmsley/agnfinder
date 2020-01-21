@@ -51,7 +51,7 @@ def plot_posterior_stripes(params, marginals, true_params, n_param_bins=50, n_po
         print(posterior_record)
         # divide out by how many galaxies were added at each index
         # posterior_record = posterior_record / galaxy_counts
-        for n in range(galaxy_counts):
+        for n in range(len(galaxy_counts)):
             posterior_record[n] = posterior_record[n] / galaxy_counts[n]
         print(posterior_record)
         # replace any 0's with nans, for clarity
