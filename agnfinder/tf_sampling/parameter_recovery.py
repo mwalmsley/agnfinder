@@ -34,23 +34,23 @@ def plot_posterior_stripes(params, marginals, true_params, n_param_bins=50, n_po
 
     for param_n in range(len(params)):
         ax = all_axes[param_n]
-        posterior_record = np.zeros((n_param_bins, n_posterior_bins)) * np.nan
-        posterior_colors = np.zeros((n_param_bins, n_posterior_bins, 4)) * np.nan
+        posterior_record = np.zeros((n_param_bins, n_posterior_bins)) * 0
+        posterior_colors = np.zeros((n_param_bins, n_posterior_bins, 4)) * 0
         galaxy_counts = np.zeros((n_param_bins))  # to track how many galaxies have been added
         for galaxy_n, _ in enumerate(marginals):
             true_param = true_params[galaxy_n, param_n]
             true_param_index = np.digitize(true_param, param_bins)  # fnd the bin index for true_param
             stripe = marginals[galaxy_n, param_n]
             if true_param_index < n_param_bins:  # exclude =50 edge case TODO
-                # posterior_record[true_param_index] += np.nan_to_num(stripe)  # nans to 0's
-                posterior_record[true_param_index] = stripe
+                posterior_record[true_param_index] += np.nan_to_num(stripe)  # nans to 0's
+                # posterior_record[true_param_index] = stripe
                 galaxy_counts[true_param_index] += 1
 
         print(posterior_record)
         # divide out by how many galaxies were added at each index
-        # posterior_record = posterior_record / galaxy_counts
+        posterior_record = posterior_record / galaxy_counts
         # replace any 0's with nans, for clarity
-        # posterior_record[np.isclose(posterior_record, 0)] = np.nan
+        posterior_record[np.isclose(posterior_record, 0)] = np.nan
         # trim extreme values
         ceiling = np.quantile(posterior_record[~np.isnan(posterior_record)], .98)
         posterior_record = np.clip(posterior_record, 0, ceiling)
