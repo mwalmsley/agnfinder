@@ -63,8 +63,8 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         redshifts = x_test[galaxy_indices, :1].astype(np.float32)  # shape (n_galaxies, 1)
         true_observation = deep_emulator.denormalise_photometry(y_test[galaxy_indices]) 
 
-    print(redshifts.shape, true_observation.shape, true_params.shape)
-    print(true_observation)
+    # print(redshifts.shape, true_observation.shape, true_params.shape)
+    # print(true_observation)
     assert len(redshifts) == len(true_observation) == len(true_params)
     run_sampler.sample_galaxy_batch(galaxy_indices, true_observation, redshifts, true_params, emulator, n_burnin, n_samples, n_chains, init_method, save_dir)
 
@@ -77,7 +77,7 @@ if __name__ == '__main__':
 
     Example use: 
     python agnfinder/tf_sampling/run_sampler_singlethreaded.py --checkpoint-loc results/checkpoints/latest --output-dir results/emulated_sampling --n-chains 4 --n-samples 100 --n-burnin 100 --init random
-    python agnfinder/tf_sampling/run_sampler_singlethreaded.py --checkpoint-loc results/checkpoints/latest --output-dir results/emulated_sampling --selected data/selected_galaxies_577.parquet
+    python agnfinder/tf_sampling/run_sampler_singlethreaded.py --checkpoint-loc results/checkpoints/latest --output-dir results/emulated_sampling --selected data/uk_ir_selection_577.parquet
 
     """
     parser = argparse.ArgumentParser(description='Run emulated HMC on many galaxies')
@@ -110,6 +110,6 @@ if __name__ == '__main__':
         save_dir = os.path.join(output_dir, 'latest_{}_{}_{}'.format(n_samples, n_chains, init_method))
 
     record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir)
-    run_sampler.aggregate_performance(save_dir, n_samples, chains_per_galaxy=1)
-    samples, true_params, true_observations = run_sampler.read_performance(save_dir)
-    print(samples.shape, true_params.shape, true_observations.shape)
+    # run_sampler.aggregate_performance(save_dir, n_samples, chains_per_galaxy=1)
+    # samples, true_params, true_observations = run_sampler.read_performance(save_dir)
+    # print(samples.shape, true_params.shape, true_observations.shape)

@@ -37,7 +37,7 @@ def sample_galaxy_batch(names, true_observation, redshifts, true_params, emulato
     else:
         logging.info('All galaxies adapted succesfully')
 
-    for galaxy_n, name in enumerate(remaining_names):
+    for galaxy_n, name in tqdm(enumerate(remaining_names), unit=' galaxies saved'):
         save_file = get_galaxy_save_file(name, save_dir)
         f = h5py.File(save_file, mode='w')  # will overwrite
         galaxy_samples = np.expand_dims(samples[:, galaxy_n], axis=1)

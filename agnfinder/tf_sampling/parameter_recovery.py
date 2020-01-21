@@ -31,29 +31,37 @@ def plot_posterior_stripes(params, marginals, true_params, n_param_bins=50, n_po
     dummy_array = np.zeros(42)  # anything
     _, param_bins = np.histogram(dummy_array, range=(0., 1.), bins=n_param_bins)
 
-    coloring_param_index = 5
     for param_n in range(len(params)):
         ax = all_axes[param_n]
         posterior_record = np.zeros((n_param_bins, n_posterior_bins)) * np.nan
         posterior_colors = np.zeros((n_param_bins, n_posterior_bins, 4)) * np.nan
-        for galaxy_n, galaxy in enumerate(marginals):
+        galaxy_counts = np.zeros((n_param_bins))  # to track how many galaxies have been added
+        for galaxy_n, _ in enumerate(marginals):
             true_param = true_params[galaxy_n, param_n]
-            true_param_index = np.digitize(true_param, param_bins)  # find the bin index for true_param
+            true_param_index = np.digitize(true_param, param_bins)  # fnd the bin index for true_param
             stripe = marginals[galaxy_n, param_n]
             if true_param_index < n_param_bins:  # exclude =50 edge case TODO
-                posterior_record[true_param_index] = stripe  # currently will only show the latest, should do nan-safe mean
+                posterior_record[true_param_index] += np.nan_to_num(stripe)  # nans to 0's
 
+        # divide out by how many galaxies were added at each index
+        posterior_record = posterior_record / galaxy_counts
+        # replace any 0's with nans, for clarity
+        posterior_record[np.isclose(posterior_record, 0)] = np.nan
+        # trim extreme values
         ceiling = np.quantile(posterior_record[~np.isnan(posterior_record)], .98)
         posterior_record = np.clip(posterior_record, 0, ceiling)
 
-        # ax.pcolormesh(param_bins, param_bins, np.transpose(posterior_record), cmap='Blues')  
-        for galaxy_n, galaxy in enumerate(marginals):
-            custom_cmap = get_cmap(true_params[galaxy_n, coloring_param_index])
-            true_param = true_params[galaxy_n, param_n]
-            true_param_index = np.digitize(true_param, param_bins)  # find the bin index for true_param
-            if true_param_index < n_param_bins:  # exclude =50 edge case TODO
-                posterior_colors[true_param_index] = custom_cmap(posterior_record[true_param_index])
-        ax.imshow(np.transpose(posterior_colors, axes=[1, 0, 2]), origin='lower')
+        # plot in single color
+        ax.pcolormesh(param_bins, param_bins, np.transpose(posterior_record), cmap='Blues')  
+        # OR plot colored by value of one param
+        # coloring_param_index = 5
+        # for galaxy_n, galaxy in enumerate(marginals):
+        #     custom_cmap = get_cmap(true_params[galaxy_n, coloring_param_index])
+        #     true_param = true_params[galaxy_n, param_n]
+        #     true_param_index = np.digitize(true_param, param_bins)  # find the bin index for true_param
+        #     if true_param_index < n_param_bins:  # exclude =50 edge case TODO
+        #         posterior_colors[true_param_index] = custom_cmap(posterior_record[true_param_index])
+        # ax.imshow(np.transpose(posterior_colors, axes=[1, 0, 2]), origin='lower')
         
         ax.grid(False)
         # ax.plot([0., 50.], [0., 50.], 'k--', alpha=0.3)
