@@ -249,6 +249,6 @@ def keep_top_params(all_params, forward_model, true_observation, redshifts, init
     return initial_state
 
 def roughly_correct_start(true_params, n_chains):
-    not_quite_true_params = true_params + np.random.rand(true_params.shape) * 0.03
+    not_quite_true_params = true_params + np.random.rand(*true_params.shape) * 0.03
     initial_state = tf.constant(not_quite_true_params, dtype=tf.float32)
     return initial_state
