@@ -7,7 +7,6 @@ from tqdm import tqdm
 import numpy as np
 import h5py
 import tensorflow as tf  # just for eager toggle
-# os.environ['TF_XLA_FLAGS']='--tf_xla_cpu_global_jit'
 
 from agnfinder.tf_sampling import deep_emulator, api, hmc
 
@@ -22,7 +21,7 @@ def sample_galaxy_batch(names, true_observation, redshifts, true_params, emulato
 
     problem = api.SamplingProblem(true_observation, true_params, forward_model=emulator, redshifts=redshifts)
     sampler = hmc.SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
-    samples, successfully_adapted = sampler()
+    samples, is_accepted, successfully_adapted = sampler()
 
     assert samples.shape[0] == n_samples
     assert samples.shape[1] == np.sum(successfully_adapted)
@@ -30,6 +29,7 @@ def sample_galaxy_batch(names, true_observation, redshifts, true_params, emulato
 
     # filter the args to only galaxies which survived
     # samples is already filtered
+    # is_accepted is already filtered
     true_observation = true_observation[successfully_adapted]
     true_params = true_params[successfully_adapted]
     redshifts = redshifts[successfully_adapted]
@@ -50,6 +50,7 @@ def sample_galaxy_batch(names, true_observation, redshifts, true_params, emulato
         f.create_dataset('samples', data=galaxy_samples)  # leave the chain dimension as 1 for now
         f.create_dataset('true_observations', data=true_observation[galaxy_n])
         f.create_dataset('redshift', data=redshifts[galaxy_n])
+        f.create_dataset('is_accepted', data=is_accepted[galaxy_n])
         if true_params is not None:
             f.create_dataset('true_params', data=true_params[galaxy_n])
 

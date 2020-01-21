@@ -78,7 +78,7 @@ class SamplerHMC(Sampler):
         # TODO am I supposed to be filtering for accepted samples? is_accepted has the same shape as samples, and is binary.
         end_time = datetime.datetime.now()
         logging.info('Total time for galaxies: {}s'.format( (end_time - start_time).total_seconds()))
-        return final_samples, successfully_adapted.numpy()  # needed to know which samples are which galaxy
+        return final_samples, is_accepted, successfully_adapted.numpy()  # needed to know which samples are which galaxy
 
     def get_initial_state(self):
         if self.init_method == 'correct':
@@ -99,7 +99,7 @@ class SamplerHMC(Sampler):
     def run_hmc(self, log_prob_fn, initial_state, burnin_only=False):
 
         if burnin_only:
-            n_samples = 1000
+            n_samples = 3000
         else:
             n_samples = self.n_samples
         
