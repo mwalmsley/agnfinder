@@ -115,6 +115,7 @@ if __name__ == '__main__':
         logging.info('Using simulated galaxies')
         save_dir = os.path.join(output_dir, 'latest_{}_{}_{}'.format(n_samples, n_chains, init_method))
 
+    logging.info('Galaxies will save to {}'.format(save_dir))
     exit()
     record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir)
     # run_sampler.aggregate_performance(save_dir, n_samples, chains_per_galaxy=1)
