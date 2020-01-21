@@ -110,10 +110,10 @@ if __name__ == '__main__':
         galaxy_true_params = f['true_params'][...]
         # is_accepted = f['is_accepted'][...].mean()
         # accept[n] = is_accepted >= args.min_acceptance
-        top_80p = np.quantile(galaxy_marginals, .8, axis=1)
-        width_80p = np.argmax(top_80p, axis=1) - np.argmin(top_80p, axis=1)
-        print(width_80p)
-        accept[n] = np.median(width_80p) > args.min_acceptance
+        value_for_80p = np.quantile(galaxy_marginals, .8, axis=1)
+        num_geq_80p = (galaxy_marginals > value_for_80p).sum()
+        print(num_geq_80p)
+        accept[n] = np.median(num_geq_80p) > args.min_acceptance
 
         marginals[n] = galaxy_marginals
         true_params[n] = galaxy_true_params
