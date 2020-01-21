@@ -5,7 +5,7 @@ Detect AGN from photometry in XXL data, as Euclid prep.
 
 You will need:
 - The catalog of galaxies and associated photometry, which Mike calls `cpz_paper_sample_week3.parquet` (csv also supported)
-- The modified/non-default sedpy filter transmission files. These are named like FUV_galex.par, g_cfhtl.par, etc. **Place these into the sedpy filters folder**, under `[your_sedpy_install]/filters`.
+- The modified/non-default sedpy filter transmission files. These are named like FUV_galex.par, g_cfhtl.par, etc. **Place these into the sedpy filters folder**, under `[your_sedpy_install]/data/filters`.
 
 You might also like:
 - A precalculated hypercube of (forward model parameters, photometric observations) pairs, such as `photometry_simulation_1000000.hdf5`.
@@ -19,7 +19,7 @@ AGNFinder requires python-fsps, which itself requires FSPS.
 FSPS installation instructions are [here](https://github.com/cconroy20/fsps/blob/master/doc/INSTALL). 
 **Follow these now**. 
 - To download the files: `git clone https://github.com/cconroy20/fsps.git`
-- Before commit `eb4341d`, I found (Ubunutu) I needed to change the compiler flags line in `src/Makefile` as follows: F90FLAGS = -O3 -march=native -cpp -fPIC. With the latest master version, this has been fixed.
+- Before commit `eb4341d`, I found (Ubunutu) I needed to change the compiler flags line in `src/Makefile` as follows: F90FLAGS = -O3 -march=native -cpp -fPIC. 
 - Setting the $SPS_HOME environmental variable in the shell from which you run Python is crucial, or the subsequent python-fsps install will fail.
 
 Clone the repo and install the required Python packages (you're using an environment manager like conda or virtualenv, right?):
@@ -28,7 +28,14 @@ Clone the repo and install the required Python packages (you're using an environ
     pip install -r agnfinder/requirements.txt
 
 Note that requirements.txt will install several packages directly from git. See requirements.txt.
-If you receive the an error relating to $SPS_HOME during the pip install of python-fsps, check your FSPS install and check that variable is set (`echo $SPS_HOME`).
+
+- If you receive the an error relating to $SPS_HOME during the pip install of python-fsps, check your FSPS install and check that variable is set (`echo $SPS_HOME`).
+- If you see a wall of red when install python-fsps, with messages like `/usr/bin/ld: /scratch/agnfinder/fsps/src/igm_absorb.o: relocation R_X86_64_32S against `.bss' can not be used when making a shared object; recompile with -fPIC`, then add -fPIC to the compiler flags in the FSPS Makefile (fsps/src), as above.
+
+Add the custom sedpy filters (see Data Required, above) to your sedpy install.  To do this, **Place the custom filters into the sedpy filters folder**, under `{your_sedpy_install}/data/filters`. If you don't know where sedpy is installed, Python can tell you:
+
+    import sedpy
+    print(sedpy.__file__)
 
 Finally, still from the directory above:
 

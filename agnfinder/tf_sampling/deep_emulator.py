@@ -1,6 +1,7 @@
 import os
 import logging
 import glob
+import argparse
 
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -218,13 +219,21 @@ def load_cube(loc):
 
 if __name__ == '__main__':
     """
-    You can run this (with no args) to train a new emulator (which will be saved as below)
+    You can run this to train a new emulator (which will be saved as below)
 
     To find better model hyperparams, see Google Colab
+
+    Example use:
+
+        python agnfinder/tf_sampling/deep_emulator.py --checkpoint=results/checkpoints/redshift_test
     """
-
-
     logging.getLogger().setLevel(logging.INFO)
+
+    parser = argparse.ArgumentParser(description='Run emulated HMC on many galaxies')
+    parser.add_argument('--checkpoint', type=str, dest='checkpoint_dir')
+    parser.add_argument('--cube', type=str, dest='cube_dir', default='data/cubes/latest')
+    # TODO add tfrecords as arg if needed
+    args = parser.parse_args()
 
     tf.config.optimizer.set_jit(True)
     # tf.compat.v1.enable_eager_execution()
@@ -232,8 +241,8 @@ if __name__ == '__main__':
     # train_boosted_trees()
 
     # create_new_emulator
-    cube_dir = 'data/cubes/latest'
-    checkpoint_dir = 'results/checkpoints/redshift_test'  # last element is checkpoint name
+    cube_dir = args.cube_dir
+    checkpoint_dir = args.checkpoint_dir
     if not os.path.isdir(checkpoint_dir):
         os.mkdir(checkpoint_dir)
 
@@ -252,5 +261,5 @@ if __name__ == '__main__':
         # print(t, p)
 
     model = tf_model()
-    # trained_clf = get_trained_keras_emulator(model, checkpoint_dir, new=True, cube_dir=cube_dir)
-    trained_clf = get_trained_keras_emulator(model, checkpoint_dir, new=True, tfrecord_dir=cube_dir)
+    trained_clf = get_trained_keras_emulator(model, checkpoint_dir, new=True, cube_dir=cube_dir)
+    # trained_clf = get_trained_keras_emulator(model, checkpoint_dir, new=True, tfrecord_dir=cube_dir)
