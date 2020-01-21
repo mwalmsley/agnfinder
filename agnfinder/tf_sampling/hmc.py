@@ -40,7 +40,7 @@ class SamplerHMC(Sampler):
         logging.debug(is_accepted.numpy())
         # identify which samples aren't adapted
         accepted_per_galaxy = tf.reduce_mean(input_tensor=is_accepted, axis=0)
-        successfully_adapted = accepted_per_galaxy > tf.ones([self.n_chains]) * .4
+        successfully_adapted = accepted_per_galaxy > tf.ones([self.n_chains]) * .6  # min acceptance of 60%
 
         for n, adapted in enumerate(successfully_adapted.numpy()):
             if not adapted:
