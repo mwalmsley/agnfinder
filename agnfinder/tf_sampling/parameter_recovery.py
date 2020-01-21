@@ -44,13 +44,14 @@ def plot_posterior_stripes(params, marginals, true_params, n_param_bins=50, n_po
             if true_param_index < n_param_bins:  # exclude =50 edge case TODO
                 posterior_record[true_param_index] += np.nan_to_num(stripe)  # nans to 0's
 
+        print(posterior_record)
         # divide out by how many galaxies were added at each index
         posterior_record = posterior_record / galaxy_counts
         # replace any 0's with nans, for clarity
         posterior_record[np.isclose(posterior_record, 0)] = np.nan
         # trim extreme values
-        ceiling = np.quantile(posterior_record[~np.isnan(posterior_record)], .98)
-        posterior_record = np.clip(posterior_record, 0, ceiling)
+        # ceiling = np.quantile(posterior_record[~np.isnan(posterior_record)], .98)
+        # posterior_record = np.clip(posterior_record, 0, ceiling)
 
         # plot in single color
         ax.pcolormesh(param_bins, param_bins, np.transpose(posterior_record), cmap='Blues')  
