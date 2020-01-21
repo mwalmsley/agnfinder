@@ -108,8 +108,13 @@ if __name__ == '__main__':
         f = h5py.File(galaxy_loc, mode='r')
         galaxy_marginals = f['marginals'][...]
         galaxy_true_params = f['true_params'][...]
-        is_accepted = f['is_accepted'][...].mean()
-        accept[n] = is_accepted >= args.min_acceptance
+        # is_accepted = f['is_accepted'][...].mean()
+        # accept[n] = is_accepted >= args.min_acceptance
+        top_80p = np.quantile(galaxy_marginals, .8, axis=1)
+        width_80p = np.argmax(top_80p, axis=1) - np.argmin(top_80p, axis=1)
+        print(width_80p)
+        accept[n] = np.median(width_80p) > args.min_acceptance
+
         marginals[n] = galaxy_marginals
         true_params[n] = galaxy_true_params
 
