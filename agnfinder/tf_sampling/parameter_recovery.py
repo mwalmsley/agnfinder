@@ -100,5 +100,6 @@ if __name__ == '__main__':
         true_params[n] = galaxy_true_params
 
     fig, axes = plot_posterior_stripes(params, marginals, true_params)
+    fig.savefig('results/latest_posterior_stripes.png')
     # plt.gcf()
-    plt.show()
+    # plt.show()
