@@ -5,12 +5,12 @@ Detect AGN from photometry in XXL data, as Euclid prep.
 
 You will need:
 - The catalog of galaxies and associated photometry, which Mike calls `cpz_paper_sample_week3.parquet` (csv also supported)
-- The modified/non-default sedpy filter transmission files. **Place these into the sedpy filters folder**, under `[your_sedpy_install]/filters`. Mike has these under the folder `CPz_filters`.
+- The modified/non-default sedpy filter transmission files. These are named like FUV_galex.par, g_cfhtl.par, etc. **Place these into the sedpy filters folder**, under `[your_sedpy_install]/filters`.
 
 You might also like:
 - A precalculated hypercube of (forward model parameters, photometric observations) pairs, such as `photometry_simulation_1000000.hdf5`.
 
-You can find each of these files [here](https://1drv.ms/u/s!ApOZ4Ims-i3xh4RGm2IE_UtjlysdxA?e=8Ymi2H).
+You can find all the required data [here](https://1drv.ms/u/s!ApOZ4Ims-i3xnYoZrUZRfHjevuVQ7Q?e=bvZpVv).
 
 
 ## Installation

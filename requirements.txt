@@ -4,7 +4,7 @@ seaborn
 pytest
 numpy
 pyarrow
-datashader
+# datashader
 bokeh
 scipy
 emcee
@@ -24,8 +24,8 @@ pyDOE2
 tensorflow>=2.1  # the right tf version is important! 
 tensorflow-probability  # TODO so is the right tfp version
 keras
-hyperopt
-hyperas
+# hyperopt
+# hyperas
 arviz
 
 git+https://github.com/bd-j/sedpy
