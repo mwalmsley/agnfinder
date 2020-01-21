@@ -46,7 +46,7 @@ def sample_galaxy_batch(names, true_observation, redshifts, true_params, emulato
         
         if true_params is not None:
             f.create_dataset('true_params', data=true_params[galaxy_n])
-sef
+
         marginal_bins = 50
         dummy_array = np.zeros(42)  # anything
         _, param_bins = np.histogram(dummy_array, range=(0., 1.), bins=marginal_bins)
