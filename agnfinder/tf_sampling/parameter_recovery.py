@@ -40,15 +40,20 @@ def plot_posterior_stripes(params, marginals, true_params, n_param_bins=50, n_po
         for galaxy_n, _ in enumerate(marginals):
             true_param = true_params[galaxy_n, param_n]
             true_param_index = np.digitize(true_param, param_bins)  # fnd the bin index for true_param
+            # print(true_param_index)
             stripe = marginals[galaxy_n, param_n]
             if true_param_index < n_param_bins:  # exclude =50 edge case TODO
                 posterior_record[true_param_index] += np.nan_to_num(stripe)  # nans to 0's
                 # posterior_record[true_param_index] = stripe
                 galaxy_counts[true_param_index] += 1
 
+        print(posterior_record[:, 0])
         print(posterior_record)
         # divide out by how many galaxies were added at each index
-        posterior_record = posterior_record / galaxy_counts
+        # posterior_record = posterior_record / galaxy_counts
+        for n in range(galaxy_counts):
+            posterior_record[n] = posterior_record[n] / galaxy_counts[n]
+        print(posterior_record)
         # replace any 0's with nans, for clarity
         posterior_record[np.isclose(posterior_record, 0)] = np.nan
         # trim extreme values
