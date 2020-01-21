@@ -87,7 +87,12 @@ def load_from_tfrecords(tfrecord_locs, batch_size, shuffle_buffer=10000):
 
 def train_on_cubes(model, train_features, train_labels, test_features, test_labels):
     early_stopping = tf.keras.callbacks.EarlyStopping()
-    model.fit(train_features, train_labels, epochs=15, validation_data=(test_features, test_labels), callbacks=[early_stopping])
+    if len(tf.config.list_physical_devices('GPU')) > 0:
+        logging.info('GPU found - using batch size 1024')
+        batch_size = 1024  # crank it up to efficiently use GPU
+    else:
+        batch_size = 128
+    model.fit(train_features, train_labels, epochs=15, batch_size=batch_size, validation_data=(test_features, test_labels), callbacks=[early_stopping])
     return model
 
 

@@ -52,7 +52,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
     else:
         # fake galaxies, drawn from our priors and used as emulator training data
         logging.info('Using fake galaxies, drawn randomly from the hypercube')
-        _, _, x_test, y_test = deep_emulator.data(cube_dir='data/cubes/latest')
+        _, _, x_test, y_test = deep_emulator.data(cube_dir='data/cubes/latest')  # TODO could make as arg
         x_test = x_test.astype(np.float32)
         y_test = y_test.astype(np.float32)
         galaxy_indices = get_galaxies_without_results(n_chains)  # commenting out for now
@@ -77,7 +77,7 @@ if __name__ == '__main__':
 
     Example use: 
     python agnfinder/tf_sampling/run_sampler_singlethreaded.py --checkpoint-loc results/checkpoints/latest --output-dir results/emulated_sampling --n-chains 4 --n-samples 100 --n-burnin 100 --init random
-    python agnfinder/tf_sampling/run_sampler_singlethreaded.py --checkpoint-loc results/checkpoints/latest --output-dir results/emulated_sampling
+    python agnfinder/tf_sampling/run_sampler_singlethreaded.py --checkpoint-loc results/checkpoints/latest --output-dir results/emulated_sampling --selected data/selected_galaxies_577.parquet
 
     """
     parser = argparse.ArgumentParser(description='Run emulated HMC on many galaxies')
