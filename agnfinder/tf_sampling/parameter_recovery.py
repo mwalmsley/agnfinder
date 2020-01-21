@@ -114,7 +114,6 @@ if __name__ == '__main__':
         true_params[n] = galaxy_true_params
 
     # filter to galaxies with decent acceptance
-    params = params[accept]
     marginals = marginals[accept]
     true_params = true_params[accept]
 
