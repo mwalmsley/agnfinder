@@ -58,7 +58,7 @@ def plot_posterior_stripes(params, marginals, true_params, n_param_bins=50, n_po
         # replace any 0's with nans, for clarity
         posterior_record[np.isclose(posterior_record, 0)] = np.nan
         # trim extreme values
-        ceiling = np.quantile(posterior_record[~np.isnan(posterior_record)], .98)
+        ceiling = np.quantile(posterior_record[~np.isnan(posterior_record)], .95)
         posterior_record = np.clip(posterior_record, 0, ceiling)
 
         # plot in single color
