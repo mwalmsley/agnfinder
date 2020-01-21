@@ -110,7 +110,7 @@ if __name__ == '__main__':
 
     if selected_catalog_loc is not '':
         logging.info('Using real galaxies from {}'.format(selected_catalog_loc))
-        save_dir = os.path.join(output_dir, os.path.basename(selected_catalog_loc))
+        save_dir = os.path.join(output_dir, os.path.basename(selected_catalog_loc)).split('.')[:-1]
     else:
         logging.info('Using simulated galaxies')
         save_dir = os.path.join(output_dir, 'latest_{}_{}_{}'.format(n_samples, n_chains, init_method))
