@@ -28,22 +28,28 @@ def sample_galaxy_batch(names, true_observation, redshifts, true_params, emulato
     assert samples.shape[1] == np.sum(successfully_adapted)
     assert samples.shape[2] == true_params.shape[1]
 
+    # filter the args to only galaxies which survived
+    # samples is already filtered
+    true_observation = true_observation[successfully_adapted]
+    true_params = true_params[successfully_adapted]
+    redshifts = redshifts[successfully_adapted]
+    # names are a bit more awkward
     names_were_adapted = dict(zip(names, successfully_adapted))  # dicts are ordered in 3.7+ I think
     remaining_names = [k for k, v in names_were_adapted.items() if v]
     discarded_names = [k for k, v in names_were_adapted.items() if not v]
-
     if len(discarded_names) != 0:
         logging.warning('Galaxies {} did not adapt and were discarded'.format(discarded_names))
     else:
         logging.info('All galaxies adapted succesfully')
 
+    # now, galaxy_n will always line up with a remanining galaxy
     for galaxy_n, name in tqdm(enumerate(remaining_names), unit=' galaxies saved'):
         save_file = get_galaxy_save_file(name, save_dir)
         f = h5py.File(save_file, mode='w')  # will overwrite
         galaxy_samples = np.expand_dims(samples[:, galaxy_n], axis=1)
         f.create_dataset('samples', data=galaxy_samples)  # leave the chain dimension as 1 for now
         f.create_dataset('true_observations', data=true_observation[galaxy_n])
-        
+        f.create_dataset('redshift', data=redshifts[galaxy_n])
         if true_params is not None:
             f.create_dataset('true_params', data=true_params[galaxy_n])
 

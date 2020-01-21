@@ -10,6 +10,7 @@ import tensorflow as tf  # just for eager toggle
 from agnfinder.prospector import load_photometry
 from agnfinder.tf_sampling import run_sampler, deep_emulator
 
+
 # TODO will change to some kind of unique id for each galaxy, rather than the index
 def get_galaxies_without_results(n_galaxies):
     without_results = []
@@ -19,6 +20,7 @@ def get_galaxies_without_results(n_galaxies):
             without_results.append(i)
         i += 1
     return without_results
+
 
 def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir):
     emulator = deep_emulator.get_trained_keras_emulator(deep_emulator.tf_model(), checkpoint_loc, new=False)
@@ -55,10 +57,8 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         _, _, x_test, y_test = deep_emulator.data(cube_dir='data/cubes/latest')  # TODO could make as arg
         x_test = x_test.astype(np.float32)
         y_test = y_test.astype(np.float32)
-        galaxy_indices = get_galaxies_without_results(n_chains)  # commenting out for now
-        # logging.critical('For now, only running on this specific galaxy!')
-        # assert n_chains == 1
-        # galaxy_indices = [1977]  # galaxy in 10m param cube w/ all params close to 0.5
+        # galaxy_indices = get_galaxies_without_results(n_chains)  # commenting out for now
+        galaxy_indices = np.arange(n_chains)
         true_params = x_test[galaxy_indices, 1:]  # excluding the 0th redshift param, which we treat as fixed
         redshifts = x_test[galaxy_indices, :1].astype(np.float32)  # shape (n_galaxies, 1)
         true_observation = deep_emulator.denormalise_photometry(y_test[galaxy_indices]) 
