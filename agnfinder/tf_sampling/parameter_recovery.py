@@ -43,7 +43,7 @@ def plot_posterior_stripes(params, marginals, true_params, n_param_bins=50, n_po
             stripe = marginals[galaxy_n, param_n]
             if true_param_index < n_param_bins:  # exclude =50 edge case TODO
                 # posterior_record[true_param_index] += np.nan_to_num(stripe)  # nans to 0's
-                posterior_record[true_param_index] = stripeAct
+                posterior_record[true_param_index] = stripe
                 galaxy_counts[true_param_index] += 1
 
         print(posterior_record)
