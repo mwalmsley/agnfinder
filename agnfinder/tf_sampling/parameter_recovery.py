@@ -10,6 +10,7 @@ from matplotlib import cm
 import h5py
 from tqdm import tqdm
 
+
 def check_parameter_bias(galaxies, true_params):
     params = ['mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling']
 
@@ -91,6 +92,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('--save-dir', dest='save_dir', type=str)
+    parser.add_argument('--min-acceptance', default=0.6, type=float, dest='min_acceptance')
     args = parser.parse_args()
     logging.getLogger().setLevel(logging.INFO)  # some third party library is mistakenly setting the logging somewhere...
 
@@ -101,12 +103,20 @@ if __name__ == '__main__':
     
     marginals = np.zeros((len(galaxy_locs), len(params), 50))
     true_params = np.zeros((len(galaxy_locs), len(params)))
+    accept = np.zeros(len(galaxy_locs))
     for n, galaxy_loc in tqdm(enumerate(galaxy_locs), unit=' galaxies loaded'):
         f = h5py.File(galaxy_loc, mode='r')
         galaxy_marginals = f['marginals'][...]
         galaxy_true_params = f['true_params'][...]
+        is_accepted = f['is_accepted'][...].mean()
+        accept[n] = is_accepted >= args.min_acceptance
         marginals[n] = galaxy_marginals
         true_params[n] = galaxy_true_params
+
+    # filter to galaxies with decent acceptance
+    params = params[accept]
+    marginals = marginals[accept]
+    true_params = true_params[accept]
 
     fig, axes = plot_posterior_stripes(params, marginals, true_params)
     fig.savefig('results/latest_posterior_stripes.png')
