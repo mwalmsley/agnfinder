@@ -111,7 +111,7 @@ if __name__ == '__main__':
         # is_accepted = f['is_accepted'][...].mean()
         # accept[n] = is_accepted >= args.min_acceptance
         value_for_80p = np.quantile(galaxy_marginals, .8, axis=1)
-        num_geq_80p = (galaxy_marginals > value_for_80p).sum()
+        num_geq_80p = (galaxy_marginals.transpose() > value_for_80p).sum()
         print(num_geq_80p)
         accept[n] = np.median(num_geq_80p) > args.min_acceptance
 
