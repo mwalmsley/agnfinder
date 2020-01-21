@@ -101,7 +101,7 @@ if __name__ == '__main__':
     galaxy_locs = glob.glob(args.save_dir + '/galaxy*.h5')
     assert galaxy_locs
     
-    marginals = np.zeros((len(galaxy_locs), len(params), 50))
+    marginals = np.zeros((len(galaxy_locs), len(params), 50), dtype=bool)
     true_params = np.zeros((len(galaxy_locs), len(params)))
     accept = np.zeros(len(galaxy_locs))
     for n, galaxy_loc in tqdm(enumerate(galaxy_locs), unit=' galaxies loaded'):
@@ -114,6 +114,7 @@ if __name__ == '__main__':
         true_params[n] = galaxy_true_params
 
     # filter to galaxies with decent acceptance
+    logging.info('{} galaxies of {} have mean acceptance > {}'.format(accept.sum(), len(accept), args.min_acceptance))
     marginals = marginals[accept]
     true_params = true_params[accept]
 
