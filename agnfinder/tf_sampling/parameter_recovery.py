@@ -38,6 +38,7 @@ def plot_posterior_stripes(params, marginals, true_params, n_param_bins=50, n_po
         posterior_colors = np.zeros((n_param_bins, n_posterior_bins, 4)) * np.nan
         galaxy_counts = np.zeros((n_param_bins))  # to track how many galaxies have been added
         for galaxy_n, _ in enumerate(marginals):
+            print(marginals)
             true_param = true_params[galaxy_n, param_n]
             true_param_index = np.digitize(true_param, param_bins)  # fnd the bin index for true_param
             stripe = marginals[galaxy_n, param_n]
@@ -50,8 +51,8 @@ def plot_posterior_stripes(params, marginals, true_params, n_param_bins=50, n_po
         # replace any 0's with nans, for clarity
         posterior_record[np.isclose(posterior_record, 0)] = np.nan
         # trim extreme values
-        # ceiling = np.quantile(posterior_record[~np.isnan(posterior_record)], .98)
-        # posterior_record = np.clip(posterior_record, 0, ceiling)
+        ceiling = np.quantile(posterior_record[~np.isnan(posterior_record)], .98)
+        posterior_record = np.clip(posterior_record, 0, ceiling)
 
         # plot in single color
         ax.pcolormesh(param_bins, param_bins, np.transpose(posterior_record), cmap='Blues')  
