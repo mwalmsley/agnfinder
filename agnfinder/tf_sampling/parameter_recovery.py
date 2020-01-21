@@ -101,9 +101,9 @@ if __name__ == '__main__':
     galaxy_locs = glob.glob(args.save_dir + '/galaxy*.h5')
     assert galaxy_locs
     
-    marginals = np.zeros((len(galaxy_locs), len(params), 50), dtype=bool)
+    marginals = np.zeros((len(galaxy_locs), len(params), 50))
     true_params = np.zeros((len(galaxy_locs), len(params)))
-    accept = np.zeros(len(galaxy_locs))
+    accept = np.zeros(len(galaxy_locs), dtype=bool)
     for n, galaxy_loc in tqdm(enumerate(galaxy_locs), unit=' galaxies loaded'):
         f = h5py.File(galaxy_loc, mode='r')
         galaxy_marginals = f['marginals'][...]
