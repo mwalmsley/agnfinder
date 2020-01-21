@@ -125,5 +125,6 @@ if __name__ == '__main__':
 
     fig, axes = plot_posterior_stripes(params, marginals, true_params)
     fig.savefig('results/latest_posterior_stripes.png')
+    fig.savefig('results/latest_posterior_stripes.pdf')
     # plt.gcf()
     # plt.show()
