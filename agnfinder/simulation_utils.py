@@ -29,37 +29,39 @@ def get_unit_latin_hypercube(dims, n_samples):
     return pyDOE2.lhs(n=dims, samples=n_samples, criterion='correlation')
 
 
-def denormalise_hypercube(normalised_hcube, limits):
-    # expects dim1 to have which param, dim0 to have param values
-    # equivalent to denormalise_theta after a transpose - TODO combine
-    theta_to_sample = normalised_hcube.copy()
-    for key_n, (key, lims) in enumerate(limits.items()):
-        theta_to_sample[:, key_n] = denormalise_param(theta_to_sample[:, key_n], lims,  key.startswith('log'))
-        # print(key, theta_to_sample[:, key_n].min(), theta_to_sample[:, key_n].max())
-    return theta_to_sample
+def denormalise_hypercube(hcube, limits):
+    assert hcube.shape[0] == len(limits.keys())
+    return np.transpose(denormalise_theta(hcube.tranpose()))
 
 
 def denormalise_theta(normalised_theta, limits):
-    # expects normalised_theta to have dim0=which param, dim1=param values
-    theta = np.zeros_like(normalised_theta)
-    for n, (key, lims) in enumerate(limits.items()):
-        theta[n] = denormalise_param(normalised_theta[n], lims, key.startswith('log'))
-    return theta
+    assert normalised_theta.shape[1] == len(limits.keys())
+    # convert hypercube to real parameter space
+    # expects dim1 to have which param, dim0 to have param values
+    # equivalent to denormalise_theta after a transpose - TODO combine
+    physical_theta = normalised_theta.copy()
+    for key_n, (key, lims) in enumerate(limits.items()):
+        physical_theta[:, key_n] = denormalise_param(physical_theta[:, key_n], lims,  key.startswith('log'))
+        # print(key, theta_to_sample[:, key_n].min(), theta_to_sample[:, key_n].max())
+    return physical_theta
+
+
+# def denormalise_theta(normalised_theta, limits):
+#     # convert arbitrary rows of normalised parameters to real parameter space
+#     # expects normalised_theta to have dim0=which param, dim1=param values
+#     theta = np.zeros_like(normalised_theta)
+#     for n, (key, lims) in enumerate(limits.items()):
+#         theta[n] = denormalise_param(normalised_theta[n], lims, key.startswith('log'))
+#     return theta
 
 
 def denormalise_param(normalised_param, param_limits, log):
-        # 0, 1 -> -2, 6
-        # 0, 8
-        # should be ordered
-        assert normalised_param[0] == normalised_param.min()
-        assert normalised_param[-1] == normalised_param.max()
-        # 
         physical_range = param_limits[1] - param_limits[0]
-        normalised_range = normalised_param[-1] - normalised_param[0]
         stretched = normalised_param * physical_range  # full normalised range is always 0->1
+        shifted = stretched + param_limits[0]
         if log:
-            stretched= 10 ** stretched
-        return stretched
+            return 10 ** np.clip(shifted, -10, 20)  # stay within 10^-10 -> 10^20 
+        return shifted
         
 
 def sample(theta, n_samples, output_dim, simulator):

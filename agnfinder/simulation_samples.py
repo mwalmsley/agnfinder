@@ -22,7 +22,6 @@ def simulate(n_samples, save_loc, emulate_ssp, noise, redshift_range):
         'log_agn_mass': [-7, np.log10(15)],  # i.e. from 10**-7 to 15 (not 10**15!)
         'agn_eb_v': [0., 0.5],
         'log_agn_torus_mass': [-7, np.log10(15)]
-        #  [redshift_range[0], redshift_range[1]]
     })
     param_dim = len(free_params.keys())
 
@@ -55,7 +54,7 @@ def simulate(n_samples, save_loc, emulate_ssp, noise, redshift_range):
     )
 
 def get_forward_model(emulate_ssp, noise):
-    # redshift = 3.
+    # redshift = 3.  # for fixed redshift
     redshift = True
     agn_mass = True
     agn_eb_v = True
@@ -71,11 +70,10 @@ def get_forward_model(emulate_ssp, noise):
     _, obs, model, sps = main.construct_problem(redshift=redshift, agn_mass=agn_mass, agn_eb_v=agn_eb_v, agn_torus_mass=agn_torus_mass, igm_absorbtion=igm_absorbtion, emulate_ssp=emulate_ssp)
 
     _ = visualise.calculate_sed(model, model.theta, obs, sps)  # TODO might not be needed for obs phot wavelengths
-    phot_wavelengths = obs['phot_wave']
+    phot_wavelengths = obs['phot_wave']  # always the same, as measured in observer frame
     def forward_model(theta):  # theta must be denormalised!
         assert theta[1] > 1e7  # check mass is properly large
         _, model_photometry, _ = visualise.calculate_sed(model, theta, obs, sps)  # via closure
-    #     phot_wavelengths = obs['phot_wave']  # always the same, as in observer frame
         if get_sigma is not None:
             return np.random.normal(loc=model_photometry, scale=get_sigma(model_photometry))
         return model_photometry
