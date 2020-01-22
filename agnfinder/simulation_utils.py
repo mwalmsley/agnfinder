@@ -29,9 +29,9 @@ def get_unit_latin_hypercube(dims, n_samples):
     return pyDOE2.lhs(n=dims, samples=n_samples, criterion='correlation')
 
 
-def denormalise_hypercube(hcube, limits):
-    assert hcube.shape[0] == len(limits.keys())
-    return np.transpose(denormalise_theta(hcube.tranpose()))
+# def denormalise_hypercube(hcube, limits):
+    # assert hcube.shape[0] == len(limits.keys())
+    # return np.transpose(denormalise_theta(hcube.tranpose(), limits=limits))
 
 
 def denormalise_theta(normalised_theta, limits):

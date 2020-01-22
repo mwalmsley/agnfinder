@@ -16,12 +16,13 @@ def simulate(n_samples, save_loc, emulate_ssp, noise, redshift_range):
     free_params = OrderedDict({
         'redshift': [0., 4.],  # the order is really important - redshift is 0th theta index if free. See notebooks/understanding_forward_model
         'log_mass': [8, 12], 
-        'dust2': [0., 2.],  # not age of universe, as mistakenly done before...
-        'tage': [0.001, 13.8],  # not 0->2, as mistakenly done before...might consider bringing the bounds a bit tighter
+        'dust2': [0., 2.], 
+        'tage': [0.001, 13.8],  # might consider bringing the bounds a bit tighter
         'log_tau': [np.log10(.1), np.log10(30)],  # careful, this is log prior! >2, has very little effect
         'log_agn_mass': [-7, np.log10(15)],  # i.e. from 10**-7 to 15 (not 10**15!)
         'agn_eb_v': [0., 0.5],
-        'log_agn_torus_mass': [-7, np.log10(15)]
+        'log_agn_torus_mass': [-7, np.log10(15)],
+        'inclination': [0., 90.]  # hopefully this will be last param - we shall see...
     })
     param_dim = len(free_params.keys())
 
@@ -30,7 +31,8 @@ def simulate(n_samples, save_loc, emulate_ssp, noise, redshift_range):
     # tweak redshift normalised theta to lie within desired range
     hcube[:, 0] = simulation_utils.shift_redshift_theta(hcube[:, 0], free_params['redshift'], redshift_range)
     # transform random-ish points back to parameter space (including log if needed)
-    galaxy_params = simulation_utils.denormalise_hypercube(hcube, free_params)  
+    print(hcube.shape)
+    galaxy_params = simulation_utils.denormalise_theta(hcube, free_params)  
     
     simulator, phot_wavelengths = get_forward_model(emulate_ssp, noise=noise)
 
@@ -60,6 +62,7 @@ def get_forward_model(emulate_ssp, noise):
     agn_eb_v = True
     agn_torus_mass = True
     igm_absorbtion = True
+    inclination = True
 
     if noise:
         def get_sigma(x):
@@ -67,7 +70,15 @@ def get_forward_model(emulate_ssp, noise):
     else:
         get_sigma = None
 
-    _, obs, model, sps = main.construct_problem(redshift=redshift, agn_mass=agn_mass, agn_eb_v=agn_eb_v, agn_torus_mass=agn_torus_mass, igm_absorbtion=igm_absorbtion, emulate_ssp=emulate_ssp)
+    _, obs, model, sps = main.construct_problem(
+        redshift=redshift,
+        agn_mass=agn_mass,
+        agn_eb_v=agn_eb_v,
+        agn_torus_mass=agn_torus_mass,
+        igm_absorbtion=igm_absorbtion,
+        inclination=inclination,
+        emulate_ssp=emulate_ssp
+    )
 
     _ = visualise.calculate_sed(model, model.theta, obs, sps)  # TODO might not be needed for obs phot wavelengths
     phot_wavelengths = obs['phot_wave']  # always the same, as measured in observer frame

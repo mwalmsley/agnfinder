@@ -56,7 +56,7 @@ def build_cpz_obs(reliable, galaxy=None):
     return obs
 
 
-def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn_eb_v=None, agn_torus_mass=None, igm_absorbtion=True,
+def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn_eb_v=None, agn_torus_mass=None, igm_absorbtion=True, inclination=True,
             **extras):
     """Build a prospect.models.SedModel object
     
@@ -155,24 +155,33 @@ def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn
     else:
         assert agn_mass
 
-        if isinstance(agn_eb_v, float):
-            logging.info('Using fixed agn_eb_v of {}'.format(agn_eb_v))
-            assert agn_mass
-            model_params['agn_eb_v'] = {"N": 1, "isfree": False, "init": agn_eb_v, "units":"", 'prior': priors.TopHat(mini=0., maxi=0.5)}
-        else:
-            logging.info('Using free agn_eb_v')
-            assert agn_mass == True
-            model_params['agn_eb_v'] = {"N": 1, "isfree": True, "init": 0.1, "units":"", 'prior': priors.TopHat(mini=0., maxi=0.5)}
-        
-        if agn_torus_mass is None:
-            logging.warning('Not modelling AGN torus')
-        elif isinstance(agn_torus_mass, float):
-            logging.info('Using fixed obscured torus of {}'.format(agn_torus_mass))
-            model_params['agn_torus_mass'] = {"N": 1, "isfree": False, "init": agn_torus_mass, "units":"", 'prior': priors.LogUniform(mini=1e-7, maxi=15)}
-        else:
-            logging.info('Using free obscured torus')
-            model_params['agn_torus_mass'] = {"N": 1, "isfree": True, "init": .1, "units":"", 'prior': priors.LogUniform(mini=1e-7, maxi=15)}
-        
+    if isinstance(agn_eb_v, float):
+        logging.info('Using fixed agn_eb_v of {}'.format(agn_eb_v))
+        assert agn_mass
+        model_params['agn_eb_v'] = {"N": 1, "isfree": False, "init": agn_eb_v, "units":"", 'prior': priors.TopHat(mini=0., maxi=0.5)}
+    else:
+        logging.info('Using free agn_eb_v')
+        assert agn_mass == True
+        model_params['agn_eb_v'] = {"N": 1, "isfree": True, "init": 0.1, "units":"", 'prior': priors.TopHat(mini=0., maxi=0.5)}
+    
+    if agn_torus_mass is None:
+        logging.warning('Not modelling AGN torus')
+    elif isinstance(agn_torus_mass, float):
+        logging.info('Using fixed obscured torus of {}'.format(agn_torus_mass))
+        model_params['agn_torus_mass'] = {"N": 1, "isfree": False, "init": agn_torus_mass, "units":"", 'prior': priors.LogUniform(mini=1e-7, maxi=15)}
+    else:
+        logging.info('Using free obscured torus')
+        model_params['agn_torus_mass'] = {"N": 1, "isfree": True, "init": .1, "units":"", 'prior': priors.LogUniform(mini=1e-7, maxi=15)}
+    
+    if inclination is None:
+        raise ValueError('No model inclination preference supplied - set float to fix, or set True to leave free, but set something!')
+    elif isinstance(inclination, float):
+        logging.info('Using fixed inclination of {}'.format(inclination))
+        model_params['inclination'] = {"N": 1, "isfree": False, "init": inclination, "units":"", 'prior': priors.TopHat(mini=0., maxi=90.)}
+    else:
+        logging.info('Using free inclination')
+        model_params['inclination'] = {"N": 1, "isfree": True, "init": 60., "units":"", 'prior': priors.TopHat(mini=0., maxi=90.)}
+    
 
     # explicitly no FSPS dusty torus
     # model_params['fagn'] = None
@@ -198,6 +207,7 @@ def build_sps(zcontinuous=1, **extras):
             agn_mass=extras['agn_mass'], 
             agn_eb_v=extras['agn_eb_v'],
             agn_torus_mass=extras['agn_torus_mass'],
+            inclination=extras['inclination'],
             emulate_ssp=extras['emulate_ssp']
         )
     else:
@@ -237,7 +247,7 @@ class CSPSpecBasisAGN(CSPSpecBasis):
 
         # TODO could wrap these globals entirely within quasar_templates
         self.quasar_template = quasar_templates.QuasarTemplate(template_loc=quasar_templates.INTERPOLATED_QUASAR_LOC)
-        self.torus_template = quasar_templates.TorusTemplate(template_loc=quasar_templates.INTERPOLATED_TORUS_LOC)
+        self.torus_template = quasar_templates.TorusModel(model_loc=quasar_templates.TORUS_MODEL_LOC)
         self.extinction_template = extinction_models.ExtinctionTemplate(template_loc=extinction_models.INTERPOLATED_SMC_EXTINCTION_LOC)
 
         self.galaxy_flux = None
@@ -287,7 +297,7 @@ class CSPSpecBasisAGN(CSPSpecBasis):
         template_quasar_flux = self.quasar_template(wave, short_only=True)  # normalised scale
         quasar_flux = template_quasar_flux * self.params['agn_mass'] * 1e14
 
-        template_torus_flux = self.torus_template(wave, long_only=True)  # normalised scale
+        template_torus_flux = self.torus_template(wave, self.params['inclination'], long_only=True)  # normalised scale
         torus_flux = template_torus_flux * self.params['agn_torus_mass'] * 1e14
 
         # must always be specified, even if None

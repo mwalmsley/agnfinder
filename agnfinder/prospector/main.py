@@ -44,7 +44,7 @@ def load_galaxy(catalog_loc, index=0, forest_class=None, spectro_class=None):
     return df.iloc[index]
 
 
-def construct_problem(redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, emulate_ssp, galaxy=None):
+def construct_problem(redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, inclination, emulate_ssp, galaxy=None):
     run_params = {}
 
     # model params
@@ -59,6 +59,7 @@ def construct_problem(redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbti
     run_params['agn_eb_v'] = agn_eb_v
     run_params['agn_torus_mass'] = agn_torus_mass
     run_params['igm_absorbtion'] = igm_absorbtion
+    run_params['inclination'] = inclination
     run_params['emulate_ssp'] = emulate_ssp
 
     run_params["verbose"] = False
@@ -202,7 +203,7 @@ def save_sed_traces(samples, obs, model, sps, file_loc, max_samples=1000, burn_i
     plt.savefig(file_loc)
 
 
-def main(index, name, catalog_loc, save_dir, forest_class, spectro_class, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, find_ml_estimate, find_mcmc_posterior, find_multinest_posterior, emulate_ssp):
+def main(index, name, catalog_loc, save_dir, forest_class, spectro_class, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, inclination, find_ml_estimate, find_mcmc_posterior, find_multinest_posterior, emulate_ssp):
     # note - this is now deprecated! We don't use Prospector to do the fitting any more, we only want the forward model
     # Should still work though.
 
@@ -219,6 +220,7 @@ def main(index, name, catalog_loc, save_dir, forest_class, spectro_class, redshi
         agn_eb_v=agn_eb_v,
         agn_torus_mass=agn_torus_mass,
         igm_absorbtion=igm_absorbtion,
+        inclination=inclination,
         emulate_ssp=emulate_ssp
     )
 
@@ -296,6 +298,7 @@ if __name__ == '__main__':
     agn_eb_v = True
     agn_torus_mass = True
     igm_absorbtion = True
+    inclination = True
     
      # None or 'random' for any, or agn', 'passive', 'starforming', 'qso' for most likely galaxies of that class
     if args.forest == 'random':
@@ -322,7 +325,7 @@ if __name__ == '__main__':
         logging.warning('Using profiling')
         pr = cProfile.Profile()
         pr.enable()
-    main(args.index, name, catalog_loc, save_dir, forest_class, spectro_class, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, find_ml_estimate, find_mcmc_posterior, find_multinest_posterior, args.emulate_ssp)
+    main(args.index, name, catalog_loc, save_dir, forest_class, spectro_class, redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, inclination, find_ml_estimate, find_mcmc_posterior, find_multinest_posterior, args.emulate_ssp)
     if args.profile:
         pr.disable()
         pr.dump_stats(os.path.join(save_dir, '{}.profile'.format(name)))
