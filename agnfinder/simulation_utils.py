@@ -5,7 +5,21 @@ import numpy as np
 import h5py
 import pyDOE2
 
+
 def shift_redshift_theta(norm_redshift, fixed_theta_range, target_theta_range):
+    """Take the normalised redshift for this cube, which initally be 0->1,
+    and transform so that when used with other cubes, they will all cover the 0->1 range when combined (not each)
+    
+    As a consequence, when denomalised, the transformed redshift will cover the target redshift range *for this cube* 
+    
+    Args:
+        norm_redshift (np.array): initial normalised redshift, from 0 to 1 (as with other normalised theta)
+        fixed_theta_range (tuple): min/max (astrophysical) redshift *across all cubes*
+        target_theta_range (tuple): min/max (astrophysical) redshift *for this cube*
+    
+    Returns:
+        np.array: Transformed normalised redshift, e.g. array covering 0.4->0.6, corresponding to z=1.2->1.8
+    """
     # adjust spread in norm space
     norm_redshift = norm_redshift  * (target_theta_range[1] - target_theta_range[0]) / (fixed_theta_range[1] - fixed_theta_range[0])
     # adjust start in norm space
@@ -16,27 +30,37 @@ def get_unit_latin_hypercube(dims, n_samples):
 
 
 def denormalise_hypercube(normalised_hcube, limits):
-    # normalised_theta_to_sample.shape
+    # expects dim1 to have which param, dim0 to have param values
+    # equivalent to denormalise_theta after a transpose - TODO combine
     theta_to_sample = normalised_hcube.copy()
     for key_n, (key, lims) in enumerate(limits.items()):
-        # 0, 1 -> -2, 6
-        # 0, 8
-        theta_to_sample[:, key_n] = (theta_to_sample[:, key_n] * (lims[1] - lims[0]) + lims[0]) 
+        theta_to_sample[:, key_n] = denormalise_param(theta_to_sample[:, key_n], lims,  key.startswith('log'))
         # print(key, theta_to_sample[:, key_n].min(), theta_to_sample[:, key_n].max())
-        if key.startswith('log'):
-            logging.info('Automatically exponentiating {}'.format(key))
-            theta_to_sample[:, key_n] = 10 ** theta_to_sample[:, key_n]
     return theta_to_sample
 
 
 def denormalise_theta(normalised_theta, limits):
+    # expects normalised_theta to have dim0=which param, dim1=param values
     theta = np.zeros_like(normalised_theta)
     for n, (key, lims) in enumerate(limits.items()):
-        theta[n] = normalised_theta[n] * (lims[1] - lims[0]) + lims[0]
-        if key.startswith('log'):
-            theta[n] = 10 ** theta[n]
+        theta[n] = denormalise_param(normalised_theta[n], lims, key.startswith('log'))
     return theta
 
+
+def denormalise_param(normalised_param, param_limits, log):
+        # 0, 1 -> -2, 6
+        # 0, 8
+        # should be ordered
+        assert normalised_param[0] == normalised_param.min()
+        assert normalised_param[-1] == normalised_param.max()
+        # 
+        physical_range = param_limits[1] - param_limits[0]
+        normalised_range = normalised_param[-1] - normalised_param[0]
+        stretched = normalised_param * physical_range  # full normalised range is always 0->1
+        if log:
+            stretched= 10 ** stretched
+        return stretched
+        
 
 def sample(theta, n_samples, output_dim, simulator):
     """

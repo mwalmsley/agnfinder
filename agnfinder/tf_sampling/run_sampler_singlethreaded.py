@@ -44,7 +44,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
             # TODO uncertainties are not yet used! See log prob, currently 5% uncertainty by default
             _, maggies, maggies_unc = load_photometry.load_maggies_from_galaxy(galaxy, reliable=True)
             true_observation[n] = maggies.astype(np.float32)
-            redshifts[n] = galaxy['redshift']
+            redshifts[n] = galaxy['redshift'] / 4. # TODO WARNING assumes cube max redshift is 4, absolutely must match cube redshift limits
         true_params = np.zeros((len(df), 7)).astype(np.float32)
         # true_params = None TODO quite awkward as I often use it in asserts or for expected param dim
         logging.warning(f'Using {len(df)} real galaxies - forcing n_chains from {n_chains} to {len(df)} accordingly')
