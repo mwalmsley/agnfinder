@@ -94,7 +94,7 @@ def get_cmap(hue_val):
 if __name__ == '__main__':
 
     sns.set_context('notebook')
-    sns.set(font_scale=4.)
+    sns.set(font_scale=1.)
 
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('--save-dir', dest='save_dir', type=str)
