@@ -47,6 +47,9 @@ def plot_posterior_stripes(params, marginals, true_params, n_param_bins=50, n_po
                 posterior_record[true_param_index] += np.nan_to_num(stripe)  # nans to 0's
                 # posterior_record[true_param_index] = stripe
                 galaxy_counts[true_param_index] += 1
+    for ax_n, ax in enumerate(all_axes):
+        if ax_n > len(params):
+            ax.remove()
 
         # print(posterior_record[:, 0])
         # print(posterior_record)
@@ -91,6 +94,7 @@ def get_cmap(hue_val):
 if __name__ == '__main__':
 
     sns.set_context('notebook')
+    sns.set(font_scale=4.)
 
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('--save-dir', dest='save_dir', type=str)
