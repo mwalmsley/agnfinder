@@ -24,7 +24,7 @@ def check_parameter_bias(galaxies, true_params):
 
 
 def plot_posterior_stripes(params, marginals, true_params, n_param_bins=50, n_posterior_bins=50):
-    fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(16, 8))
+    fig, axes = plt.subplots(nrows=3, ncols=3, figsize=(12, 12))
     all_axes = [ax for col in axes for ax in col]
     sns.set_context('notebook')
     sns.set_style('white')
@@ -78,6 +78,9 @@ def plot_posterior_stripes(params, marginals, true_params, n_param_bins=50, n_po
         ax.set_title('{}'.format(params[param_n]))
         ax.set_xlabel('Truth')
         ax.set_ylabel(r'Sampled Posterior')
+    for ax_n, ax in enumerate(all_axes):
+        if ax_n > len(params):
+            ax.remove()
     fig.tight_layout()
     return fig, axes
 
@@ -91,6 +94,7 @@ def get_cmap(hue_val):
 if __name__ == '__main__':
 
     sns.set_context('notebook')
+    sns.set(font_scale=4.)
 
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('--save-dir', dest='save_dir', type=str)
