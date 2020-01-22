@@ -75,7 +75,7 @@ def plot_posterior_stripes(params, marginals, true_params, n_param_bins=50, n_po
         
         ax.grid(False)
         # ax.plot([0., 50.], [0., 50.], 'k--', alpha=0.3)
-        ax.set_title('{}'.format(params[param_n]), fontsize=24)
+        ax.set_title('{}'.format(params[param_n]), fontsize=20)
         ax.set_xlabel('Truth')
         ax.set_ylabel(r'Sampled Posterior')
     for ax_n, ax in enumerate(all_axes):
