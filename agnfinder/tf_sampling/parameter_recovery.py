@@ -75,7 +75,7 @@ def plot_posterior_stripes(params, marginals, true_params, n_param_bins=50, n_po
         
         ax.grid(False)
         # ax.plot([0., 50.], [0., 50.], 'k--', alpha=0.3)
-        ax.set_title('{}'.format(params[param_n]))
+        ax.set_title('{}'.format(params[param_n]), fontsize=18)
         ax.set_xlabel('Truth')
         ax.set_ylabel(r'Sampled Posterior')
     for ax_n, ax in enumerate(all_axes):
@@ -94,7 +94,7 @@ def get_cmap(hue_val):
 if __name__ == '__main__':
 
     sns.set_context('notebook')
-    sns.set(font_scale=2.)
+    sns.set(font_scale=1.3)
 
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('--save-dir', dest='save_dir', type=str)
