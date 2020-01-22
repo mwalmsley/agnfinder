@@ -90,13 +90,16 @@ def get_cmap(hue_val):
 
 if __name__ == '__main__':
 
+    sns.set_context('notebook')
+
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('--save-dir', dest='save_dir', type=str)
     parser.add_argument('--min-acceptance', default=0.6, type=float, dest='min_acceptance')
     args = parser.parse_args()
     logging.getLogger().setLevel(logging.INFO)  # some third party library is mistakenly setting the logging somewhere...
 
-    params = ['mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling']
+    # params = ['mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling']
+    params = ['Stellar Mass', 'Dust', 'Age', 'Tau', 'AGN Disk Scale', 'AGN E(B-V)', 'AGN Torus Scale']
 
     galaxy_locs = glob.glob(args.save_dir + '/galaxy*.h5')
     assert galaxy_locs
@@ -112,7 +115,7 @@ if __name__ == '__main__':
         # accept[n] = is_accepted >= args.min_acceptance
         value_for_80p = np.quantile(galaxy_marginals, .8, axis=1)
         num_geq_80p = (galaxy_marginals.transpose() > value_for_80p).sum(axis=0)
-        print(num_geq_80p, num_geq_80p.shape)
+        # print(num_geq_80p, num_geq_80p.shape)
         accept[n] = np.mean(num_geq_80p) > args.min_acceptance
 
         marginals[n] = galaxy_marginals
