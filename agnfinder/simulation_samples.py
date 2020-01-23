@@ -101,7 +101,7 @@ if __name__ == '__main__':
     Optionally, use the GP emulator for the forward model. Not a great idea, as this is slower than the original forward model, but I implemented it already...
 
     Example use: 
-        python agnfinder/simulation_samples.py 1000 --z-min 0. --z-max 4. --save-dir data/cubes
+        python agnfinder/simulation_samples.py 1000 --z-min 0. --z-max 4. --save-dir data/cubes/new
     """
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('n_samples', type=int)
@@ -115,6 +115,8 @@ if __name__ == '__main__':
     redshift_min_string = '{:.4f}'.format(args.redshift_min).replace('.', 'p')
     redshift_max_string = '{:.4f}'.format(args.redshift_max).replace('.', 'p')
     save_name = 'photometry_simulation_{}n_z_{}_to_{}.hdf5'.format(args.n_samples, redshift_min_string, redshift_max_string)
+    if not os.path.isdir(args.save_dir):
+        os.mkdir(save_dir)
     save_loc = os.path.join(args.save_dir, save_name)
 
     simulate(args.n_samples, save_loc, args.emulate_ssp, args.noise, (args.redshift_min, args.redshift_max))
