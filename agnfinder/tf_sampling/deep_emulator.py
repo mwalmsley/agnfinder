@@ -86,7 +86,7 @@ def load_from_tfrecords(tfrecord_locs, batch_size, shuffle_buffer=10000):
 
 
 def train_on_cubes(model, train_features, train_labels, test_features, test_labels):
-    early_stopping = tf.keras.callbacks.EarlyStopping()
+    early_stopping = tf.keras.callbacks.EarlyStopping(restore_best_weights=True)
     if len(tf.config.list_physical_devices('GPU')) > 0:
         logging.info('GPU found - using batch size 1024')
         batch_size = 1024  # crank it up to efficiently use GPU
@@ -97,7 +97,7 @@ def train_on_cubes(model, train_features, train_labels, test_features, test_labe
 
 
 def train_on_datasets(model, train_ds, test_ds):
-    early_stopping = tf.keras.callbacks.EarlyStopping()
+    early_stopping = tf.keras.callbacks.EarlyStopping(restore_best_weights=True)
     model.fit(train_ds, epochs=15, validation_data=test_ds, callbacks=[early_stopping])
     return model
 
