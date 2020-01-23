@@ -19,7 +19,7 @@ def sample_galaxy_batch(names, true_observation, redshifts, uncertainty, true_pa
         logging.info('True observation is {}'.format(true_observation))
         logging.critical('True observation max is {} - make sure it is in maggies, not mags!'.format(true_observation))
 
-    problem = api.SamplingProblem(true_observation, true_params, forward_model=emulator, redshifts=redshifts, sigma=0.05)  # will pass in soon
+    problem = api.SamplingProblem(true_observation, true_params, forward_model=emulator, redshifts=redshifts, sigma=uncertainty)  # will pass in soon
     sampler = hmc.SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
     samples, is_accepted, successfully_adapted = sampler()
 
@@ -59,8 +59,8 @@ def sample_galaxy_batch(names, true_observation, redshifts, uncertainty, true_pa
         marginal_bins = 50
         dummy_array = np.zeros(42)  # anything
         _, param_bins = np.histogram(dummy_array, range=(0., 1.), bins=marginal_bins)
-        marginals = np.zeros((7, marginal_bins))
-        for param_n in range(7):
+        marginals = np.zeros((true_params.shape[1], marginal_bins))
+        for param_n in range(true_params.shape[1]):
             marginals[param_n], _ = np.histogram(galaxy_samples[:, :, param_n], density=True, bins=param_bins)
         f.create_dataset('marginals', data=marginals)
 
