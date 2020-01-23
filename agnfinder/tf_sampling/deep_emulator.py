@@ -30,7 +30,7 @@ def tf_model():
     # current best from hyperband w/ 1m cube, 15 epochs
     # TODO found before redshift was introduced, could update
     model = tf.keras.Sequential([
-        tf.keras.layers.Dense(192, input_dim=8, activation='relu'),
+        tf.keras.layers.Dense(192, input_dim=9, activation='relu'),
         tf.keras.layers.Dense(448, activation='relu'),
         tf.keras.layers.Dense(192, activation='relu'),
         tf.keras.layers.Dense(576, activation='relu'),
@@ -47,7 +47,7 @@ def tf_model():
 def data(cube_dir):  # e.g. data/cubes/latest
     # need to be able to load all cubes into memory at once (though only once, thanks to concatenation instead of loading all and stacking)
     cube_locs = get_cube_locs(cube_dir)
-    theta = np.ones((0, 8))
+    theta = np.ones((0, 9))
     normalised_photometry = np.ones((0, 12))
     for cube_loc in cube_locs:
         cube_theta, cube_normalised_photometry = load_cube(cube_loc)
