@@ -1,7 +1,7 @@
 #!/bin/sh
 
 CUBES=20
-SAMPLES_PER_CUBE=50000
+SAMPLES_PER_CUBE=10000
 ZMAX=4.0
 
 ZSTEP=$(echo "scale=4;$ZMAX/$CUBES" | bc)

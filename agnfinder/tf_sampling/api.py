@@ -34,10 +34,13 @@ class Sampler():
 
 
 # @tf.function  # inputs become tensors when you wrap
-def get_log_prob_fn(forward_model, true_photometry, redshifts, sigma=0.05):  
+def get_log_prob_fn(forward_model, true_photometry, redshifts, sigma):  
     # sigma can be scalar, or (batch_dim, photometry_dim)
-    if not isinstance(sigma, float):
+    if isinstance(sigma, float):
+        uncertainty = true_photometry * sigma  # i.e. 5% sigma
+    else:
         assert tf.rank(sigma).numpy() == 2
+        uncertainty = sigma
     assert tf.rank(true_photometry).numpy() == 2  # true photometry must be (batch_dim, photometry_dim) even if batch_dim=1
     # first dimension of true params must match first dimension of x, or will fail
     @tf.function(experimental_compile=True)
@@ -46,10 +49,7 @@ def get_log_prob_fn(forward_model, true_photometry, redshifts, sigma=0.05):
         x_with_redshifts = tf.concat([redshifts, x], axis=1)
         expected_photometry = deep_emulator.denormalise_photometry(forward_model(x_with_redshifts, training=False))  # model expects a batch dimension, which here is the chains
         deviation = tf.abs(expected_photometry - true_photometry)   # make sure you denormalise true observation in the first place, if loading from data(). Should be in maggies.
-        # for now, sigma above won't do anything - redefined here
-        # I have changed from expected_photometry to true_photometry though
-        sigma = true_photometry * 0.05  # i.e. 5% sigma, will read in soon-ish
-        log_prob = -tf.reduce_sum(input_tensor=deviation / sigma, axis=1)  # very negative = unlikely, near -0 = likely
+        log_prob = -tf.reduce_sum(input_tensor=deviation / uncertainty, axis=1)  # very negative = unlikely, near -0 = likely
         x_out_of_bounds = is_out_of_bounds(x)
         penalty = tf.cast(x_out_of_bounds, tf.float32) * tf.constant(1000., dtype=tf.float32)
         log_prob_with_penalty = log_prob - penalty  # no effect if x in bounds, else divide (subtract) a big penalty

@@ -11,7 +11,7 @@ import tensorflow as tf  # just for eager toggle
 from agnfinder.tf_sampling import deep_emulator, api, hmc
 
 # TODO change indices to some kind of unique id, perhaps? will need for real galaxies...
-def sample_galaxy_batch(names, true_observation, redshifts, true_params, emulator, n_burnin, n_samples, n_chains, init_method, save_dir):
+def sample_galaxy_batch(names, true_observation, redshifts, uncertainty, true_params, emulator, n_burnin, n_samples, n_chains, init_method, save_dir):
     assert len(true_observation.shape) == 2
     assert len(true_params.shape) == 2
     assert len(names) == true_params.shape[0]
@@ -19,7 +19,7 @@ def sample_galaxy_batch(names, true_observation, redshifts, true_params, emulato
         logging.info('True observation is {}'.format(true_observation))
         logging.critical('True observation max is {} - make sure it is in maggies, not mags!'.format(true_observation))
 
-    problem = api.SamplingProblem(true_observation, true_params, forward_model=emulator, redshifts=redshifts, sigma=0.05)
+    problem = api.SamplingProblem(true_observation, true_params, forward_model=emulator, redshifts=redshifts, sigma=0.05)  # will pass in soon
     sampler = hmc.SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
     samples, is_accepted, successfully_adapted = sampler()
 
