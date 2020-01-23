@@ -49,7 +49,9 @@ def get_log_prob_fn(forward_model, true_photometry, redshifts, sigma):
         x_with_redshifts = tf.concat([redshifts, x], axis=1)
         expected_photometry = deep_emulator.denormalise_photometry(forward_model(x_with_redshifts, training=False))  # model expects a batch dimension, which here is the chains
         deviation = tf.abs(expected_photometry - true_photometry)   # make sure you denormalise true observation in the first place, if loading from data(). Should be in maggies.
-        log_prob = -tf.reduce_sum(input_tensor=deviation / uncertainty, axis=1)  # very negative = unlikely, near -0 = likely
+        neg_log_prob_by_band = deviation ** 2 / (2*uncertainty)
+        log_prob = -tf.reduce_sum(input_tensor=neg_log_prob_by_band, axis=1)  # log space: product -> sum
+        # log_prob = -tf.reduce_sum(input_tensor=deviation / uncertainty, axis=1)  # very negative = unlikely, near -0 = likely
         x_out_of_bounds = is_out_of_bounds(x)
         penalty = tf.cast(x_out_of_bounds, tf.float32) * tf.constant(1000., dtype=tf.float32)
         log_prob_with_penalty = log_prob - penalty  # no effect if x in bounds, else divide (subtract) a big penalty
