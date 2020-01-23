@@ -1,7 +1,7 @@
 #!/bin/sh
 
-CUBES=35
-SAMPLES_PER_CUBE=100000  # 14 mins for 100k, 140 mins for 1m, etc.
+CUBES=20  # zeus cores
+SAMPLES_PER_CUBE=1000000  # 14 mins for 100k, 140 mins for 1m, etc.
 ZMAX=4.0
 
 ZSTEP=$(echo "scale=4;$ZMAX/$CUBES" | bc)
