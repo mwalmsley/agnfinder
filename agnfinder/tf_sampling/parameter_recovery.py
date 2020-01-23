@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 
 def check_parameter_bias(galaxies, true_params):
-    params = ['mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling']
+    params = ['mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling', 'inclination']
 
     # TODO move out to main
     # rhats, gewekes = get_convergence_metrics(galaxies, n_params=len(params))
@@ -103,7 +103,7 @@ if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)  # some third party library is mistakenly setting the logging somewhere...
 
     # params = ['mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling']
-    params = ['Stellar Mass', 'Dust', 'Age', 'Tau', 'AGN Disk Scale', 'AGN E(B-V)', 'AGN Torus Scale']
+    params = ['Stellar Mass', 'Dust', 'Age', 'Tau', 'AGN Disk Scale', 'AGN E(B-V)', 'AGN Torus Scale', 'AGN Torus Incl.']
 
     galaxy_locs = glob.glob(args.save_dir + '/galaxy*.h5')
     assert galaxy_locs
