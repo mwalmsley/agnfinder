@@ -44,7 +44,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
             galaxy = df.iloc[n]  # I don't know why iterrows is apparently returning one more row than len(df)??
             # TODO uncertainties are not yet used! See log prob, currently 5% uncertainty by default
             _, maggies, maggies_unc = load_photometry.load_maggies_from_galaxy(galaxy, reliable=True)
-            uncertainty[n] = maggies_unc.astype(np.float32) * 5  # multiply by fixed 5x factor for now
+            uncertainty[n] = maggies_unc.astype(np.float32)  # trusting the catalog uncertainty, which may be brave
             true_observation[n] = maggies.astype(np.float32)
             redshifts[n] = galaxy['redshift'] / 4. # TODO WARNING assumes cube max redshift is 4, absolutely must match cube redshift limits
         true_params = np.zeros((len(df), 7)).astype(np.float32)
