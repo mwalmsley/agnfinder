@@ -44,7 +44,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
             galaxy = df.iloc[n]  # I don't know why iterrows is apparently returning one more row than len(df)??
             # TODO uncertainties are not yet used! See log prob, currently 5% uncertainty by default
             _, maggies, maggies_unc = load_photometry.load_maggies_from_galaxy(galaxy, reliable=True)
-            uncertainty[n] = maggies_unc.astype(np.float32)
+            uncertainty[n] = maggies_unc.astype(np.float32) * 5  # multiply by fixed 5x factor for now
             true_observation[n] = maggies.astype(np.float32)
             redshifts[n] = galaxy['redshift'] / 4. # TODO WARNING assumes cube max redshift is 4, absolutely must match cube redshift limits
         true_params = np.zeros((len(df), 7)).astype(np.float32)
@@ -52,7 +52,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         logging.warning(f'Using {len(df)} real galaxies - forcing n_chains from {n_chains} to {len(df)} accordingly')
         n_chains = len(df)  # overriding whatever the arg was
         galaxy_indices = df.index  # I should *really* reset the index beforehand so this is 1....33
-        uncertainty = true_observation * 0.05  # for now, override the smarter uncertainty above
+        # uncertainty = true_observation * 0.05  # for now, override the smarter uncertainty above
 
     else:
         # fake galaxies, drawn from our priors and used as emulator training data
@@ -66,7 +66,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         redshifts = x_test[galaxy_indices, :1].astype(np.float32)  # shape (n_galaxies, 1)
         true_observation = deep_emulator.denormalise_photometry(y_test[galaxy_indices]) 
         uncertainty = true_observation * 0.05  # assume 5% uncertainty on all bands for simulated galaxies
-)
+
     assert len(redshifts) == len(true_observation) == len(true_params)
     run_sampler.sample_galaxy_batch(
         galaxy_indices,

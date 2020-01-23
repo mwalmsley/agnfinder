@@ -33,6 +33,7 @@ def sample_galaxy_batch(names, true_observation, redshifts, uncertainty, true_pa
     true_observation = true_observation[successfully_adapted]
     true_params = true_params[successfully_adapted]
     redshifts = redshifts[successfully_adapted]
+    uncertainty = uncertainty[successfully_adapted]
     # names are a bit more awkward
     names_were_adapted = dict(zip(names, successfully_adapted))  # dicts are ordered in 3.7+ I think
     remaining_names = [k for k, v in names_were_adapted.items() if v]
@@ -50,6 +51,7 @@ def sample_galaxy_batch(names, true_observation, redshifts, uncertainty, true_pa
         f.create_dataset('samples', data=galaxy_samples)  # leave the chain dimension as 1 for now
         f.create_dataset('true_observations', data=true_observation[galaxy_n])
         f.create_dataset('redshift', data=redshifts[galaxy_n])
+        f.create_dataset('uncertainty', data=uncertainty[galaxy_n])
         f.create_dataset('is_accepted', data=is_accepted[galaxy_n])
         if true_params is not None:
             f.create_dataset('true_params', data=true_params[galaxy_n])
