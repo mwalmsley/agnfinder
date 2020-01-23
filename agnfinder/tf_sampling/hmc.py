@@ -62,6 +62,11 @@ class SamplerHMC(Sampler):
             mask=successfully_adapted,
             axis=0
         )
+        self.problem.uncertainties = tf.boolean_mask(
+            tensor=self.problem.uncertainties,
+            mask=successfully_adapted,
+            axis=0
+        )
         self.problem.true_params = tf.boolean_mask(
             tensor=self.problem.true_params,
             mask=successfully_adapted,
