@@ -25,6 +25,9 @@ def get_galaxies_without_results(n_galaxies):
 def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir):
     emulator = deep_emulator.get_trained_keras_emulator(deep_emulator.tf_model(), checkpoint_loc, new=False)
 
+    n_free_params = 8
+    n_photometry = 12
+    
     if not os.path.isdir(save_dir):
         os.mkdir(save_dir)
 
@@ -37,7 +40,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         for c in rf_classes:
             logging.info('{}: {:.2f}'.format(c, df[f'Pr[{c}]_case_III'].sum()))
 
-        true_observation = np.zeros((len(df), 12)).astype(np.float32)  # fixed bands
+        true_observation = np.zeros((len(df), n_photometry)).astype(np.float32)  # fixed bands
         uncertainty = np.zeros_like(true_observation).astype(np.float32)
         redshifts = np.zeros((len(df), 1), dtype=np.float32)
         for n in tqdm(range(len(df))):
@@ -47,7 +50,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
             uncertainty[n] = maggies_unc.astype(np.float32)  # trusting the catalog uncertainty, which may be brave
             true_observation[n] = maggies.astype(np.float32)
             redshifts[n] = galaxy['redshift'] / 4. # TODO WARNING assumes cube max redshift is 4, absolutely must match cube redshift limits
-        true_params = np.zeros((len(df), 7)).astype(np.float32)
+        true_params = np.zeros((len(df), n_free_params)).astype(np.float32)
         # true_params = None TODO quite awkward as I often use it in asserts or for expected param dim
         logging.warning(f'Using {len(df)} real galaxies - forcing n_chains from {n_chains} to {len(df)} accordingly')
         n_chains = len(df)  # overriding whatever the arg was
