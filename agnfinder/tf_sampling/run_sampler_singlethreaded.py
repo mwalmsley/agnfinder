@@ -122,15 +122,16 @@ if __name__ == '__main__':
     python agnfinder/tf_sampling/run_sampler_singlethreaded.py --checkpoint-loc results/checkpoints/latest --output-dir results/emulated_sampling --n-chains 4 --n-samples 100 --n-burnin 100 --init random
     python agnfinder/tf_sampling/run_sampler_singlethreaded.py --checkpoint-loc results/checkpoints/latest --output-dir results/emulated_sampling --selected data/uk_ir_selection_577.parquet
 
+    Default burn-in, num samples, and num chains are optimised for an excellent desktop w/ GTX 1070. 
     """
     parser = argparse.ArgumentParser(description='Run emulated HMC on many galaxies')
     parser.add_argument('--checkpoint-loc', type=str, dest='checkpoint_loc')
     parser.add_argument('--output-dir', dest='output_dir', type=str)  # in which save_dir will be created
     parser.add_argument('--max-galaxies', type=int, default=1, dest='max_galaxies')
     parser.add_argument('--selected', type=str, default='', dest='selected_catalog_loc')
-    parser.add_argument('--n-burnin', type=int, default=1000, dest='n_burnin')  # below 1000, may not find good step size
-    parser.add_argument('--n-samples', type=int, default=6000, dest='n_samples')  # 6000 works well?
-    parser.add_argument('--n-chains', type=int, default=96, dest='n_chains')  # 96 is ideal on my laptop, more memory = more chains free
+    parser.add_argument('--n-burnin', type=int, default=3000, dest='n_burnin')
+    parser.add_argument('--n-samples', type=int, default=80000, dest='n_samples')
+    parser.add_argument('--n-chains', type=int, default=512, dest='n_chains')
     parser.add_argument('--init', type=str, dest='init_method', default='optimised', help='Can be one of: random, roughly_correct, optimised')
     parser.add_argument('--redshift', type=str, dest='redshift_str', default='fixed', help='Can be one of: fixed, free')
     args = parser.parse_args()
