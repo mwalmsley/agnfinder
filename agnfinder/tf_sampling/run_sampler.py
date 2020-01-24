@@ -11,7 +11,7 @@ import tensorflow as tf  # just for eager toggle
 from agnfinder.tf_sampling import deep_emulator, api, hmc
 
 # TODO change indices to some kind of unique id, perhaps? will need for real galaxies...
-def sample_galaxy_batch(names, true_observation, redshifts, uncertainty, true_params, emulator, n_burnin, n_samples, n_chains, init_method, save_dir):
+def sample_galaxy_batch(names, true_observation, fixed_params, uncertainty, true_params, emulator, n_burnin, n_samples, n_chains, init_method, save_dir):
     assert len(true_observation.shape) == 2
     assert len(true_params.shape) == 2
     assert len(names) == true_params.shape[0]
@@ -19,7 +19,7 @@ def sample_galaxy_batch(names, true_observation, redshifts, uncertainty, true_pa
         logging.info('True observation is {}'.format(true_observation))
         logging.critical('True observation max is {} - make sure it is in maggies, not mags!'.format(true_observation))
 
-    problem = api.SamplingProblem(true_observation, true_params, forward_model=emulator, redshifts=redshifts, uncertainty=uncertainty)  # will pass in soon
+    problem = api.SamplingProblem(true_observation, true_params, forward_model=emulator, fixed_params=fixed_params, uncertainty=uncertainty)  # will pass in soon
     sampler = hmc.SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
     samples, is_accepted, successfully_adapted = sampler()
 
@@ -32,7 +32,7 @@ def sample_galaxy_batch(names, true_observation, redshifts, uncertainty, true_pa
     # is_accepted is already filtered
     true_observation = true_observation[successfully_adapted]
     true_params = true_params[successfully_adapted]
-    redshifts = redshifts[successfully_adapted]
+    fixed_params = fixed_params[successfully_adapted]
     uncertainty = uncertainty[successfully_adapted]
     # names are a bit more awkward
     names_were_adapted = dict(zip(names, successfully_adapted))  # dicts are ordered in 3.7+ I think
@@ -50,7 +50,7 @@ def sample_galaxy_batch(names, true_observation, redshifts, uncertainty, true_pa
         galaxy_samples = np.expand_dims(samples[:, galaxy_n], axis=1)
         f.create_dataset('samples', data=galaxy_samples)  # leave the chain dimension as 1 for now
         f.create_dataset('true_observations', data=true_observation[galaxy_n])
-        f.create_dataset('redshift', data=redshifts[galaxy_n])
+        f.create_dataset('fixed_params', data=fixed_params[galaxy_n])
         f.create_dataset('uncertainty', data=uncertainty[galaxy_n])
         f.create_dataset('is_accepted', data=is_accepted[galaxy_n])
         if true_params is not None:
