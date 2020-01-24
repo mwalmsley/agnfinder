@@ -33,7 +33,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         n_free_params = 9
     n_photometry = 12
 
-    always_free_param_names = ['redshift', 'mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling']
+    always_free_param_names = ['mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling']
     if fixed_redshift:
         fixed_param_names = ['redshift']
         free_param_names = always_free_param_names
