@@ -25,14 +25,6 @@ def get_galaxies_without_results(n_galaxies):
 def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir, fixed_redshift):
     emulator = deep_emulator.get_trained_keras_emulator(deep_emulator.tf_model(), checkpoint_loc, new=False)
 
-    # actually doesn't matter as only used for real galaxies, which have 0's anyway?
-    # TODO have a look at removing
-    if fixed_redshift:
-        n_free_params = 8
-    else:
-        n_free_params = 9
-    n_photometry = 12
-
     always_free_param_names = ['mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling']
     if fixed_redshift:
         fixed_param_names = ['redshift']
@@ -70,7 +62,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
                 # div by 4 to convert to hypercube space
                 # TODO WARNING assumes cube max redshift is 4, absolutely must match cube redshift limits and prior is uniform
                 fixed_params[n] = galaxy['redshift'] / 4. 
-        true_params = np.zeros((len(df), n_free_params)).astype(np.float32)  # easier than None as I often use it in asserts or for expected param dim
+        true_params = np.zeros((len(df), len(free_param_names))).astype(np.float32)  # easier than None as I often use it in asserts or for expected param dim
         logging.warning(f'Using {len(df)} real galaxies - forcing n_chains from {n_chains} to {len(df)} accordingly')
         n_chains = len(df)  # overriding whatever the arg was
         galaxy_indices = df.index  # just in case the df index was not reset to 0...n
