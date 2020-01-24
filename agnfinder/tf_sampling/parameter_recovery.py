@@ -75,7 +75,7 @@ def plot_posterior_stripes(params, marginals, true_params, n_param_bins=50, n_po
         
         ax.grid(False)
         # ax.plot([0., 50.], [0., 50.], 'k--', alpha=0.3)
-        ax.set_title('{}'.format(params[param_n]), fontsize=20)
+        ax.set_title('{}'.format(params[param_n]), fontsize=22)
         ax.set_xlabel('Truth')
         ax.set_ylabel(r'Sampled Posterior')
     for ax_n, ax in enumerate(all_axes):
@@ -84,12 +84,21 @@ def plot_posterior_stripes(params, marginals, true_params, n_param_bins=50, n_po
     fig.tight_layout()
     return fig, axes
 
+
 def get_cmap(hue_val):
     base_color = plt.get_cmap('viridis')(hue_val)[:3]
     base_colors = np.array([base_color for _ in np.linspace(0, 1, 256)])
     x = np.linspace(0, 1, 256).reshape(-1, 1)
     newcolors = np.concatenate((base_colors, x), axis=1)
     return ListedColormap(newcolors)
+
+
+def param_renaming(input_names):
+    model_params = ['redshift', 'mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling']
+    human_names = ['Redshift', 'Stellar Mass', 'Dust', 'Age', 'Tau', 'AGN Disk Scale', 'AGN E(B-V)', 'AGN Torus Scale', 'AGN Torus Incl.']
+    renamer = dict(zip(model_params, human_names))
+    return [renamer[x] for x in input_names]
+
 
 if __name__ == '__main__':
 
@@ -100,15 +109,18 @@ if __name__ == '__main__':
     parser.add_argument('--save-dir', dest='save_dir', type=str)
     parser.add_argument('--min-acceptance', default=0.6, type=float, dest='min_acceptance')
     args = parser.parse_args()
-    logging.getLogger().setLevel(logging.INFO)  # some third party library is mistakenly setting the logging somewhere...
-
-    # params = ['mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling']
-    params = ['Stellar Mass', 'Dust', 'Age', 'Tau', 'AGN Disk Scale', 'AGN E(B-V)', 'AGN Torus Scale', 'AGN Torus Incl.']
 
     galaxy_locs = glob.glob(args.save_dir + '/galaxy*.h5')
     assert galaxy_locs
-    
-    marginals = np.zeros((len(galaxy_locs), len(params), 50))
+
+    # open one file to work out the format of the data
+    accept = np.zeros(len(galaxy_locs), dtype=bool)
+    for n, galaxy_loc in tqdm(enumerate(galaxy_locs), unit=' galaxies loaded'):
+        f = h5py.File(galaxy_locs[0], mode='r')
+        params = f['free_param_names']
+        # don't care about fixed params
+
+    marginals = np.zeros((len(galaxy_locs), len(params), 50))  # TODO magic number which must match run_sampler.py
     true_params = np.zeros((len(galaxy_locs), len(params)))
     accept = np.zeros(len(galaxy_locs), dtype=bool)
     for n, galaxy_loc in tqdm(enumerate(galaxy_locs), unit=' galaxies loaded'):
@@ -133,5 +145,3 @@ if __name__ == '__main__':
     fig, axes = plot_posterior_stripes(params, marginals, true_params)
     fig.savefig('results/latest_posterior_stripes.png')
     fig.savefig('results/latest_posterior_stripes.pdf')
-    # plt.gcf()
-    # plt.show()

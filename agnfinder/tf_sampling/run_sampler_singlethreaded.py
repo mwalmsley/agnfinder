@@ -25,9 +25,24 @@ def get_galaxies_without_results(n_galaxies):
 def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir, fixed_redshift):
     emulator = deep_emulator.get_trained_keras_emulator(deep_emulator.tf_model(), checkpoint_loc, new=False)
 
-    n_free_params = 8
+    # actually doesn't matter as only used for real galaxies, which have 0's anyway?
+    # TODO have a look at removing
+    if fixed_redshift:
+        n_free_params = 8
+    else:
+        n_free_params = 9
     n_photometry = 12
-    
+
+    always_free_param_names = ['redshift', 'mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling']
+    if fixed_redshift:
+        fixed_param_names = ['redshift']
+        free_param_names = always_free_param_names
+    else:
+        fixed_param_names = []
+        free_param_names = ['redshift'] + always_free_param_names
+    logging.info('Free params: {}'.format(free_param_names))
+    logging.info('Fixed params: {}'.format(fixed_param_names))
+
     if not os.path.isdir(save_dir):
         os.mkdir(save_dir)
 
@@ -39,7 +54,6 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         rf_classes = ['passive', 'starforming', 'starburst', 'agn', 'qso', 'outlier']
         for c in rf_classes:
             logging.info('{}: {:.2f}'.format(c, df[f'Pr[{c}]_case_III'].sum()))
-
         true_observation = np.zeros((len(df), n_photometry)).astype(np.float32)  # fixed bands
         uncertainty = np.zeros_like(true_observation).astype(np.float32)
         if fixed_redshift:
@@ -92,7 +106,9 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         n_samples,
         n_chains,
         init_method,
-        save_dir
+        save_dir,
+        free_param_names,
+        fixed_param_names
     )
 
 

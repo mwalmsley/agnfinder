@@ -11,10 +11,12 @@ import tensorflow as tf  # just for eager toggle
 from agnfinder.tf_sampling import deep_emulator, api, hmc
 
 # TODO change indices to some kind of unique id, perhaps? will need for real galaxies...
-def sample_galaxy_batch(names, true_observation, fixed_params, uncertainty, true_params, emulator, n_burnin, n_samples, n_chains, init_method, save_dir):
+def sample_galaxy_batch(galaxy_ids, true_observation, fixed_params, uncertainty, true_params, emulator, n_burnin, n_samples, n_chains, init_method, save_dir, free_param_names, fixed_param_names):
     assert len(true_observation.shape) == 2
     assert len(true_params.shape) == 2
-    assert len(names) == true_params.shape[0]
+    assert true_params.shape[1] == len(free_param_names)
+    assert fixed_params.shape[1] == len(fixed_param_names)
+    assert len(galaxy_ids) == true_params.shape[0]
     if true_observation.max() < 1e-3:  # should be denormalised i.e. actual photometry in maggies
         logging.info('True observation is {}'.format(true_observation))
         logging.critical('True observation max is {} - make sure it is in maggies, not mags!'.format(true_observation))
@@ -34,23 +36,28 @@ def sample_galaxy_batch(names, true_observation, fixed_params, uncertainty, true
     true_params = true_params[successfully_adapted]
     fixed_params = fixed_params[successfully_adapted]
     uncertainty = uncertainty[successfully_adapted]
-    # names are a bit more awkward
-    names_were_adapted = dict(zip(names, successfully_adapted))  # dicts are ordered in 3.7+ I think
-    remaining_names = [k for k, v in names_were_adapted.items() if v]
-    discarded_names = [k for k, v in names_were_adapted.items() if not v]
-    if len(discarded_names) != 0:
-        logging.warning('Galaxies {} did not adapt and were discarded'.format(discarded_names))
+    # galaxy_ids are a bit more awkward
+    ids_were_adapted = dict(zip(galaxy_ids, successfully_adapted))  # dicts are ordered in 3.7+ I think
+    remaining_galaxy_ids = [k for k, v in ids_were_adapted.items() if v]
+    discared_galaxy_ids = [k for k, v in ids_were_adapted.items() if not v]
+    if len(discared_galaxy_ids) != 0:
+        logging.warning('Galaxies {} did not adapt and were discarded'.format(discared_galaxy_ids))
     else:
         logging.info('All galaxies adapted succesfully')
 
     # now, galaxy_n will always line up with a remanining galaxy
-    for galaxy_n, name in tqdm(enumerate(remaining_names), unit=' galaxies saved'):
+    for galaxy_n, name in tqdm(enumerate(remaining_galaxy_ids), unit=' galaxies saved'):
         save_file = get_galaxy_save_file(name, save_dir)
         f = h5py.File(save_file, mode='w')  # will overwrite
         galaxy_samples = np.expand_dims(samples[:, galaxy_n], axis=1)
-        f.create_dataset('samples', data=galaxy_samples)  # leave the chain dimension as 1 for now
+        dset = f.create_dataset('samples', data=galaxy_samples)  # leave the chain dimension as 1 for now
+        dset.attrs['free_param_names'] = free_param_names
+        dset.attrs['init_method'] = init_method
+        dset.attrs['n_burnin'] = n_burnin
+        dset.attrs['galaxy_id'] = name
         f.create_dataset('true_observations', data=true_observation[galaxy_n])
-        f.create_dataset('fixed_params', data=fixed_params[galaxy_n])
+        dset = f.create_dataset('fixed_params', data=fixed_params[galaxy_n])
+        dset.attrs['fixed_param_names'] = fixed_param_names
         f.create_dataset('uncertainty', data=uncertainty[galaxy_n])
         f.create_dataset('is_accepted', data=is_accepted[galaxy_n])
         if true_params is not None:
