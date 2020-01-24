@@ -22,7 +22,7 @@ def get_galaxies_without_results(n_galaxies):
     return without_results
 
 
-def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir):
+def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir, fixed_redshift):
     emulator = deep_emulator.get_trained_keras_emulator(deep_emulator.tf_model(), checkpoint_loc, new=False)
 
     n_free_params = 8
@@ -42,20 +42,24 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
 
         true_observation = np.zeros((len(df), n_photometry)).astype(np.float32)  # fixed bands
         uncertainty = np.zeros_like(true_observation).astype(np.float32)
-        redshifts = np.zeros((len(df), 1), dtype=np.float32)
+        if fixed_redshift:
+            fixed_params = np.zeros((len(df), 1), dtype=np.float32)  # will hold redshifts
+        else:
+            fixed_params = np.zeros((len(df), 0), dtype=np.float32)  # note the 0 shape
         for n in tqdm(range(len(df))):
-            galaxy = df.iloc[n]  # I don't know why iterrows is apparently returning one more row than len(df)??
-            # TODO uncertainties are not yet used! See log prob, currently 5% uncertainty by default
+            galaxy = df.iloc[n]
             _, maggies, maggies_unc = load_photometry.load_maggies_from_galaxy(galaxy, reliable=True)
             uncertainty[n] = maggies_unc.astype(np.float32)  # trusting the catalog uncertainty, which may be brave
             true_observation[n] = maggies.astype(np.float32)
-            redshifts[n] = galaxy['redshift'] / 4. # TODO WARNING assumes cube max redshift is 4, absolutely must match cube redshift limits
-        true_params = np.zeros((len(df), n_free_params)).astype(np.float32)
-        # true_params = None TODO quite awkward as I often use it in asserts or for expected param dim
+            if fixed_redshift:
+                logging.info('Using fixed spectroscopic redshifts from catalog')
+                # div by 4 to convert to hypercube space
+                # TODO WARNING assumes cube max redshift is 4, absolutely must match cube redshift limits and prior is uniform
+                fixed_params[n] = galaxy['redshift'] / 4. 
+        true_params = np.zeros((len(df), n_free_params)).astype(np.float32)  # easier than None as I often use it in asserts or for expected param dim
         logging.warning(f'Using {len(df)} real galaxies - forcing n_chains from {n_chains} to {len(df)} accordingly')
         n_chains = len(df)  # overriding whatever the arg was
-        galaxy_indices = df.index  # I should *really* reset the index beforehand so this is 1....33
-        # uncertainty = true_observation * 0.05  # for now, override the smarter uncertainty above
+        galaxy_indices = df.index  # just in case the df index was not reset to 0...n
 
     else:
         # fake galaxies, drawn from our priors and used as emulator training data
@@ -63,18 +67,24 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         _, _, x_test, y_test = deep_emulator.data(cube_dir='data/cubes/latest')  # TODO could make as arg
         x_test = x_test.astype(np.float32)
         y_test = y_test.astype(np.float32)
-        galaxy_indices = get_galaxies_without_results(n_chains)  # commenting out for now
-        # galaxy_indices = np.arange(n_chains)
-        true_params = x_test[galaxy_indices, 1:]  # excluding the 0th redshift param, which we treat as fixed
-        redshifts = x_test[galaxy_indices, :1].astype(np.float32)  # shape (n_galaxies, 1)
+        galaxy_indices = get_galaxies_without_results(n_chains)
+        # galaxy_indices = np.arange(n_chains)   # to overwrite
+        if fixed_redshift:
+            logging.info('Using fixed redshifts from cube')
+            true_params = x_test[galaxy_indices, 1:]  # excluding the 0th redshift param, which we treat as fixed
+            fixed_params = x_test[galaxy_indices, :1].astype(np.float32)  # shape (n_galaxies, 1)
+        else:
+            logging.info('Using variable redshift')
+            true_params = x_test[galaxy_indices]
+            fixed_params = np.zeros((len(true_params), 0)).astype(np.float32)
         true_observation = deep_emulator.denormalise_photometry(y_test[galaxy_indices]) 
         uncertainty = true_observation * 0.05  # assume 5% uncertainty on all bands for simulated galaxies
 
-    assert len(redshifts) == len(true_observation) == len(true_params)
+    assert len(fixed_params) == len(true_observation) == len(true_params)
     run_sampler.sample_galaxy_batch(
         galaxy_indices,
         true_observation,
-        redshifts,
+        fixed_params,
         uncertainty,
         true_params,
         emulator,
@@ -106,7 +116,15 @@ if __name__ == '__main__':
     parser.add_argument('--n-samples', type=int, default=6000, dest='n_samples')  # 6000 works well?
     parser.add_argument('--n-chains', type=int, default=96, dest='n_chains')  # 96 is ideal on my laptop, more memory = more chains free
     parser.add_argument('--init', type=str, dest='init_method', default='optimised', help='Can be one of: random, roughly_correct, optimised')
+    parser.add_argument('--redshift', type=str, dest='redshift_str', default='fixed', help='Can be one of: fixed, free')
     args = parser.parse_args()
+    
+    if args.redshift_str == 'fixed':
+        fixed_redshift = True
+    if args.redshift_str == 'free':
+        fixed_redshift = False
+    else:
+        raise ValueError('Redshift {} not understood - should be "fixed" or "free'.format(args.redshift_str))
     
     logging.getLogger().setLevel(logging.INFO)  # some third party library is mistakenly setting the logging somewhere...
 
@@ -129,7 +147,7 @@ if __name__ == '__main__':
         save_dir = os.path.join(output_dir, 'latest_{}_{}_{}'.format(n_samples, n_chains, init_method))
 
     logging.info('Galaxies will save to {}'.format(save_dir))
-    record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir)
+    record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir, fixed_redshift)
     # run_sampler.aggregate_performance(save_dir, n_samples, chains_per_galaxy=1)
     # samples, true_params, true_observations = run_sampler.read_performance(save_dir)
     # print(samples.shape, true_params.shape, true_observations.shape)

@@ -22,7 +22,7 @@ class SamplerHMC(Sampler):
     def sample(self):
         start_time = datetime.datetime.now()
 
-        log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation, self.problem.redshifts, self.problem.sigma)
+        log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation, self.problem.fixed_params, self.problem.sigma)
         initial_state = self.get_initial_state()
 
         with np.printoptions(precision=2, suppress=False):
@@ -57,8 +57,8 @@ class SamplerHMC(Sampler):
             mask=successfully_adapted,
             axis=0
         )
-        self.problem.redshifts = tf.boolean_mask(
-            tensor=self.problem.redshifts,
+        self.problem.fixed_params = tf.boolean_mask(
+            tensor=self.problem.fixed_params,
             mask=successfully_adapted,
             axis=0
         )
@@ -75,7 +75,7 @@ class SamplerHMC(Sampler):
         self.n_chains = tf.reduce_sum(input_tensor=tf.cast(successfully_adapted, tf.int32))
 
         # get new log_prob_fn
-        log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation, self.problem.redshifts, self.problem.sigma)
+        log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation, self.problem.fixed_params, self.problem.sigma)
         
         # continue, for real this time
         final_samples, is_accepted = self.run_hmc(log_prob_fn, initial_samples_filtered[-1], burnin_only=False)
@@ -96,7 +96,7 @@ class SamplerHMC(Sampler):
             initial_state = tf.random.uniform(self.problem.true_params.shape, minval=0., maxval=1.)
             # initial_state = many_random_starts(self.problem.forward_model, self.problem.true_observation, self.problem.param_dim, self.n_chains)
         elif self.init_method == 'optimised':
-            initial_state = optimised_start(self.problem.forward_model, self.problem.true_observation, self.problem.redshifts, self.problem.sigma, self.problem.param_dim, self.n_chains, steps=3000)
+            initial_state = optimised_start(self.problem.forward_model, self.problem.true_observation, self.problem.fixed_params, self.problem.sigma, self.problem.param_dim, self.n_chains, steps=3000)
         else:
             raise ValueError('Initialisation method {} not recognised'.format(self.init_method))
         return initial_state
@@ -201,18 +201,18 @@ def record_acceptance(is_accepted):
             logging.critical('Acceptance ratio is low for chain {}: ratio {:.2f}'.format(chain_i, chain_acceptance))
 
 
-def optimised_start(forward_model, observations, redshifts, sigma, param_dim, n_chains, steps, initial_guess=None):
+def optimised_start(forward_model, observations, fixed_params, sigma, param_dim, n_chains, steps, initial_guess=None):
     assert initial_guess is None  # not yet implemented
     start_time = datetime.datetime.now()
-    best_params = find_best_params(forward_model, observations, redshifts, sigma, param_dim, n_chains, steps)
+    best_params = find_best_params(forward_model, observations, fixed_params, sigma, param_dim, n_chains, steps)
     # chosen_params = tf.reshape(all_best_params, [n_chains, param_dim])
     end_time = datetime.datetime.now()
     elapsed = (end_time - start_time).total_seconds()
     logging.info('Done {} optimisations over {} steps in {} seconds.'.format(n_chains, steps, elapsed))
     return best_params
 
-def find_best_params(forward_model, observations, redshifts, sigma, param_dim, batch_dim, steps):
-    log_prob_fn = get_log_prob_fn(forward_model, observations, redshifts, sigma)
+def find_best_params(forward_model, observations, fixed_params, sigma, param_dim, batch_dim, steps):
+    log_prob_fn = get_log_prob_fn(forward_model, observations, fixed_params, sigma)
     initial_params = tf.Variable(tf.random.uniform([batch_dim, param_dim], dtype=np.float32), dtype=tf.float32)
     best_params = find_minima(lambda x: -log_prob_fn(x), initial_params, steps)  # a very important minus sign...
     return best_params
@@ -247,8 +247,8 @@ def many_random_starts(forward_model, observation, param_dim, n_chains, overprop
     #     n_chains)
     # return initial_state
 
-def keep_top_params(all_params, forward_model, true_observation, redshifts, sigma, initial_dim, final_dim):
-    log_prob_fn = get_log_prob_fn(forward_model, true_observation, redshifts, sigma)
+def keep_top_params(all_params, forward_model, true_observation, fixed_params, sigma, initial_dim, final_dim):
+    log_prob_fn = get_log_prob_fn(forward_model, true_observation, fixed_params, sigma)
     initial_log_probs = log_prob_fn(all_params)
     initial_state = tf.gather(all_params, tf.argsort(initial_log_probs, direction='DESCENDING'))[:final_dim]
     return initial_state

@@ -7,14 +7,14 @@ from agnfinder.tf_sampling import deep_emulator
 
 class SamplingProblem():
 
-    def __init__(self, true_observation, true_params, forward_model, redshifts, sigma):
+    def __init__(self, true_observation, true_params, forward_model, fixed_params, uncertainty):
         assert true_observation.ndim == 2
         assert true_params.ndim == 2
         self.true_observation = true_observation
         self.true_params = true_params
         self.forward_model = lambda *args, **kwargs: forward_model(*args, **kwargs)
-        self.redshifts = redshifts
-        self.sigma = sigma
+        self.fixed_params = fixed_params
+        self.uncertainty = uncertainty
 
     @property
     def param_dim(self):
@@ -34,20 +34,16 @@ class Sampler():
 
 
 # @tf.function  # inputs become tensors when you wrap
-def get_log_prob_fn(forward_model, true_photometry, redshifts, sigma):  
-    # sigma can be scalar, or (batch_dim, photometry_dim)
-    if isinstance(sigma, float):
-        uncertainty = true_photometry * sigma  # i.e. 5% sigma
-    else:
-        assert tf.rank(sigma).numpy() == 2
-        uncertainty = sigma
+def get_log_prob_fn(forward_model, true_photometry, fixed_params, uncertainty):  
+    # uncertainty can be scalar, or (batch_dim, photometry_dim)
+    assert tf.rank(uncertainty).numpy() == 2
     assert tf.rank(true_photometry).numpy() == 2  # true photometry must be (batch_dim, photometry_dim) even if batch_dim=1
     # first dimension of true params must match first dimension of x, or will fail
     @tf.function(experimental_compile=True)
     def log_prob_fn(x):  # 0th axis is batch/chain dim, 1st is param dim
         # expected photometry has been normalised by deep_emulator.normalise_photometry, remember - it's neg log10 mags
-        x_with_redshifts = tf.concat([redshifts, x], axis=1)
-        expected_photometry = deep_emulator.denormalise_photometry(forward_model(x_with_redshifts, training=False))  # model expects a batch dimension, which here is the chains
+        x_with_fixed_params = tf.concat([fixed_params, x], axis=1)  # will hopefully have no effect if fixed params is dim0?
+        expected_photometry = deep_emulator.denormalise_photometry(forward_model(x_with_fixed_params, training=False))  # model expects a batch dimension, which here is the chains
         deviation = tf.abs(expected_photometry - true_photometry)   # make sure you denormalise true observation in the first place, if loading from data(). Should be in maggies.
         neg_log_prob_by_band = deviation ** 2 / (2*uncertainty**2)
         log_prob = -tf.reduce_sum(input_tensor=neg_log_prob_by_band, axis=1)  # log space: product -> sum

@@ -19,7 +19,7 @@ def sample_galaxy_batch(names, true_observation, redshifts, uncertainty, true_pa
         logging.info('True observation is {}'.format(true_observation))
         logging.critical('True observation max is {} - make sure it is in maggies, not mags!'.format(true_observation))
 
-    problem = api.SamplingProblem(true_observation, true_params, forward_model=emulator, redshifts=redshifts, sigma=uncertainty)  # will pass in soon
+    problem = api.SamplingProblem(true_observation, true_params, forward_model=emulator, redshifts=redshifts, uncertainty=uncertainty)  # will pass in soon
     sampler = hmc.SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
     samples, is_accepted, successfully_adapted = sampler()
 
