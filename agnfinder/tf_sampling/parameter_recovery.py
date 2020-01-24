@@ -93,7 +93,7 @@ def get_cmap(hue_val):
     return ListedColormap(newcolors)
 
 
-def param_renaming(input_names):
+def rename_params(input_names):
     model_params = ['redshift', 'mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling']
     human_names = ['Redshift', 'Stellar Mass', 'Dust', 'Age', 'Tau', 'AGN Disk Scale', 'AGN E(B-V)', 'AGN Torus Scale', 'AGN Torus Incl.']
     renamer = dict(zip(model_params, human_names))
@@ -117,8 +117,9 @@ if __name__ == '__main__':
     accept = np.zeros(len(galaxy_locs), dtype=bool)
     for n, galaxy_loc in tqdm(enumerate(galaxy_locs), unit=' galaxies loaded'):
         f = h5py.File(galaxy_locs[0], mode='r')
-        params = f['free_param_names']
+        params = f['samples'].attrs['free_param_names']
         # don't care about fixed params
+    params = rename_params(params)
 
     marginals = np.zeros((len(galaxy_locs), len(params), 50))  # TODO magic number which must match run_sampler.py
     true_params = np.zeros((len(galaxy_locs), len(params)))
