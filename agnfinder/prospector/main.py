@@ -37,11 +37,11 @@ def load_galaxy(catalog_loc, index=0, forest_class=None, spectro_class=None):
     df = load_catalog(catalog_loc)  # will filter to galaxies with z only - see above
     if forest_class is not None:
         logging.warning('Selecting forest-identified {} galaxies'.format(forest_class))
-        df = df.sort_values('Pr[{}]_case_III'.format(forest_class), ascending=False).reset_index()  # to pick quasars
+        df = df.sort_values('Pr[{}]_case_III'.format(forest_class), ascending=False).reset_index(drop=True)  # to pick quasars
     if spectro_class is not None:
         logging.warning('Selecting spectro-identified {} galaxies'.format(spectro_class))
         df = df.query('hclass == {}'.format(spectro_class)).reset_index()  # to pick quasars
-    return df.iloc[index]
+    return df.reset_index(drop=True).iloc[index]
 
 
 def construct_problem(redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, inclination, emulate_ssp, galaxy=None):
@@ -179,6 +179,7 @@ def dynesty_galaxy(run_params, obs, model, sps, test=False):
 def save_samples(samples, file_loc):
     with h5py.File(file_loc, "w") as f:
         dset = f.create_dataset('samples', samples.shape, dtype='float32')
+        dset.attrs['free_param_names'] = model.free_params
         dset[...] = samples
 
 
@@ -274,7 +275,7 @@ if __name__ == '__main__':
     Output: samples (.h5py) and corner plot of forward model parameter posteriors for the selected galaxy
 
     Example use:
-    python agnfinder/prospector/main.py demo --catalog-loc /media/mike/beta/agnfinder/cpz_paper_sample_week3.parquet --save-dir results --forest passive
+    python agnfinder/prospector/main.py passive --catalog-loc data/uk_ir_selection_577.parquet --save-dir results/vanilla_nested --forest passive
     """
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('name', type=str, help='name of run')
