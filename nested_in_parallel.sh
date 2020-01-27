@@ -2,7 +2,7 @@
 SAVE_DIR=results/vanilla_nested
 CLASS=passive
 
-CORES=0
+CORES=15
 
 LASTCORE=0
 for CORE in $(seq 0 1 $CORES)
