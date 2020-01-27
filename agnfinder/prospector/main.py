@@ -185,7 +185,7 @@ def save_samples(samples, model, obs, sps, file_loc):
         f.create_dataset('uncertainty', data=obs['maggies_unc'])
         sampled_photometry = np.zeros((len(samples), len(obs['phot_wave'])))
         for sample_n, sample in enumerate(samples):  # batch dim
-            sampled_photometry[n] = model.sed(theta, obs=obs, sps=sps)
+            sampled_photometry[n] = model.sed(sample, obs=obs, sps=sps)
         f.create_dataset('sampled_photometry', data=sampled_photometry)
 
 
