@@ -66,7 +66,9 @@ def construct_problem(redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbti
 
     logging.info('Run params: {}'.format(run_params))
 
-    obs = cpz_builders.build_cpz_obs(galaxy=None, reliable=True)
+    if galaxy is None:
+        logging.warning('Galaxy not supplied - creating default obs for Prospector compatability only')
+    obs = cpz_builders.build_cpz_obs(galaxy=galaxy, reliable=True)
     logging.info(obs)
 
     model = cpz_builders.build_model(**run_params)
@@ -254,12 +256,12 @@ def main(index, name, catalog_loc, save_dir, forest_class, spectro_class, redshi
         save_sed_traces(samples, obs, model, sps, traces_loc)
         components_loc = os.path.join(save_dir, '{}_multinest_components.png'.format(name))
         # messy saving of components
-        plt.clf()
-        visualise.calculate_many_components(model, samples[int(len(samples)/2):], obs, sps)
-        plt.legend()
-        plt.ylim([1e-25, None])
-        plt.tight_layout()
-        plt.savefig(components_loc)
+        # plt.clf()
+        # visualise.calculate_many_components(model, samples[int(len(samples)/2):], obs, sps)
+        # plt.legend()
+        # plt.ylim([1e-25, None])
+        # plt.tight_layout()
+        # plt.savefig(components_loc)
 
 
 if __name__ == '__main__':
@@ -272,7 +274,7 @@ if __name__ == '__main__':
     Output: samples (.h5py) and corner plot of forward model parameter posteriors for the selected galaxy
 
     Example use:
-    /data/miniconda3/envs/agnfinder/bin/python /Data/repos/agnfinder/agnfinder/prospector/main.py demo --catalog-loc /Volumes/alpha/agnfinder/cpz_paper_sample_week3.parquet --save-dir data
+    python agnfinder/prospector/main.py demo --catalog-loc /media/mike/beta/agnfinder/cpz_paper_sample_week3.parquet --save-dir results --forest passive
     """
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('name', type=str, help='name of run')
@@ -294,11 +296,17 @@ if __name__ == '__main__':
     find_multinest_posterior = True
     test = False
     redshift = 'spectro'  # exception to below, as redshift read from galaxy
-    agn_mass = True  # None for not modelled, True for free, or float for fixed
-    agn_eb_v = True
-    agn_torus_mass = True
     igm_absorbtion = True
-    inclination = True
+
+    # None for not modelled, True for free, or float for fixed
+    # agn_mass = True  
+    # agn_eb_v = True
+    # agn_torus_mass = True
+    # inclination = True
+    agn_mass = None
+    agn_eb_v = None
+    agn_torus_mass = None
+    inclination = None
     
      # None or 'random' for any, or agn', 'passive', 'starforming', 'qso' for most likely galaxies of that class
     if args.forest == 'random':
