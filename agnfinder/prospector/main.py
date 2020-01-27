@@ -176,13 +176,17 @@ def dynesty_galaxy(run_params, obs, model, sps, test=False):
     return samples, time_elapsed
 
 
-def save_samples(samples, model, obs, file_loc):
+def save_samples(samples, model, obs, sps, file_loc):
     with h5py.File(file_loc, "w") as f:
         dset = f.create_dataset('samples', data=samples)
         dset.attrs['free_param_names'] = model.free_params
         f.create_dataset('true_observations', data=obs['maggies'])
         f.create_dataset('wavelengths', data=obs['phot_wave'])
         f.create_dataset('uncertainty', data=obs['maggies_unc'])
+        sampled_photometry = np.zeros((len(samples), len(obs['phot_wave'])))
+        for sample_n, sample in enumerate(samples):  # batch dim
+            sampled_photometry[n] = model.sed(theta, obs=obs, sps=sps)
+        f.create_dataset('sampled_photometry', data=sampled_photometry)
 
 
 def save_corner(samples, model, file_loc):
@@ -242,7 +246,7 @@ def main(index, name, catalog_loc, save_dir, forest_class, spectro_class, redshi
     if find_mcmc_posterior:
         samples, _ = mcmc_galaxy(run_params, obs, model, sps, initial_theta=theta_best, test=test)
         sample_loc = os.path.join(save_dir, '{}_mcmc_samples.h5py'.format(name))
-        save_samples(samples, model, obs, sample_loc)
+        save_samples(samples, model, obs, sps, sample_loc)
         corner_loc = os.path.join(save_dir, '{}_mcmc_corner.png'.format(name))
         save_corner(samples, model, corner_loc)
         traces_loc = os.path.join(save_dir, '{}_mcmc_sed_traces.png'.format(name))
@@ -252,7 +256,7 @@ def main(index, name, catalog_loc, save_dir, forest_class, spectro_class, redshi
         # TODO extend to use pymultinest?
         samples, _ = dynesty_galaxy(run_params, obs, model, sps, test=test)
         sample_loc = os.path.join(save_dir, '{}_multinest_samples.h5py'.format(name))
-        save_samples(samples, model, obs, sample_loc)
+        save_samples(samples, model, obs, sps, sample_loc)
         corner_loc = os.path.join(save_dir, '{}_multinest_corner.png'.format(name))
         save_corner(samples[int(len(samples)/2):], model, corner_loc)  # nested sampling has no burn-in phase, early samples are bad
         traces_loc = os.path.join(save_dir, '{}_multinest_sed_traces.png'.format(name))
