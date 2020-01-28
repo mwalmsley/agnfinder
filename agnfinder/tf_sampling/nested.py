@@ -1,3 +1,4 @@
+import numpy as np
 import tensorflow as tf
 
 # from nestorflow.nested import nested_sample
@@ -16,36 +17,48 @@ class SamplerNested(Sampler):
         self.n_repeats = 1
 
     def sample(self):
-        log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation, self.problem.fixed_params, self.problem.uncertainty)
-        # log_prob_fn_w_args = lambda cube, *args: log_prob_fn(x)
+        is_successful = np.zeros(len(self.problem.true_observation))
+        sample_list = []
+        for galaxy_index in range(len(self.problem.true_observation)):
+            log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation[:1], self.problem.fixed_params[:1], self.problem.uncertainty[:1])
+            n_params = self.problem.true_params.shape[1]
 
-        # parameters = 
-        n_params = len(self.problem.true_params)
+            # run MultiNest
+            # result = solve(
+            #     LogLikelihood=myloglike,
+            #     Prior=prior, 
+            #     n_dims=n_params,
+            #     n_live_points=problem.n_live,
+            #     outputfiles_basename=output_dir,
+            #     verbose=True
+            # )
+            # samples = result['samples']
 
-        # run MultiNest
-        # result = solve(
-        #     LogLikelihood=myloglike,
-        #     Prior=prior, 
-        #     n_dims=n_params,
-        #     n_live_points=problem.n_live,
-        #     outputfiles_basename=output_dir,
-        #     verbose=True
-        # )
-        # samples = result['samples']
+            # run Dynesty
+            # "Static" nested sampling.
+            # sampler = dynesty.NestedSampler(
+            #     lambda x: float(log_prob_fn(tf.expand_dims(tf.cast(x, tf.float32), axis=0)).numpy()),
+            #     dummy_prior,
+            #     n_params
+            # )
+            # "Dynamic" nested sampling.
+            sampler = dynesty.DynamicNestedSampler(
+                lambda x: float(log_prob_fn(tf.expand_dims(tf.cast(x, tf.float32), axis=0)).numpy()),
+                dummy_prior,
+                n_params
+            )
+            sampler.run_nested()
+            result = sampler.results
+            samples = result.samples
+            sample_list.append(samples)
 
-        # run Dynesty
-        # "Static" nested sampling.
-        sampler = dynesty.NestedSampler(log_prob_fn, dummy_prior, n_params)
-        sampler.run_nested()
-        result = sampler.results
-        samples = result.samples
-        # "Dynamic" nested sampling.
-        # dsampler = dynesty.DynamicNestedSampler(loglike, ptform, ndim)
-        # dsampler.run_nested()
-        # dresults = dsampler.results
+            is_successful[galaxy_index] = 1  # for now
 
-
-        is_successful = np.ones(len(samples))  # for now
+        num_samples_by_galaxy = [len(x) for x in sample_list]
+        max_samples = np.max(num_samples_by_galaxy)
+        samples = np.zeros((max_samples, len(sample_list), n_params))
+        for n, x in enumerate(sample_list):
+        samples[:, n, :] = x  # batch/galaxy is dimension 1 of samples - I should perhaps change this
         metadata = {}
         return samples, is_successful, metadata
 

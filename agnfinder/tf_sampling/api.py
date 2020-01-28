@@ -42,6 +42,8 @@ def get_log_prob_fn(forward_model, true_photometry, fixed_params, uncertainty):
     @tf.function(experimental_compile=True)
     def log_prob_fn(x):  # 0th axis is batch/chain dim, 1st is param dim
         # expected photometry has been normalised by deep_emulator.normalise_photometry, remember - it's neg log10 mags
+        # if tf.rank(x) == 1:
+        #     x = tf.expand_dims(x, axis=1)
         x_with_fixed_params = tf.concat([fixed_params, x], axis=1)  # will hopefully have no effect if fixed params is dim0?
         expected_photometry = deep_emulator.denormalise_photometry(forward_model(x_with_fixed_params, training=False))  # model expects a batch dimension, which here is the chains
         deviation = tf.abs(expected_photometry - true_photometry)   # make sure you denormalise true observation in the first place, if loading from data(). Should be in maggies.
