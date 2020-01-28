@@ -31,7 +31,7 @@ def sample_galaxy_batch(galaxy_ids, true_observation, fixed_params, uncertainty,
     samples, is_successful, metadata = sampler()
     # metadata MUST be already filtered by is_successful
 
-    assert samples.shape[0] == n_samples
+    # assert samples.shape[0] == n_samples  # NOT TRUE for nested sampling!
     assert samples.shape[1] == np.sum(is_successful)
     assert samples.shape[2] == true_params.shape[1]
 
