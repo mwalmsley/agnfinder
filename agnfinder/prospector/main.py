@@ -300,8 +300,8 @@ if __name__ == '__main__':
     save_dir = args.save_dir
     catalog_loc = args.catalog_loc
     find_ml_estimate = False
-    find_mcmc_posterior = True
-    find_multinest_posterior = False
+    find_mcmc_posterior = False
+    find_multinest_posterior = True
     test = False
     redshift = 'spectro'  # exception to below, as redshift read from galaxy
     igm_absorbtion = True

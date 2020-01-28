@@ -241,10 +241,7 @@ class CSPSpecBasisAGN(CSPSpecBasis):
                  vactoair_flag=False, compute_vega_mags=False, emulate_ssp=False, **kwargs):
 
         # super().__init__()
-        
-        logging.critical(kwargs)
-        print(kwargs)
-        exit()
+
         if emulate_ssp:
             logging.warning('Using custom FSPS emulator for SSP')
             self.ssp = CustomSSP()
