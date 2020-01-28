@@ -21,7 +21,7 @@ GPy
 scikit-learn==0.20.3
 tqdm
 pyDOE2
-tensorflow==1.15  # the right tf version is important! Will now be tf 2.0 by default.
+tensorflow==1.15.2  # the right tf version is important! Will now be tf 2.0 by default.
 tensorflow-probability
 keras
 hyperopt
