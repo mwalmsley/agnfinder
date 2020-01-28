@@ -132,7 +132,7 @@ if __name__ == '__main__':
     
     if args.redshift_str == 'fixed':
         fixed_redshift = True
-    if args.redshift_str == 'free':
+    elif args.redshift_str == 'free':
         fixed_redshift = False
     else:
         raise ValueError('Redshift {} not understood - should be "fixed" or "free'.format(args.redshift_str))

@@ -8,7 +8,7 @@ import numpy as np
 import h5py
 import tensorflow as tf  # just for eager toggle
 
-from agnfinder.tf_sampling import deep_emulator, api, hmc
+from agnfinder.tf_sampling import deep_emulator, api, hmc, nested
 
 # TODO change indices to some kind of unique id, perhaps? will need for real galaxies...
 def sample_galaxy_batch(galaxy_ids, true_observation, fixed_params, uncertainty, true_params, emulator, n_burnin, n_samples, n_chains, init_method, save_dir, free_param_names, fixed_param_names):
@@ -22,22 +22,28 @@ def sample_galaxy_batch(galaxy_ids, true_observation, fixed_params, uncertainty,
         logging.critical('True observation max is {} - make sure it is in maggies, not mags!'.format(true_observation))
 
     problem = api.SamplingProblem(true_observation, true_params, forward_model=emulator, fixed_params=fixed_params, uncertainty=uncertainty)  # will pass in soon
-    sampler = hmc.SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
-    samples, is_accepted, successfully_adapted = sampler()
+    
+    # HMC/NUTS
+    # sampler = hmc.SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
+    # nested sampling
+    sampler = nested.SamplerNested(problem, n_live=400)
+
+    samples, is_successful, metadata = sampler()
+    # metadata MUST be already filtered by is_successful
 
     assert samples.shape[0] == n_samples
-    assert samples.shape[1] == np.sum(successfully_adapted)
+    assert samples.shape[1] == np.sum(is_successful)
     assert samples.shape[2] == true_params.shape[1]
 
     # filter the args to only galaxies which survived
     # samples is already filtered
     # is_accepted is already filtered
-    true_observation = true_observation[successfully_adapted]
-    true_params = true_params[successfully_adapted]
-    fixed_params = fixed_params[successfully_adapted]
-    uncertainty = uncertainty[successfully_adapted]
+    true_observation = true_observation[is_successful]
+    true_params = true_params[is_successful]
+    fixed_params = fixed_params[is_successful]
+    uncertainty = uncertainty[is_successful]
     # galaxy_ids are a bit more awkward
-    ids_were_adapted = dict(zip(galaxy_ids, successfully_adapted))  # dicts are ordered in 3.7+ I think
+    ids_were_adapted = dict(zip(galaxy_ids, is_successful))  # dicts are ordered in 3.7+ I think
     remaining_galaxy_ids = [k for k, v in ids_were_adapted.items() if v]
     discared_galaxy_ids = [k for k, v in ids_were_adapted.items() if not v]
     if len(discared_galaxy_ids) != 0:
@@ -59,7 +65,8 @@ def sample_galaxy_batch(galaxy_ids, true_observation, fixed_params, uncertainty,
         dset = f.create_dataset('fixed_params', data=fixed_params[galaxy_n])
         dset.attrs['fixed_param_names'] = fixed_param_names
         f.create_dataset('uncertainty', data=uncertainty[galaxy_n])
-        f.create_dataset('is_accepted', data=is_accepted[galaxy_n])
+        for key, data in metadata.items():
+            f.create_dataset(key, data=data)
         if true_params is not None:
             f.create_dataset('true_params', data=true_params[galaxy_n])
 
