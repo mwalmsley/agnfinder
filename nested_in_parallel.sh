@@ -1,5 +1,5 @@
 #!/bin/sh
-SAVE_DIR=results/vanilla_mcmc
+SAVE_DIR=results/extended_nested
 CLASS=passive
 
 CORES=15
