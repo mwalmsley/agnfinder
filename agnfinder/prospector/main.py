@@ -307,14 +307,14 @@ if __name__ == '__main__':
     igm_absorbtion = True
 
     # None for not modelled, True for free, or float for fixed
-    # agn_mass = True  
-    # agn_eb_v = True
-    # agn_torus_mass = True
-    # inclination = True
-    agn_mass = None
-    agn_eb_v = None
-    agn_torus_mass = None
-    inclination = None
+    agn_mass = True  
+    agn_eb_v = True
+    agn_torus_mass = True
+    inclination = True
+    # agn_mass = None
+    # agn_eb_v = None
+    # agn_torus_mass = None
+    # inclination = None
     
      # None or 'random' for any, or agn', 'passive', 'starforming', 'qso' for most likely galaxies of that class
     if args.forest == 'random':
