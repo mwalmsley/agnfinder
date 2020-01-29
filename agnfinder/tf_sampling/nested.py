@@ -39,26 +39,32 @@ class SamplerNested(Sampler):
             #     outputfiles_basename=output_dir,
             #     verbose=True
             # )
-            # samples = result['samples']
+            # print(result)
+            # print(result.keys())
+            # samples_list.append(result['samples'])
+            # # https://github.com/JohannesBuchner/PyMultiNest/blob/master/pymultinest/solve.py#L80
+            # sample_weights_list.append(np.ones(len(result['samples'])))  # doesn't seem to include this?
+            # log_evidence_list.append(result['logZ'])
+
 
             # run Dynesty
             # "Static" nested sampling.
-            # sampler = dynesty.NestedSampler(
-            #     lambda x: float(log_prob_fn(tf.expand_dims(tf.cast(x, tf.float32), axis=0)).numpy()),
-            #     dummy_prior,
-            #     n_params
-            # )
-            # "Dynamic" nested sampling.
-            sampler = dynesty.DynamicNestedSampler(
+            sampler = dynesty.NestedSampler(
                 lambda x: float(log_prob_fn(tf.expand_dims(tf.cast(x, tf.float32), axis=0)).numpy()),
                 dummy_prior,
                 n_params
             )
-            sampler.run_nested()
-            result = sampler.results
-            sample_list.append(result.samples)
-            sample_weights_list.append(result.logwt)
-            log_evidence_list.append(result.logz)
+            # "Dynamic" nested sampling.
+            # sampler = dynesty.DynamicNestedSampler(
+            #     lambda x: float(log_prob_fn(tf.expand_dims(tf.cast(x, tf.float32), axis=0)).numpy()),
+            #     dummy_prior,
+            #     n_params
+            # )
+            # sampler.run_nested()
+            # result = sampler.results
+            # sample_list.append(result.samples)
+            # sample_weights_list.append(result.logwt)
+            # log_evidence_list.append(result.logz)
 
             is_successful[galaxy_index] = True  # for now
 
