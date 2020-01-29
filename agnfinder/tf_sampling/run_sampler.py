@@ -28,7 +28,7 @@ def sample_galaxy_batch(galaxy_ids, true_observation, fixed_params, uncertainty,
     # nested sampling
     sampler = nested.SamplerNested(problem, n_live=400)
 
-    samples, is_successful, metadata = sampler()
+    samples, is_successful, sample_weights, log_evidence, metadata = sampler()
     # metadata MUST be already filtered by is_successful
 
     # assert samples.shape[0] == n_samples  # NOT TRUE for nested sampling!
@@ -38,6 +38,7 @@ def sample_galaxy_batch(galaxy_ids, true_observation, fixed_params, uncertainty,
     # filter the args to only galaxies which survived
     # samples is already filtered
     # is_accepted is already filtered
+    # sample_weights is already filtered
     true_observation = true_observation[is_successful]
     true_params = true_params[is_successful]
     fixed_params = fixed_params[is_successful]
@@ -61,6 +62,8 @@ def sample_galaxy_batch(galaxy_ids, true_observation, fixed_params, uncertainty,
         dset.attrs['init_method'] = init_method
         dset.attrs['n_burnin'] = n_burnin
         dset.attrs['galaxy_id'] = name
+        f.create_dataset('sample_weights', data=sample_weights[:, galaxy_n])
+        f.create_dataset('log_evidence', data=log_evidence[:, galaxy_n])
         f.create_dataset('true_observations', data=true_observation[galaxy_n])
         dset = f.create_dataset('fixed_params', data=fixed_params[galaxy_n])
         dset.attrs['fixed_param_names'] = fixed_param_names

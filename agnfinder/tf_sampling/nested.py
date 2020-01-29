@@ -19,8 +19,15 @@ class SamplerNested(Sampler):
     def sample(self):
         is_successful = np.zeros(len(self.problem.true_observation)).astype(bool)
         sample_list = []
+        sample_weights_list = []
+        log_evidence_list = []
         for galaxy_index in range(len(self.problem.true_observation)):
-            log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation[:1], self.problem.fixed_params[:1], self.problem.uncertainty[:1])
+            log_prob_fn = get_log_prob_fn(
+                self.problem.forward_model, 
+                np.expand_dims(self.problem.true_observation[galaxy_index], axis=0),
+                np.expand_dims(self.problem.fixed_params[galaxy_index], axis=0),
+                np.expand_dims(self.problem.uncertainty[galaxy_index], axis=0)
+            )
             n_params = self.problem.true_params.shape[1]
 
             # run MultiNest
@@ -49,18 +56,25 @@ class SamplerNested(Sampler):
             )
             sampler.run_nested()
             result = sampler.results
-            samples = result.samples
-            sample_list.append(samples)
+            sample_list.append(result.samples)
+            sample_weights_list.append(result.logwt)
+            log_evidence_list.append(result.logz)
 
             is_successful[galaxy_index] = True  # for now
 
         num_samples_by_galaxy = [len(x) for x in sample_list]
         max_samples = np.max(num_samples_by_galaxy)
         samples = np.zeros((max_samples, len(sample_list), n_params))
+        sample_weights = np.zeros((max_samples, len(sample_list)))
+        log_evidence = np.zeros(1, len(sample_list))
         for n, x in enumerate(sample_list):
             samples[:len(x), n, :] = x  # batch/galaxy is dimension 1 of samples - I should perhaps change this
+        for n, x in enumerate(sample_weights_list):
+            sample_weights[:len(x), n, :] = x  
+        for n, x in enumerate(log_evidence_list):
+            log_evidence[0, n] = x
         metadata = {}
-        return samples, is_successful, metadata
+        return samples, is_successful, sample_weights, log_evidence, metadata
 
 def dummy_prior(cube):
     return cube  # already a unit hypercube w/ flat priors
