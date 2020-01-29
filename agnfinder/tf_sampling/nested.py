@@ -72,7 +72,7 @@ class SamplerNested(Sampler):
         max_samples = np.max(num_samples_by_galaxy)
         samples = np.zeros((max_samples, len(sample_list), n_params))
         sample_weights = np.zeros((max_samples, len(sample_list)))
-        log_evidence = np.zeros(1, len(sample_list))
+        log_evidence = np.zeros((1, len(sample_list)))
         for n, x in enumerate(sample_list):
             samples[:len(x), n, :] = x  # batch/galaxy is dimension 1 of samples - I should perhaps change this
         for n, x in enumerate(sample_weights_list):
