@@ -60,11 +60,11 @@ class SamplerNested(Sampler):
             #     dummy_prior,
             #     n_params
             # )
-            # sampler.run_nested()
-            # result = sampler.results
-            # sample_list.append(result.samples)
-            # sample_weights_list.append(result.logwt)
-            # log_evidence_list.append(result.logz)
+            sampler.run_nested()
+            result = sampler.results
+            sample_list.append(result.samples)
+            sample_weights_list.append(result.logwt)
+            log_evidence_list.append(result.logz)
 
             is_successful[galaxy_index] = True  # for now
 
