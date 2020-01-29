@@ -80,7 +80,7 @@ class SamplerNested(Sampler):
         for n, x in enumerate(log_evidence_list):
             # print(x)
             # print(x.shape)
-            log_evidence[:, n] = x  # sample, galaxy
+            log_evidence[:len(x), n] = x  # sample, galaxy
         metadata = {}
         return samples, is_successful, sample_weights, log_evidence, metadata
 

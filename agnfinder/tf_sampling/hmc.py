@@ -84,7 +84,9 @@ class SamplerHMC(Sampler):
         end_time = datetime.datetime.now()
         logging.info('Total time for galaxies: {}s'.format( (end_time - start_time).total_seconds()))
         metadata = {'is_accepted': is_accepted}
-        return final_samples, successfully_adapted.numpy(), metadata
+        sample_weights = np.ones((final_samples.shape[:2))  # 0 and 1 dimensions
+        log_evidence = np.ones_like(sample_weights)
+        return final_samples, successfully_adapted.numpy(), sample_weights, log_evidence, metadata
 
     def get_initial_state(self):
         if self.init_method == 'correct':
@@ -138,30 +140,30 @@ def hmc(log_prob_fn, initial_state, n_samples=int(10e3), n_burnin=int(1e3)):
     # this is crucial now that each chain is potentially a different observation
 
     # NUTS
-    # transition_kernel = tfp.mcmc.NoUTurnSampler(
-    #     target_log_prob_fn=log_prob_fn,
-    #     step_size=initial_step_sizes
-    # )
-    # step size adaption
+    # step size adaption from
     # https://github.com/tensorflow/probability/issues/549
-    # adaptive_kernel = tfp.mcmc.DualAveragingStepSizeAdaptation(
-    #     transition_kernel,
-    #     num_adaptation_steps=int(n_burnin * 0.8),
-    #     step_size_setter_fn=lambda pkr, new_step_size: pkr._replace(step_size=new_step_size),
-    #     step_size_getter_fn=lambda pkr: pkr.step_size,
-    #     log_accept_prob_getter_fn=lambda pkr: pkr.log_accept_ratio
-    # )
-
-    # or HMC
-    transition_kernel = tfp.mcmc.HamiltonianMonteCarlo(
+    transition_kernel = tfp.mcmc.NoUTurnSampler(
         target_log_prob_fn=log_prob_fn,
-        step_size=initial_step_sizes,
-        num_leapfrog_steps=10
+        step_size=initial_step_sizes
     )
     adaptive_kernel = tfp.mcmc.DualAveragingStepSizeAdaptation(
         transition_kernel,
         num_adaptation_steps=int(n_burnin * 0.8),
+        step_size_setter_fn=lambda pkr, new_step_size: pkr._replace(step_size=new_step_size),
+        step_size_getter_fn=lambda pkr: pkr.step_size,
+        log_accept_prob_getter_fn=lambda pkr: pkr.log_accept_ratio
     )
+
+    # or HMC
+    # transition_kernel = tfp.mcmc.HamiltonianMonteCarlo(
+    #     target_log_prob_fn=log_prob_fn,
+    #     step_size=initial_step_sizes,
+    #     num_leapfrog_steps=10
+    # )
+    # adaptive_kernel = tfp.mcmc.DualAveragingStepSizeAdaptation(
+    #     transition_kernel,
+    #     num_adaptation_steps=int(n_burnin * 0.8),
+    # )
 
     # seperate function so it can be decorated
     @tf.function(experimental_compile=True)
