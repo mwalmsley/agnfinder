@@ -17,7 +17,7 @@ class SamplerNested(Sampler):
         self.n_repeats = 1
 
     def sample(self):
-        is_successful = np.zeros(len(self.problem.true_observation))
+        is_successful = np.zeros(len(self.problem.true_observation)).astype(bool)
         sample_list = []
         for galaxy_index in range(len(self.problem.true_observation)):
             log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation[:1], self.problem.fixed_params[:1], self.problem.uncertainty[:1])
@@ -52,7 +52,7 @@ class SamplerNested(Sampler):
             samples = result.samples
             sample_list.append(samples)
 
-            is_successful[galaxy_index] = 1  # for now
+            is_successful[galaxy_index] = True  # for now
 
         num_samples_by_galaxy = [len(x) for x in sample_list]
         max_samples = np.max(num_samples_by_galaxy)
