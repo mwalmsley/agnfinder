@@ -24,9 +24,9 @@ def sample_galaxy_batch(galaxy_ids, true_observation, fixed_params, uncertainty,
     problem = api.SamplingProblem(true_observation, true_params, forward_model=emulator, fixed_params=fixed_params, uncertainty=uncertainty)  # will pass in soon
     
     # HMC/NUTS
-    sampler = hmc.SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
+    # sampler = hmc.SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
     # nested sampling
-    # sampler = nested.SamplerNested(problem, n_live=400)
+    sampler = nested.SamplerNested(problem, n_live=400)
 
     samples, is_successful, sample_weights, log_evidence, metadata = sampler()
     # metadata MUST be already filtered by is_successful
