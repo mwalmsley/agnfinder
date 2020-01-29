@@ -76,7 +76,7 @@ class SamplerNested(Sampler):
         for n, x in enumerate(sample_list):
             samples[:len(x), n, :] = x  # batch/galaxy is dimension 1 of samples - I should perhaps change this
         for n, x in enumerate(sample_weights_list):
-            sample_weights[:len(x), n, :] = x  
+            sample_weights[0, n] = x  
         for n, x in enumerate(log_evidence_list):
             log_evidence[0, n] = x
         metadata = {}
