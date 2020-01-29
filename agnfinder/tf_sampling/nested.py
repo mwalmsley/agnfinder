@@ -58,7 +58,7 @@ class SamplerNested(Sampler):
         max_samples = np.max(num_samples_by_galaxy)
         samples = np.zeros((max_samples, len(sample_list), n_params))
         for n, x in enumerate(sample_list):
-            samples[:, n, :] = x  # batch/galaxy is dimension 1 of samples - I should perhaps change this
+            samples[:len(x), n, :] = x  # batch/galaxy is dimension 1 of samples - I should perhaps change this
         metadata = {}
         return samples, is_successful, metadata
 
