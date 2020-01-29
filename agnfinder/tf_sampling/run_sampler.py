@@ -63,7 +63,7 @@ def sample_galaxy_batch(galaxy_ids, true_observation, fixed_params, uncertainty,
         dset.attrs['n_burnin'] = n_burnin
         dset.attrs['galaxy_id'] = name
         f.create_dataset('sample_weights', data=sample_weights[:, galaxy_n])
-        f.create_dataset('log_evidence', data=log_evidence[:, galaxy_n])
+        f.create_dataset('log_evidence', data=log_evidence[galaxy_n])
         f.create_dataset('true_observations', data=true_observation[galaxy_n])
         dset = f.create_dataset('fixed_params', data=fixed_params[galaxy_n])
         dset.attrs['fixed_param_names'] = fixed_param_names
