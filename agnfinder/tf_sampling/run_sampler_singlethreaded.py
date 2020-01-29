@@ -44,6 +44,8 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         # real galaxies, selected from uK_IR sample by highest (?) random forest prob. (`Pr[{class}]_case_III')
         assert os.path.isfile(selected_catalog_loc)  # TODO generalise?
         df = pd.read_parquet(selected_catalog_loc)
+        n_galaxies = np.max([len(df), n_chains])
+        df = df.sample(n_galaxies)  # don't reset index, important for labels
         logging.info(f'Loading {len(df)} galaxies')
         rf_classes = ['passive', 'starforming', 'starburst', 'agn', 'qso', 'outlier']
         for c in rf_classes:
