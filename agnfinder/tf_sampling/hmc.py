@@ -84,7 +84,7 @@ class SamplerHMC(Sampler):
         end_time = datetime.datetime.now()
         logging.info('Total time for galaxies: {}s'.format( (end_time - start_time).total_seconds()))
         metadata = {'is_accepted': is_accepted}
-        sample_weights = np.ones((final_samples.shape[:2))  # 0 and 1 dimensions
+        sample_weights = np.ones((final_samples.shape[:2]))  # 0 and 1 dimensions
         log_evidence = np.ones_like(sample_weights)
         return final_samples, successfully_adapted.numpy(), sample_weights, log_evidence, metadata
 
