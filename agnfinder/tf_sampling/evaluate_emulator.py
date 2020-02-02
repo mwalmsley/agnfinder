@@ -38,7 +38,7 @@ if __name__ == '__main__':
 
     print('Explained Var (max 1): {:.5f}'.format(metrics.explained_variance_score(y_test, y_pred)))
 
-    bands = np.arange(12)  # TODO temp
+    bands = np.arange(y_train.shape[1])
     med_abs_error = np.array([metrics.median_absolute_error(y_test[:, i], y_pred[:, i]) for i in range(len(bands))])
     rel_med_abs_error = med_abs_error / np.median(y_test, axis=0)
     r2 = np.array([metrics.r2_score(y_test[:, i], y_pred[:, i]) for i in range(len(bands))])

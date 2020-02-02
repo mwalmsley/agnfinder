@@ -117,3 +117,5 @@ data/*.png
 *.hdf5
 *.tfrecord
 report.txt
+
+.vscode/settings.json

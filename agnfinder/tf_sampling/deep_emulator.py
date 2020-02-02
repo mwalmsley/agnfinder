@@ -13,7 +13,7 @@ from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.metrics import mean_squared_error
 
 
-def tf_model():
+def tf_model(input_dim=9, output_dim=8):
     # note: the relu's make a huge improvement here over default (sigmoid?)
 
     # previous default
@@ -30,12 +30,12 @@ def tf_model():
     # current best from hyperband w/ 1m cube, 15 epochs
     # TODO found before redshift was introduced, could update
     model = tf.keras.Sequential([
-        tf.keras.layers.Dense(192, input_dim=9, activation='relu'),
+        tf.keras.layers.Dense(192, input_dim=input_dim, activation='relu'),
         tf.keras.layers.Dense(448, activation='relu'),
         tf.keras.layers.Dense(192, activation='relu'),
         tf.keras.layers.Dense(576, activation='relu'),
         tf.keras.layers.Dropout(0.004),
-        tf.keras.layers.Dense(12)
+        tf.keras.layers.Dense(output_dim)
         ])
     model.compile(
         optimizer='adam',
@@ -44,11 +44,11 @@ def tf_model():
     return model
 
 
-def data(cube_dir):  # e.g. data/cubes/latest
+def data(cube_dir, photometry_dim=8, theta_dim=9):  # e.g. data/cubes/latest
     # need to be able to load all cubes into memory at once (though only once, thanks to concatenation instead of loading all and stacking)
     cube_locs = get_cube_locs(cube_dir)
-    theta = np.ones((0, 9))
-    normalised_photometry = np.ones((0, 12))
+    theta = np.ones((0, theta_dim))
+    normalised_photometry = np.ones((0, photometry_dim))
     for cube_loc in cube_locs:
         cube_theta, cube_normalised_photometry = load_cube(cube_loc)
         theta = np.concatenate([theta, cube_theta], axis=0)
@@ -230,7 +230,7 @@ if __name__ == '__main__':
 
     Example use:
 
-        python agnfinder/tf_sampling/deep_emulator.py --checkpoint=results/checkpoints/redshift_test
+        python agnfinder/tf_sampling/deep_emulator.py --checkpoint=results/checkpoints/euclid_test
     """
     logging.getLogger().setLevel(logging.INFO)
 

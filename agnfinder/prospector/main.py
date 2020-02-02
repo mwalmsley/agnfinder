@@ -25,7 +25,7 @@ def load_catalog(catalog_loc):
         df = pd.read_parquet(catalog_loc, columns=cols)
     else:
         df = pd.read_csv(catalog_loc, usecols=cols)  # why, pandas, is this a different named arg?
-    filters = load_photometry.get_filters(reliable=True)
+    filters = load_photometry.get_filters(selection='euclid')
     required_cols = [f.mag_col for f in filters] + [f.error_col for f in filters]
     df = df.dropna(subset=required_cols)
     logging.info('parquet loaded')
@@ -44,7 +44,7 @@ def load_galaxy(catalog_loc, index=0, forest_class=None, spectro_class=None):
     return df.reset_index(drop=True).iloc[index]
 
 
-def construct_problem(redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, inclination, emulate_ssp, galaxy=None):
+def construct_problem(redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbtion, inclination, emulate_ssp, filter_selection, galaxy=None):
     run_params = {}
 
     # model params
@@ -68,7 +68,7 @@ def construct_problem(redshift, agn_mass, agn_eb_v, agn_torus_mass, igm_absorbti
 
     if galaxy is None:
         logging.warning('Galaxy not supplied - creating default obs for Prospector compatability only')
-    obs = cpz_builders.build_cpz_obs(galaxy=galaxy, reliable=True)
+    obs = cpz_builders.build_cpz_obs(galaxy=galaxy, filter_selection=filter_selection)
     logging.info(obs)
 
     model = cpz_builders.build_model(**run_params)

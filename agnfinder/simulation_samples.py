@@ -10,7 +10,7 @@ from agnfinder.prospector import main, visualise
 from agnfinder import simulation_utils
 
 
-def simulate(n_samples, save_loc, emulate_ssp, noise, redshift_range):
+def simulate(n_samples, save_loc, emulate_ssp, noise, redshift_range, filter_selection):
 
     # a bit hacky - log* keys will be 10 ** within simulator function below
     free_params = OrderedDict({
@@ -34,13 +34,13 @@ def simulate(n_samples, save_loc, emulate_ssp, noise, redshift_range):
     print(hcube.shape)
     galaxy_params = simulation_utils.denormalise_theta(hcube, free_params)  
     
-    simulator, phot_wavelengths = get_forward_model(emulate_ssp, noise=noise)
+    simulator, phot_wavelengths, output_dim = get_forward_model(emulate_ssp, noise=noise, filter_selection=filter_selection)
 
     # calculate photometry at every vector (row) in parameter-space 
     photometry = simulation_utils.sample(
         theta=galaxy_params,
         n_samples=n_samples,
-        output_dim=12,  # reliable bands only
+        output_dim=output_dim,
         simulator=simulator
     )
     print('photometry')
@@ -55,7 +55,7 @@ def simulate(n_samples, save_loc, emulate_ssp, noise, redshift_range):
         wavelengths=phot_wavelengths
     )
 
-def get_forward_model(emulate_ssp, noise):
+def get_forward_model(emulate_ssp, noise, filter_selection):
     # redshift = 3.  # for fixed redshift
     redshift = True
     agn_mass = True
@@ -77,7 +77,8 @@ def get_forward_model(emulate_ssp, noise):
         agn_torus_mass=agn_torus_mass,
         igm_absorbtion=igm_absorbtion,
         inclination=inclination,
-        emulate_ssp=emulate_ssp
+        emulate_ssp=emulate_ssp,
+        filter_selection=filter_selection
     )
 
     _ = visualise.calculate_sed(model, model.theta, obs, sps)  # TODO might not be needed for obs phot wavelengths
@@ -89,7 +90,12 @@ def get_forward_model(emulate_ssp, noise):
             return np.random.normal(loc=model_photometry, scale=get_sigma(model_photometry))
         return model_photometry
 
-    return forward_model, phot_wavelengths
+    if filter_selection == 'euclid':
+        output_dim = 8
+    else:
+        output_dim = 12
+    # sloppy
+    return forward_model, phot_wavelengths, output_dim
 
 
 if __name__ == '__main__':
@@ -110,6 +116,7 @@ if __name__ == '__main__':
     parser.add_argument('--save-dir', dest='save_dir', type=str, default='data')
     parser.add_argument('--emulate-ssp', default=False, action='store_true')
     parser.add_argument('--noise', default=False, action='store_true')
+    parser.add_argument('--filters', dest='filters', type=str, default='euclid')
     args = parser.parse_args()
 
     redshift_min_string = '{:.4f}'.format(args.redshift_min).replace('.', 'p')
@@ -119,4 +126,4 @@ if __name__ == '__main__':
         os.mkdir(save_dir)
     save_loc = os.path.join(args.save_dir, save_name)
 
-    simulate(args.n_samples, save_loc, args.emulate_ssp, args.noise, (args.redshift_min, args.redshift_max))
+    simulate(args.n_samples, save_loc, args.emulate_ssp, args.noise, (args.redshift_min, args.redshift_max), args.filters)

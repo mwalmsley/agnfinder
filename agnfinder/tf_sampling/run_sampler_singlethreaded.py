@@ -58,7 +58,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
             fixed_params = np.zeros((len(df), 0), dtype=np.float32)  # note the 0 shape
         for n in tqdm(range(len(df))):
             galaxy = df.iloc[n]
-            _, maggies, maggies_unc = load_photometry.load_maggies_from_galaxy(galaxy, reliable=True)
+            _, maggies, maggies_unc = load_photometry.load_maggies_from_galaxy(galaxy, filter_selection)
             uncertainty[n] = maggies_unc.astype(np.float32)  # trusting the catalog uncertainty, which may be brave
             true_observation[n] = maggies.astype(np.float32)
             if fixed_redshift:

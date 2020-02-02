@@ -9,7 +9,7 @@ Filter = namedtuple('Filter', ['bandpass_file', 'mag_col', 'error_col'])
 
 
 
-def get_filters(reliable):
+def get_filters(selection):
         # Pairs of (filter name in sedpy, filter name in dataframe)
     galex = [
         Filter(
@@ -39,6 +39,13 @@ def get_filters(reliable):
             error_col='magerr_auto_viking_{}_dr2'.format(b.lower().strip('s'))
         )
         for b in ['H', 'J', 'Ks', 'Y', 'Z']]  # is k called ks in df? TODO
+    vista_euclid = [  # only these plus sloan will be available for euclid
+        Filter(
+            bandpass_file='VISTA_{}'.format(b),
+            mag_col='mag_auto_viking_{}_dr2'.format(b.lower().strip('s')),
+            error_col='magerr_auto_viking_{}_dr2'.format(b.lower().strip('s'))
+        )
+        for b in ['H', 'J', 'Y']]  # is k called ks in df? TODO
     sdss = [
         Filter(
             bandpass_file='{}_sloan'.format(b),
@@ -52,14 +59,19 @@ def get_filters(reliable):
             error_col='magerr_auto_AllWISE_{}'.format(x.upper())
         )
         for x in ['w1', 'w2']] # exclude w3, w4
-    if reliable:
+    
+    if selection == 'reliable':
         return sdss + vista + wise
-    else:
+    elif selection == 'euclid':
+        return sdss + vista_euclid
+    elif selection == 'all':
         return galex + sdss+ cfht + kids + vista + wise  # note that these are *not* in wavelength order!
+    else:
+        raise ValueError(f'Filter selection {selection} not recognised')
 
 
-def load_maggies_from_galaxy(galaxy, reliable):
-    all_filters = get_filters(reliable)
+def load_maggies_from_galaxy(galaxy, filter_selection):
+    all_filters = get_filters(filter_selection)
     valid_filters = [f for f in all_filters if filter_has_valid_data(f, galaxy)]
     if reliable and len(valid_filters) != 12:
         raise ValueError('Some reliable bands are missing - only got {}'.format(valid_filters))
