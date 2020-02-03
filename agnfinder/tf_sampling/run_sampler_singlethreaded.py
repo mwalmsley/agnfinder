@@ -94,8 +94,8 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         bands = ['u_sloan', 'g_sloan', 'r_sloan', 'i_sloan', 'z_sloan', 'VISTA_H','VISTA_J', 'VISTA_Y']  # euclid bands, hardcoded for now
         assert true_observation.shape[1] == len(bands)
         lowess = sm.nonparametric.lowess
-        error_estimators_loc = 'data/error_estimators'
-        with open(error_estimators, 'rb') as f:
+        error_estimators_loc = 'data/error_estimators.pickle'
+        with open(error_estimators_loc, 'rb') as f:
             error_estimators = dill.load(f)
         uncertainty = np.zeros_like(true_observation).astype(np.float32)
         for galaxy_i, galaxy in enumerate(true_observation):
