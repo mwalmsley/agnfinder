@@ -108,13 +108,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('--save-dir', dest='save_dir', type=str)
     parser.add_argument('--min-acceptance', default=0.6, type=float, dest='min_acceptance')
+    parser.add_argument('--max-redshift', default=1.0, type=float, dest='max_redshift', default=4.0)
     args = parser.parse_args()
 
     galaxy_locs = glob.glob(args.save_dir + '/galaxy*.h5')
     assert galaxy_locs
 
     # open one file to work out the format of the data
-    accept = np.zeros(len(galaxy_locs), dtype=bool)
     for n, galaxy_loc in tqdm(enumerate(galaxy_locs), unit=' galaxies loaded'):
         f = h5py.File(galaxy_locs[0], mode='r')
         params = f['samples'].attrs['free_param_names']
@@ -123,7 +123,8 @@ if __name__ == '__main__':
 
     marginals = np.zeros((len(galaxy_locs), len(params), 50))  # TODO magic number which must match run_sampler.py
     true_params = np.zeros((len(galaxy_locs), len(params)))
-    accept = np.zeros(len(galaxy_locs), dtype=bool)
+    allowed_redshift = np.zeros(len(galaxy_locs), dtype=bool)
+    allowed_acceptance = np.zeros(len(galaxy_locs), dtype=bool)
     for n, galaxy_loc in tqdm(enumerate(galaxy_locs), unit=' galaxies loaded'):
         f = h5py.File(galaxy_loc, mode='r')
         galaxy_marginals = f['marginals'][...]
@@ -133,13 +134,16 @@ if __name__ == '__main__':
         value_for_80p = np.quantile(galaxy_marginals, .8, axis=1)
         num_geq_80p = (galaxy_marginals.transpose() > value_for_80p).sum(axis=0)
         # print(num_geq_80p, num_geq_80p.shape)
-        accept[n] = np.mean(num_geq_80p) > args.min_acceptance
+        allowed_acceptance[n] = np.mean(num_geq_80p) > args.min_acceptance
+        allowed_redshift[n] = galaxy['true_params'][0] * 4 < args.max_redshift  # absolutely must match hypercube physical redshift limit
 
         marginals[n] = galaxy_marginals
         true_params[n] = galaxy_true_params
 
     # filter to galaxies with decent acceptance
-    logging.info('{} galaxies of {} have mean acceptance > {}'.format(accept.sum(), len(accept), args.min_acceptance))
+    logging.info('{} galaxies of {} have mean acceptance > {}'.format(allowed_acceptance.sum(), len(allowed_acceptance), args.min_acceptance))
+    logging.info('{} galaxies of {} have redshift > {}'.format(allowed_redshift.sum(), len(allowed_redshift), args.max_redshift))
+    accept = allowed_acceptance & allowed_redshift
     marginals = marginals[accept]
     true_params = true_params[accept]
 
