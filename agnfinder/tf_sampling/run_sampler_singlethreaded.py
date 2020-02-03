@@ -2,10 +2,13 @@ import argparse
 import logging
 import os
 
+import dill
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
 import tensorflow as tf  # just for eager toggle
+import statsmodels.api as sm
+from scipy.interpolate import interp1d
 
 from agnfinder.prospector import load_photometry
 from agnfinder.tf_sampling import run_sampler, deep_emulator
@@ -88,7 +91,17 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
             true_params = x_test[galaxy_indices]
             fixed_params = np.zeros((len(true_params), 0)).astype(np.float32)
         true_observation = deep_emulator.denormalise_photometry(y_test[galaxy_indices]) 
-        uncertainty = true_observation * 0.05  # assume 5% uncertainty on all bands for simulated galaxies
+        bands = ['u_sloan', 'g_sloan', 'r_sloan', 'i_sloan', 'z_sloan', 'VISTA_H','VISTA_J', 'VISTA_Y']  # euclid bands, hardcoded for now
+        assert true_observation.shape[1] == len(bands)
+        lowess = sm.nonparametric.lowess
+        error_estimators_loc = 'data/error_estimators'
+        with open(error_estimators, 'rb') as f:
+            error_estimators = dill.load(f)
+        uncertainty = np.zeros_like(true_observation).astype(np.float32)
+        for galaxy_i, galaxy in enumerate(true_observation):
+            for band_i, band in enumerate(bands):
+                uncertainty[galaxy_i, band_i] = error_estimators[band](galaxy[band_i])
+#         uncertainty = true_observation * 0.05  # assume 5% uncertainty on all bands for simulated galaxies
 
     assert len(fixed_params) == len(true_observation) == len(true_params)
     run_sampler.sample_galaxy_batch(
