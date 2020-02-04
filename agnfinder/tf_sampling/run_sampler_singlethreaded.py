@@ -110,6 +110,8 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
     logging.info(true_observation)
     logging.info('Uncertainty: ')
     logging.info(uncertainty)
+    logging.info('Uncertainty (decimal)')
+    logging.info(uncertainty / true_observation)
     logging.info('Mean uncertainty by band (decimal):')
     logging.info(np.mean(uncertainty / true_observation, axis=0))
     
