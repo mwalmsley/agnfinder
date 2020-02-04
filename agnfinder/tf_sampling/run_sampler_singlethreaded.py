@@ -101,8 +101,8 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         for galaxy_i, galaxy in enumerate(true_observation):
             for band_i, band in enumerate(bands):
                 extrapolated_unc = error_estimators[band](galaxy[band_i])
-                unc_with_ceiling = np.min(np.stack(extrapolated_unc, galaxy * 0.2), axis=0)  # 1 sigma uncertainty no more than 20%
-                unc_with_floor = np.max(np.stack(extrapolated_unc, galaxy * 0.01), axis=0)  # no less than 1%
+                unc_with_ceiling = np.min(np.stack([extrapolated_unc, galaxy * 0.2]), axis=0)  # 1 sigma uncertainty no more than 20%
+                unc_with_floor = np.max(np.stack([extrapolated_unc, galaxy * 0.01]), axis=0)  # no less than 1%
                 uncertainty[galaxy_i, band_i] = unc_with_floor
 
 #         uncertainty = true_observation * 0.05  # assume 5% uncertainty on all bands for simulated galaxies
