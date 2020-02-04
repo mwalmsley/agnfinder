@@ -11,17 +11,6 @@ import h5py
 from tqdm import tqdm
 
 
-def check_parameter_bias(galaxies, true_params):
-    params = ['mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling', 'inclination']
-
-    # TODO move out to main
-    # rhats, gewekes = get_convergence_metrics(galaxies, n_params=len(params))
-    # visualise_convergence_metrics(rhats, geweckes)
-
-    # fig, axes = plot_error_bars_vs_truth(params, galaxies, true_params)
-    fig, axes = plot_posterior_stripes(params, galaxies, true_params)
-    return fig, axes
-
 
 def plot_posterior_stripes(params, marginals, true_params, n_param_bins=50, n_posterior_bins=50):
     fig, axes = plt.subplots(nrows=3, ncols=3, figsize=(12, 12))
@@ -99,19 +88,8 @@ def rename_params(input_names):
     renamer = dict(zip(model_params, human_names))
     return [renamer[x] for x in input_names]
 
-
-if __name__ == '__main__':
-
-    sns.set_context('notebook')
-    sns.set(font_scale=1.3)
-
-    parser = argparse.ArgumentParser(description='Find AGN!')
-    parser.add_argument('--save-dir', dest='save_dir', type=str)
-    parser.add_argument('--min-acceptance', default=0.6, type=float, dest='min_acceptance')
-    parser.add_argument('--max-redshift', type=float, dest='max_redshift', default=4.0)
-    args = parser.parse_args()
-
-    galaxy_locs = glob.glob(args.save_dir + '/galaxy*.h5')
+def load_samples(save_dir, min_acceptance, max_redshift):
+    galaxy_locs = glob.glob(save_dir + '/*.h5')
     assert galaxy_locs
 
     # open one file to work out the format of the data
@@ -119,7 +97,7 @@ if __name__ == '__main__':
         f = h5py.File(galaxy_locs[0], mode='r')
         params = f['samples'].attrs['free_param_names']
         # don't care about fixed params
-    params = rename_params(params)
+#     params = rename_params(params)
 
     marginals = np.zeros((len(galaxy_locs), len(params), 50))  # TODO magic number which must match run_sampler.py
     true_params = np.zeros((len(galaxy_locs), len(params)))
@@ -134,19 +112,39 @@ if __name__ == '__main__':
         value_for_80p = np.quantile(galaxy_marginals, .8, axis=1)
         num_geq_80p = (galaxy_marginals.transpose() > value_for_80p).sum(axis=0)
         # print(num_geq_80p, num_geq_80p.shape)
-        allowed_acceptance[n] = np.mean(num_geq_80p) > args.min_acceptance
-        allowed_redshift[n] = f['fixed_params'][0] * 4 < args.max_redshift  # absolutely must match hypercube physical redshift limit
+        allowed_acceptance[n] = np.mean(num_geq_80p) > min_acceptance
+        allowed_redshift[n] = f['fixed_params'][0] * 4 < max_redshift  # absolutely must match hypercube physical redshift limit
 
         marginals[n] = galaxy_marginals
         true_params[n] = galaxy_true_params
 
     # filter to galaxies with decent acceptance
-    logging.info('{} galaxies of {} have mean acceptance > {}'.format(allowed_acceptance.sum(), len(allowed_acceptance), args.min_acceptance))
+    logging.info('{} galaxies of {} have mean acceptance > {}'.format(allowed_acceptance.sum(), len(allowed_acceptance), min_acceptance))
     logging.info('{} galaxies of {} have redshift > {}'.format(allowed_redshift.sum(), len(allowed_redshift), args.max_redshift))
     accept = allowed_acceptance & allowed_redshift
     marginals = marginals[accept]
     true_params = true_params[accept]
+    return params, marginals, true_params
 
+
+def main(save_dir, min_acceptance, max_redshift):
+    params, marginals_true_params = load_samples(save_dir, min_acceptance, max_redshift)
     fig, axes = plot_posterior_stripes(params, marginals, true_params)
+    return fig, axes
+
+
+if __name__ == '__main__':
+
+    sns.set_context('notebook')
+    sns.set(font_scale=1.3)
+
+    parser = argparse.ArgumentParser(description='Find AGN!')
+    parser.add_argument('--save-dir', dest='save_dir', type=str)
+    parser.add_argument('--min-acceptance', default=0.6, type=float, dest='min_acceptance')
+    parser.add_argument('--max-redshift', type=float, dest='max_redshift', default=4.0)
+    args = parser.parse_args()
+
+    fig, axes = main(args.save_dir, args.min_acceptance, args.max_redshift)
+
     fig.savefig('results/latest_posterior_stripes.png')
     fig.savefig('results/latest_posterior_stripes.pdf')

@@ -11,7 +11,7 @@ def load_maggies_fast(galaxy, errors, selection='reliable'):
     maggies = 10**(-0.4*mags)
 
     if errors:
-        mag_errors = np.array(galaxy[[f.error_col for f in valid_filters]].values).astype(float) * 5.  # being skeptical...
+        mag_errors = np.array(galaxy[[f.error_col for f in valid_filters]].values).astype(float)  # being skeptical...
         maggies_unc = np.zeros(len(mags))
         for i in range(len(mags)):
             maggies_unc[i] = load_photometry.calculate_maggie_uncertainty(mag_errors[i], maggies[i]).astype(float)

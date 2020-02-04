@@ -89,7 +89,7 @@ def load_maggies_from_galaxy(galaxy, filter_selection):
     logging.debug('maggies: {}'.format(maggies))
 
     # TODO review error scaling, noise model, lnprobfn - currently a big gap in understanding!
-    mag_errors = np.array(galaxy[[f.error_col for f in valid_filters]].values).astype(float) * 5.  # being skeptical...
+    mag_errors = np.array(galaxy[[f.error_col for f in valid_filters]].values).astype(float)
     logging.debug('mag errors: {}'.format(mag_errors))
 
     maggies_unc = []
