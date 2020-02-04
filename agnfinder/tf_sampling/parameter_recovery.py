@@ -112,8 +112,11 @@ def load_samples(save_dir, min_acceptance, max_redshift):
         value_for_80p = np.quantile(galaxy_marginals, .8, axis=1)
         num_geq_80p = (galaxy_marginals.transpose() > value_for_80p).sum(axis=0)
         # print(num_geq_80p, num_geq_80p.shape)
-        allowed_acceptance[n] = np.mean(num_geq_80p) > min_acceptance
-        allowed_redshift[n] = f['fixed_params'][0] * 4 < max_redshift  # absolutely must match hypercube physical redshift limit
+        allowed_acceptance[n] = np.mean(num_geq_80p) > args.min_acceptance
+        if 'Redshift' not in params:
+            allowed_redshift[n] = f['fixed_params'][0] * 4 < args.max_redshift  # absolutely must match hypercube physical redshift limit
+        else:
+            allowed_redshift[n] = True
 
         marginals[n] = galaxy_marginals
         true_params[n] = galaxy_true_params

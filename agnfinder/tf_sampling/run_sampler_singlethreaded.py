@@ -78,6 +78,10 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         # fake galaxies, drawn from our priors and used as emulator training data
         logging.info('Using fake galaxies, drawn randomly from the hypercube')
         _, _, x_test, y_test = deep_emulator.data(cube_dir='data/cubes/latest')  # TODO could make as arg
+        # filter to max redshift .5
+        within_max_z = x_test[:, 0] < .5 / 4.
+        x_test = x_test[within_max_z]
+        y_test = y_test[within_max_z]
         x_test = x_test.astype(np.float32)
         y_test = y_test.astype(np.float32)
         galaxy_indices = get_galaxies_without_results(n_chains)
@@ -97,16 +101,21 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         error_estimators_loc = 'data/error_estimators.pickle'
         with open(error_estimators_loc, 'rb') as f:
             error_estimators = dill.load(f)
-        uncertainty = np.zeros_like(true_observation).astype(np.float32)
+        estimated_uncertainty = np.zeros_like(true_observation).astype(np.float32)
         for galaxy_i, galaxy in enumerate(true_observation):
             for band_i, band in enumerate(bands):
-                uncertainty[galaxy_i, band_i] = error_estimators[band](galaxy[band_i])
+                estimated_uncertainty[galaxy_i, band_i] = error_estimators[band](galaxy[band_i])
+        # add clipping
+        uncertainty = np.min(np.stack([estimated_uncertainty, true_observation * 0.2]), axis=0)  # 1 sigma uncertainty no more than 20%
+        uncertainty = np.max(np.stack([uncertainty, true_observation * 0.05]), axis=0)  # no less than 1%
 #         uncertainty = true_observation * 0.05  # assume 5% uncertainty on all bands for simulated galaxies
 
     logging.info('photometry: ')
     logging.info(true_observation)
     logging.info('Uncertainty: ')
     logging.info(uncertainty)
+    logging.info('Uncertainty (decimal)')
+    logging.info(uncertainty / true_observation)
     logging.info('Mean uncertainty by band (decimal):')
     logging.info(np.mean(uncertainty / true_observation, axis=0))
     
