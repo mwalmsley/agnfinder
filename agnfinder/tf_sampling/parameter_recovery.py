@@ -97,7 +97,7 @@ def load_samples(save_dir, min_acceptance, max_redshift):
         f = h5py.File(galaxy_locs[0], mode='r')
         params = f['samples'].attrs['free_param_names']
         # don't care about fixed params
-#     params = rename_params(params)
+    params = rename_params(params)
 
     marginals = np.zeros((len(galaxy_locs), len(params), 50))  # TODO magic number which must match run_sampler.py
     true_params = np.zeros((len(galaxy_locs), len(params)))
@@ -112,9 +112,9 @@ def load_samples(save_dir, min_acceptance, max_redshift):
         value_for_80p = np.quantile(galaxy_marginals, .8, axis=1)
         num_geq_80p = (galaxy_marginals.transpose() > value_for_80p).sum(axis=0)
         # print(num_geq_80p, num_geq_80p.shape)
-        allowed_acceptance[n] = np.mean(num_geq_80p) > args.min_acceptance
+        allowed_acceptance[n] = np.mean(num_geq_80p) > min_acceptance
         if 'Redshift' not in params:
-            allowed_redshift[n] = f['fixed_params'][0] * 4 < args.max_redshift  # absolutely must match hypercube physical redshift limit
+            allowed_redshift[n] = f['fixed_params'][0] * 4 < max_redshift  # absolutely must match hypercube physical redshift limit
         else:
             allowed_redshift[n] = True
 
@@ -123,7 +123,7 @@ def load_samples(save_dir, min_acceptance, max_redshift):
 
     # filter to galaxies with decent acceptance
     logging.info('{} galaxies of {} have mean acceptance > {}'.format(allowed_acceptance.sum(), len(allowed_acceptance), min_acceptance))
-    logging.info('{} galaxies of {} have redshift > {}'.format(allowed_redshift.sum(), len(allowed_redshift), args.max_redshift))
+    logging.info('{} galaxies of {} have redshift > {}'.format(allowed_redshift.sum(), len(allowed_redshift), max_redshift))
     accept = allowed_acceptance & allowed_redshift
     marginals = marginals[accept]
     true_params = true_params[accept]
@@ -131,7 +131,7 @@ def load_samples(save_dir, min_acceptance, max_redshift):
 
 
 def main(save_dir, min_acceptance, max_redshift):
-    params, marginals_true_params = load_samples(save_dir, min_acceptance, max_redshift)
+    params, marginals, true_params = load_samples(save_dir, min_acceptance, max_redshift)
     fig, axes = plot_posterior_stripes(params, marginals, true_params)
     return fig, axes
 
