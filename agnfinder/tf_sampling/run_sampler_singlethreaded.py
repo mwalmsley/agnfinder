@@ -103,6 +103,9 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
                 uncertainty[galaxy_i, band_i] = error_estimators[band](galaxy[band_i])
 #         uncertainty = true_observation * 0.05  # assume 5% uncertainty on all bands for simulated galaxies
 
+    logging.info('Mean uncertainty by band (decimal):')
+    logging.info(np.mean(uncertainty / true_observation, axis=0))
+    
     assert len(fixed_params) == len(true_observation) == len(true_params)
     run_sampler.sample_galaxy_batch(
         galaxy_indices,
