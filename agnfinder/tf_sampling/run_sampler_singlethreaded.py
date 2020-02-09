@@ -101,8 +101,10 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         y_test = y_test[astro_acceptable]
         x_test = x_test.astype(np.float32)
         y_test = y_test.astype(np.float32)
-        galaxy_indices = get_galaxies_without_results(n_chains)
-        # galaxy_indices = np.arange(n_chains)   # to overwrite
+
+        # galaxy_indices = get_galaxies_without_results(n_chains)
+        galaxy_indices = np.arange(n_chains)   # if re-run, is effectively a new chain for an old galaxy
+
         if fixed_redshift:
             logging.info('Using fixed redshifts from cube')
             true_params = x_test[galaxy_indices, 1:]  # excluding the 0th redshift param, which we treat as fixed
