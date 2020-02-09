@@ -73,8 +73,10 @@ def get_filters(selection):
 def load_maggies_from_galaxy(galaxy, filter_selection):
     all_filters = get_filters(filter_selection)
     valid_filters = [f for f in all_filters if filter_has_valid_data(f, galaxy)]
-    if reliable and len(valid_filters) != 12:
+    if filter_selection == 'reliable' and len(valid_filters) != 12:
         raise ValueError('Some reliable bands are missing - only got {}'.format(valid_filters))
+    if filter_selection == 'euclid' and len(valid_filters) != 8:
+        raise ValueError('Needs 8 valid Euclid bands - only got {}'.format(valid_filters))
     logging.debug('valid filters: {}'.format(valid_filters))
 
     # Instantiate the `Filter()` objects using methods in `sedpy`

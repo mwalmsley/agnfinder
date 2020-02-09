@@ -27,6 +27,7 @@ keras
 # hyperopt
 # hyperas
 arviz
+statsmodels  # for lowess for uncertainty calculations
 
 git+https://github.com/bd-j/sedpy
 git+https://github.com/bd-j/prospector.git

@@ -54,6 +54,7 @@ ssh mikewalmsley@aquila.star.bris.ac.uk
 ssh mike@zeus.star.bris.ac.uk
 
 
+scp -r -oProxyJump=mikewalmsley@aquila.star.bris.ac.uk mike@zeus.star.bris.ac.uk:/scratch/agnfinder/agnfinder/results/latest_posterior_stripes.png results/...
 
 scp -r -oProxyJump=mikewalmsley@aquila.star.bris.ac.uk /media/mike/beta/agnfinder/CPz_filters mike@zeus.star.bris.ac.uk:/scratch/agnfinder/data/CPz_filters
 cp /scratch/agnfinder/data/CPz_filters/* /home/mike/.conda/envs/agnfinder/lib/python3.7/site-packages/sedpy/data/filters

@@ -83,7 +83,13 @@ def sample_galaxy_batch(galaxy_ids, true_observation, fixed_params, uncertainty,
 
 
 def get_galaxy_save_file(i, save_dir):
-    return os.path.join(save_dir, 'galaxy_{}_performance.h5'.format(i))
+    n = 0
+    assert os.path.isdir(save_dir)
+    while True:
+        attempted_save_loc = os.path.join(save_dir, f'galaxy_{i}_performance_{n}.h5')
+        if not os.path.isfile(attempted_save_loc):
+            return attempted_save_loc
+        n += 1  # until you find one not yet saved
 
 
 def aggregate_performance(save_dir, n_samples, chains_per_galaxy):

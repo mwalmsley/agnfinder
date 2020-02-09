@@ -80,8 +80,25 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         _, _, x_test, y_test = deep_emulator.data(cube_dir='data/cubes/latest')  # TODO could make as arg
         # filter to max redshift .5
         within_max_z = x_test[:, 0] < .5 / 4.
-        x_test = x_test[within_max_z]
-        y_test = y_test[within_max_z]
+
+        # even with 100x factor, only 25% of galaxies don't get uncertainty clipped
+        # many galaxies probably still unrealistic
+        # should make more histograms / read them to find good clips
+        # should maybe have two cubes: low-z cube and any/high-z cube?
+        # photometry on low-z galaxies can be a 'targeted special case' 
+        # already have the code to do it
+        # run zeus tonight?
+        # min_maggies = 10 ** -8
+        # max_maggies = 10 ** -6
+        # normalised_min_maggies = deep_emulator.normalise_photometry(min_maggies)
+        # normalised_max_maggies = deep_emulator.normalise_photometry(max_maggies)
+        # within_maggie_limit = np.all((y_test < normalised_min_maggies) & (y_test > normalised_max_maggies), axis=1)  # less than, as normalising includes a sign flip
+
+        astro_acceptable = within_max_z
+        # astro_acceptable = within_maggie_limit
+        # astro_acceptable = within_max_z & within_maggie_limit
+        x_test = x_test[astro_acceptable]
+        y_test = y_test[astro_acceptable]
         x_test = x_test.astype(np.float32)
         y_test = y_test.astype(np.float32)
         galaxy_indices = get_galaxies_without_results(n_chains)
@@ -150,8 +167,8 @@ if __name__ == '__main__':
     Default burn-in, num samples, and num chains are optimised for an excellent desktop w/ GTX 1070. 
     """
     parser = argparse.ArgumentParser(description='Run emulated HMC on many galaxies')
-    parser.add_argument('--checkpoint-loc', type=str, dest='checkpoint_loc')
-    parser.add_argument('--output-dir', dest='output_dir', type=str)  # in which save_dir will be created
+    parser.add_argument('--checkpoint-loc', type=str, dest='checkpoint_loc', default='results/checkpoints/latest')
+    parser.add_argument('--output-dir', dest='output_dir', type=str, default='results/emulated_sampling')  # in which save_dir will be created
     parser.add_argument('--max-galaxies', type=int, default=1, dest='max_galaxies')
     parser.add_argument('--selected', type=str, default='', dest='selected_catalog_loc')
     parser.add_argument('--n-burnin', type=int, default=3000, dest='n_burnin')
