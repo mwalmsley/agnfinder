@@ -103,6 +103,7 @@ def load_samples(save_dir, min_acceptance, max_redshift):
     true_params = np.zeros((len(galaxy_locs), len(params)))
     allowed_redshift = np.zeros(len(galaxy_locs), dtype=bool)
     allowed_acceptance = np.zeros(len(galaxy_locs), dtype=bool)
+    allowed_spread = np.zeros(len(galaxy_locs), dtype=bool)
     for n, galaxy_loc in tqdm(enumerate(galaxy_locs), unit=' galaxies loaded'):
         f = h5py.File(galaxy_loc, mode='r')
         galaxy_marginals = f['marginals'][...]
@@ -113,6 +114,8 @@ def load_samples(save_dir, min_acceptance, max_redshift):
         num_geq_80p = (galaxy_marginals.transpose() > value_for_80p).sum(axis=0)
         # print(num_geq_80p, num_geq_80p.shape)
         allowed_acceptance[n] = np.mean(num_geq_80p) > min_acceptance
+        samples = f['samples'][...] # okay to load, will not keep
+        allowed_spread[n] = within_percentile_limits(samples)
         if 'Redshift' not in params:
             allowed_redshift[n] = f['fixed_params'][0] * 4 < max_redshift  # absolutely must match hypercube physical redshift limit
         else:
@@ -124,11 +127,20 @@ def load_samples(save_dir, min_acceptance, max_redshift):
     # filter to galaxies with decent acceptance
     logging.info('{} galaxies of {} have mean acceptance > {}'.format(allowed_acceptance.sum(), len(allowed_acceptance), min_acceptance))
     logging.info('{} galaxies of {} have redshift > {}'.format(allowed_redshift.sum(), len(allowed_redshift), max_redshift))
-    accept = allowed_acceptance & allowed_redshift
+    accept = allowed_acceptance & allowed_redshift & allowed_spread
     marginals = marginals[accept]
     true_params = true_params[accept]
     return params, marginals, true_params
 
+def percentile_spreads(samples):
+    return np.percentile(samples, 75, axis=0) - np.percentile(samples, 25, axis=0)
+
+def within_percentile_limits(samples):
+    limits = np.array([0.02932622, 0.07219234, 0.03350993, 0.05405632, 0.03579117,
+       0.03457421, 0.03837388, 0.05567279])
+    pcs = percentile_spreads(samples)
+    valid_pcs = pcs[np.all(pcs < 1., axis=1)]
+    return np.sum(valid_pcs < limits, axis=1) < 2.  # no more than 1 parameter can have less 75%-25% spread than the limits (set to discard 15% of data)
 
 def main(save_dir, min_acceptance, max_redshift):
     params, marginals, true_params = load_samples(save_dir, min_acceptance, max_redshift)

@@ -58,3 +58,5 @@ scp -r -oProxyJump=mikewalmsley@aquila.star.bris.ac.uk mike@zeus.star.bris.ac.uk
 
 scp -r -oProxyJump=mikewalmsley@aquila.star.bris.ac.uk /media/mike/beta/agnfinder/CPz_filters mike@zeus.star.bris.ac.uk:/scratch/agnfinder/data/CPz_filters
 cp /scratch/agnfinder/data/CPz_filters/* /home/mike/.conda/envs/agnfinder/lib/python3.7/site-packages/sedpy/data/filters
+
+scp -r -oProxyJump=mikewalmsley@aquila.star.bris.ac.uk mike@zeus.star.bris.ac.uk:/scratch/agnfinder/results/emulated_sampling/30k_burnin results/emulated_sampling 
