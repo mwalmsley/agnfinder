@@ -24,8 +24,7 @@ pyDOE2
 tensorflow>=2.1  # the right tf version is important! 
 tensorflow-probability  # TODO so is the right tfp version
 keras
-# hyperopt
-# hyperas
+keras-tuner  # if you want to hyperparameter search
 arviz
 statsmodels  # for lowess for uncertainty calculations
 
