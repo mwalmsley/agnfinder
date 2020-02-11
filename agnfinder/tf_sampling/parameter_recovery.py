@@ -141,7 +141,7 @@ def within_percentile_limits(samples):
        0.03457421, 0.03837388, 0.05567279])
     pcs = percentile_spreads(samples)
     valid_pcs = pcs[np.all(pcs < 1., axis=1)]
-    return np.sum(valid_pcs < limits, axis=1) < 2.  # no more than 1 parameter can have less 75%-25% spread than the limits (set to discard 15% of data)
+    return bool(np.sum(valid_pcs < limits, axis=1) < 2.)  # no more than 1 parameter can have less 75%-25% spread than the limits (set to discard 15% of data)
 
 def main(save_dir, min_acceptance, max_redshift):
     params, marginals, true_params = load_samples(save_dir, min_acceptance, max_redshift)
