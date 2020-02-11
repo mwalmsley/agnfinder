@@ -137,12 +137,16 @@ def load_samples(save_dir, min_acceptance, max_redshift):
 def percentile_spreads(samples):
     return np.percentile(samples, 75, axis=0) - np.percentile(samples, 25, axis=0)
 
-def within_percentile_limits(samples):
-    limits = np.array([0.02932622, 0.07219234, 0.03350993, 0.05405632, 0.03579117,
-       0.03457421, 0.03837388, 0.05567279])
+def within_percentile_limits(samples, limits=None):
+    if limits is None:
+        limits = np.array([0.02932622, 0.07219234, 0.03350993, 0.05405632, 0.03579117,
+        0.03457421, 0.03837388, 0.05567279])  # warning, cube dependent
     pcs = percentile_spreads(samples)
     valid_pcs = pcs[np.all(pcs < 1., axis=1)]
-    return bool(np.sum(valid_pcs < limits, axis=1) < 2.)  # no more than 1 parameter can have less 75%-25% spread than the limits (set to discard 15% of data)
+    return compare_percentiles_with_limits(valid_pcs, limits)
+
+def compare_percentiles_with_limits(valid_pcs, limits):
+    return np.squeeze(np.sum(valid_pcs < limits, axis=1) < 2.)  # no more than 1 parameter can have less 75%-25% spread than the limits (set to discard 15% of data)
 
 def main(save_dir, min_acceptance, max_redshift):
     params, marginals, true_params = load_samples(save_dir, min_acceptance, max_redshift)
