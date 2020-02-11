@@ -55,7 +55,7 @@ def data(cube_dir, photometry_dim=8, theta_dim=9):  # e.g. data/cubes/latest
         normalised_photometry = np.concatenate([normalised_photometry, cube_normalised_photometry], axis=0)
     logging.info('Loaded {} theta, {} photometry'.format(theta.shape, normalised_photometry.shape))
     # shuffles here, which is crucial
-    x_train, x_test, y_train, y_test = train_test_split(theta, normalised_photometry, random_state=1, test_size=0.01)
+    x_train, x_test, y_train, y_test = train_test_split(theta, normalised_photometry, random_state=1, test_size=0.1)
     return x_train, y_train, x_test, y_test
 
 
