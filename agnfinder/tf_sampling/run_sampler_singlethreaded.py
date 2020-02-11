@@ -46,6 +46,42 @@ def run_succeeded(file_loc):
         return parameter_recovery.within_percentile_limits(samples)  # WARNING limits will need updating for new cubes/uncertainties!
 
 
+def find_closest_galaxies(input_rows: np.array, candidates: np.array):
+    pairs = []
+    for n, photometry in tqdm(enumerate(input_rows), total=len(input_rows)):
+        error = np.sum((photometry - candidates) ** 2, axis=1)
+        best_index = np.argmin(error) # equivalent to an MLE in discrete space
+        pairs.append(best_index)
+    return pairs
+
+
+def select_subsample(photometry_df: pd.DataFrame, cube_y: np.array, duplicates=False):
+    
+    bands = ['u_sloan', 'g_sloan', 'r_sloan', 'i_sloan', 'z_sloan', 'VISTA_H',
+       'VISTA_J', 'VISTA_Y']  # euclid
+    assert cube_y.shape[1] == len(bands)
+    
+    # trim real photometry outliers
+    limits = {}
+    for band in bands:
+        limits[band] = (np.percentile(photometry_df[band], 2), np.percentile(photometry_df[band], 98))
+    df_clipped = photometry_df.copy()
+    for band in bands:
+        lower_lim = limits[band][0]
+        upper_lim = limits[band][1]
+        df_clipped = photometry_df.query(f'{band} > {lower_lim}').query(f'{band} < {upper_lim}')
+
+    all_photometry = -np.log10([row for _, row in df_clipped[bands].iterrows()])
+    
+    pairs = find_closest_galaxies(all_photometry, cube_y)
+    if duplicates:
+        return pairs
+    else:
+        pairs_without_duplicates = np.array(pairs)[~pd.Series(pairs).duplicated()]
+        return pairs_without_duplicates
+
+
+
 def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir, fixed_redshift, filter_selection):
     emulator = deep_emulator.get_trained_keras_emulator(deep_emulator.tf_model(), checkpoint_loc, new=False)
 
@@ -120,6 +156,15 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         # astro_acceptable = within_max_z & within_maggie_limit
         x_test = x_test[astro_acceptable]
         y_test = y_test[astro_acceptable]
+
+        # filter to subsample with realistic mags
+        photometry_df = pd.read_parquet('data/photometry_quicksave.parquet')
+        pairs = select_subsample(photometry_df, y_test, duplicates=False)
+        x_test = x_test[pairs]
+        y_test = y_test[pairs]
+
+        print(y_test.shape)
+
         x_test = x_test.astype(np.float32)
         y_test = y_test.astype(np.float32)
 
@@ -161,6 +206,8 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
     logging.info(uncertainty / true_observation)
     logging.info('Mean uncertainty by band (decimal):')
     logging.info(np.mean(uncertainty / true_observation, axis=0))
+
+    exit()
     
     assert len(fixed_params) == len(true_observation) == len(true_params)
     run_sampler.sample_galaxy_batch(
