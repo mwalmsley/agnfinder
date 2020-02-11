@@ -127,6 +127,7 @@ def load_samples(save_dir, min_acceptance, max_redshift):
     # filter to galaxies with decent acceptance
     logging.info('{} galaxies of {} have mean acceptance > {}'.format(allowed_acceptance.sum(), len(allowed_acceptance), min_acceptance))
     logging.info('{} galaxies of {} have redshift > {}'.format(allowed_redshift.sum(), len(allowed_redshift), max_redshift))
+    logging.info('{} galaxies of {} are successful'.format(successful_run.sum(), len(successful_run)))
     accept = allowed_acceptance & allowed_redshift & successful_run
     marginals = marginals[accept]
     true_params = true_params[accept]
