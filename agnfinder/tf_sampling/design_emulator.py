@@ -57,32 +57,29 @@ def build_model(hp):
         input_dim=9,
         units=hp.Int('units1',
                     min_value=128,
-                    max_value=1024,
+                    max_value=2048,
                     step=128),
         activation='relu')
     )
     model.add(layers.Dense(
         units=hp.Int('units2',
                     min_value=128,
-                    max_value=1024,
+                    max_value=2048,
                     step=128),
-        # 1024,
         activation='relu')
     )
     model.add(layers.Dense(
         units=hp.Int('units3',
                     min_value=128,
-                    max_value=1024,
+                    max_value=2048,
                     step=128),
-        # 128,
         activation='relu')
     )
     model.add(layers.Dense(
         units=hp.Int('units4',
                     min_value=128,
-                    max_value=1024,
+                    max_value=2048,
                     step=128),
-        # 128,
         activation='relu')
     )
     # model.add(layers.Dense(
