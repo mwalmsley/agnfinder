@@ -43,9 +43,7 @@ def run_succeeded(file_loc):
     # some overlap with parameter_recovery.py
     with h5py.File(file_loc, mode='r') as f:
         samples = f['samples'][...] # okay to load, will not keep
-        within_limits = parameter_recovery.within_percentile_limits(samples)  # WARNING limits will need updating for new cubes/uncertainties!
-        logging.info(within_limits)
-        return within_limits
+        return parameter_recovery.within_percentile_limits(samples)  # WARNING limits will need updating for new cubes/uncertainties!
 
 
 def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir, fixed_redshift, filter_selection):
@@ -127,8 +125,8 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
 
         galaxy_indices = get_galaxies_to_run(n_chains)
         # galaxy_indices = np.arange(n_chains)   # if re-run, is effectively a new chain for an old galaxy
-        print(galaxy_indices)
-        exit()
+        logging.info(f'Will sample: {galaxy_indices}')
+        # exit()
 
         if fixed_redshift:
             logging.info('Using fixed redshifts from cube')
