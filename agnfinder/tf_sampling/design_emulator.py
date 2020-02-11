@@ -38,7 +38,8 @@ def main(cube_dir, hyperband_iterations, max_epochs):
         x,
         y,
         callbacks=[early_stopping],
-        validation_data=(val_x, val_y)
+        validation_data=(val_x, val_y),
+        batch_size=1024
     )
 
     tuner.results_summary()
