@@ -213,7 +213,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
     logging.info('Mean uncertainty by band (decimal):')
     logging.info(np.mean(uncertainty / true_observation, axis=0))
 
-    exit()
+    # exit()
     
     assert len(fixed_params) == len(true_observation) == len(true_params)
     run_sampler.sample_galaxy_batch(
