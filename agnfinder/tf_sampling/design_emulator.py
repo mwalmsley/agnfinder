@@ -106,6 +106,9 @@ def build_model(hp):
 
 if __name__ == '__main__':
 
+
+    tf.config.optimizer.set_jit(True)  # XLA compilation for keras model
+
     cube_dir = 'data/cubes/latest'
     hyperband_iterations = 2
     max_epochs = 5
