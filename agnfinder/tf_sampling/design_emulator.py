@@ -64,7 +64,7 @@ def build_model(hp):
     model.add(layers.Dense(
         units=hp.Int('units2',
                     min_value=128,
-                    max_value=1024,
+                    max_value=128 * 50,
                     step=128),
         # 1024,
         activation='relu')
