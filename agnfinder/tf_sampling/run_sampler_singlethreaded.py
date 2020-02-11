@@ -163,6 +163,12 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         x_test = x_test[pairs]
         y_test = y_test[pairs]
 
+        # hack this part to speed things up, for now
+        np.savetxt('data/cubes/x_test.npy', x_test)
+        np.savetxt('data/cubes/y_test.npy', y_test)
+        x_test = np.loadtxt('data/cubes/x_test.npy')
+        y_test = np.loadtxt('data/cubes/y_test.npy')
+
         print(y_test.shape)
 
         x_test = x_test.astype(np.float32)
