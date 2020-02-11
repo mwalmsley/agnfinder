@@ -139,8 +139,7 @@ def percentile_spreads(samples):
 
 def within_percentile_limits(samples, limits=None):
     if limits is None:
-        limits = np.array([0.02932622, 0.07219234, 0.03350993, 0.05405632, 0.03579117,
-        0.03457421, 0.03837388, 0.05567279])  # warning, cube dependent
+        limits = np.array([0.00415039, 0.00977203, 0.00708008, 0.00683642, 0.00488902, 0.00097656, 0.00684875, 0.01074265])  # warning, cube dependent
     pcs = percentile_spreads(samples)
     valid_pcs = pcs[np.all(pcs < 1., axis=1)]
     return compare_percentiles_with_limits(valid_pcs, limits)
