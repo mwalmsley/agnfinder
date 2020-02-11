@@ -31,7 +31,7 @@ def is_galaxy_successful(save_dir, galaxy_n):
     while True:
         file_loc = run_sampler.get_galaxy_save_file(galaxy_n, save_dir, chain=chain_n)
         if os.path.isfile(file_loc):  # check if it succeeded
-            if run_succeeded(file_loc):  # TODO
+            if run_succeeded(file_loc):
                 return True
             else:
                 chain_n += 1
@@ -43,7 +43,9 @@ def run_succeeded(file_loc):
     # some overlap with parameter_recovery.py
     with h5py.File(file_loc, mode='r') as f:
         samples = f['samples'][...] # okay to load, will not keep
-        return parameter_recovery.within_percentile_limits(samples)  # WARNING limits will need updating for new cubes/uncertainties!
+        within_limits = parameter_recovery.within_percentile_limits(samples)  # WARNING limits will need updating for new cubes/uncertainties!
+        logging.info(within_limits)
+        return within_limits
 
 
 def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir, fixed_redshift, filter_selection):
