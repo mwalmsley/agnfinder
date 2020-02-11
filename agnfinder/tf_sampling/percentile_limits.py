@@ -26,7 +26,7 @@ def load_galaxies(galaxy_locs):  # stripped down version, just need samples -> p
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Find AGN!')
-    parser.add_argument('--save-dir', dest='save_dir', type=str, default='results/emulated_sampling/latest')
+    parser.add_argument('--save-dir', dest='save_dir', type=str, default='results/emulated_sampling/latest_80000_512_optimised')
     parser.add_argument('--q', dest='q', type=int, default=10)
     parser.add_argument('--min-acceptance', default=0.6, type=float, dest='min_acceptance')
     parser.add_argument('--max-redshift', type=float, dest='max_redshift', default=4.0)
