@@ -9,23 +9,44 @@ import pandas as pd
 import tensorflow as tf  # just for eager toggle
 import statsmodels.api as sm
 from scipy.interpolate import interp1d
+import h5py
 
 from agnfinder.prospector import load_photometry
-from agnfinder.tf_sampling import run_sampler, deep_emulator
+from agnfinder.tf_sampling import run_sampler, deep_emulator, parameter_recovery
 
 
 # TODO will change to some kind of unique id for each galaxy, rather than the index
-def get_galaxies_without_results(n_galaxies):
-    without_results = []
+def get_galaxies_to_run(n_galaxies):
+    indices_to_run = []
     i = 0
-    while len(without_results) < n_galaxies:
-        if not os.path.isfile(run_sampler.get_galaxy_save_file(i, save_dir)):
-            without_results.append(i)
+    while len(indices_to_run) < n_galaxies:
+        if not is_galaxy_successful(save_dir, i):
+            indices_to_run.append(i)
         i += 1
-    return without_results
+    return indices_to_run
 
 
-def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir, fixed_redshift):
+def is_galaxy_successful(save_dir, galaxy_n):
+    chain_n = 0
+    while True:
+        file_loc = run_sampler.get_galaxy_save_file(galaxy_n, save_dir, chain=chain_n)
+        if os.path.isfile(file_loc):  # check if it succeeded
+            if run_succeeded(file_loc):  # TODO
+                return True
+            else:
+                chain_n += 1
+        else:  # not a file, not yet attempted
+            return False
+
+
+def run_succeeded(file_loc):
+    # some overlap with parameter_recovery.py
+    with h5py.File(file_loc, mode='r') as f:
+        samples = f['samples'][...] # okay to load, will not keep
+        return parameter_recovery.within_percentile_limits(samples)  # WARNING limits will need updating for new cubes/uncertainties!
+
+
+def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir, fixed_redshift, filter_selection):
     emulator = deep_emulator.get_trained_keras_emulator(deep_emulator.tf_model(), checkpoint_loc, new=False)
 
     n_photometry = 12
@@ -102,8 +123,10 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         x_test = x_test.astype(np.float32)
         y_test = y_test.astype(np.float32)
 
-        # galaxy_indices = get_galaxies_without_results(n_chains)
-        galaxy_indices = np.arange(n_chains)   # if re-run, is effectively a new chain for an old galaxy
+        galaxy_indices = get_galaxies_to_run(n_chains)
+        # galaxy_indices = np.arange(n_chains)   # if re-run, is effectively a new chain for an old galaxy
+        print(galaxy_indices)
+        exit()
 
         if fixed_redshift:
             logging.info('Using fixed redshifts from cube')
@@ -114,9 +137,10 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
             true_params = x_test[galaxy_indices]
             fixed_params = np.zeros((len(true_params), 0)).astype(np.float32)
         true_observation = deep_emulator.denormalise_photometry(y_test[galaxy_indices]) 
+        assert filter_selection == 'euclid'
         bands = ['u_sloan', 'g_sloan', 'r_sloan', 'i_sloan', 'z_sloan', 'VISTA_H','VISTA_J', 'VISTA_Y']  # euclid bands, hardcoded for now
         assert true_observation.shape[1] == len(bands)
-        lowess = sm.nonparametric.lowess
+        # lowess = sm.nonparametric.lowess
         error_estimators_loc = 'data/error_estimators.pickle'
         with open(error_estimators_loc, 'rb') as f:
             error_estimators = dill.load(f)
@@ -178,6 +202,7 @@ if __name__ == '__main__':
     parser.add_argument('--n-chains', type=int, default=512, dest='n_chains')
     parser.add_argument('--init', type=str, dest='init_method', default='optimised', help='Can be one of: random, roughly_correct, optimised')
     parser.add_argument('--redshift', type=str, dest='redshift_str', default='fixed', help='Can be one of: fixed, free')
+    parser.add_argument('--filters', type=str, dest='filters', default='euclid', help='Can be one of: euclid, reliable. Only has an effect on real galaxies.')
     args = parser.parse_args()
     
     if args.redshift_str == 'fixed':
@@ -206,9 +231,10 @@ if __name__ == '__main__':
     else:
         logging.info('Using simulated galaxies')
         save_dir = os.path.join(output_dir, 'latest_{}_{}_{}'.format(n_samples, n_chains, init_method))
+        # save_dir = 'results/emulated_sampling/30k_burnin'
 
     logging.info('Galaxies will save to {}'.format(save_dir))
-    record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir, fixed_redshift)
+    record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir, fixed_redshift, args.filters)
     # run_sampler.aggregate_performance(save_dir, n_samples, chains_per_galaxy=1)
     # samples, true_params, true_observations = run_sampler.read_performance(save_dir)
     # print(samples.shape, true_params.shape, true_observations.shape)

@@ -103,7 +103,7 @@ def load_samples(save_dir, min_acceptance, max_redshift):
     true_params = np.zeros((len(galaxy_locs), len(params)))
     allowed_redshift = np.zeros(len(galaxy_locs), dtype=bool)
     allowed_acceptance = np.zeros(len(galaxy_locs), dtype=bool)
-    allowed_spread = np.zeros(len(galaxy_locs), dtype=bool)
+    successful_run = np.zeros(len(galaxy_locs), dtype=bool)
     for n, galaxy_loc in tqdm(enumerate(galaxy_locs), unit=' galaxies loaded'):
         f = h5py.File(galaxy_loc, mode='r')
         galaxy_marginals = f['marginals'][...]
@@ -115,7 +115,7 @@ def load_samples(save_dir, min_acceptance, max_redshift):
         # print(num_geq_80p, num_geq_80p.shape)
         allowed_acceptance[n] = np.mean(num_geq_80p) > min_acceptance
         samples = f['samples'][...] # okay to load, will not keep
-        allowed_spread[n] = within_percentile_limits(samples)
+        successful_run[n] = within_percentile_limits(samples)
         if 'Redshift' not in params:
             allowed_redshift[n] = f['fixed_params'][0] * 4 < max_redshift  # absolutely must match hypercube physical redshift limit
         else:
@@ -127,10 +127,11 @@ def load_samples(save_dir, min_acceptance, max_redshift):
     # filter to galaxies with decent acceptance
     logging.info('{} galaxies of {} have mean acceptance > {}'.format(allowed_acceptance.sum(), len(allowed_acceptance), min_acceptance))
     logging.info('{} galaxies of {} have redshift > {}'.format(allowed_redshift.sum(), len(allowed_redshift), max_redshift))
-    accept = allowed_acceptance & allowed_redshift & allowed_spread
+    accept = allowed_acceptance & allowed_redshift & successful_run
     marginals = marginals[accept]
     true_params = true_params[accept]
     return params, marginals, true_params
+
 
 def percentile_spreads(samples):
     return np.percentile(samples, 75, axis=0) - np.percentile(samples, 25, axis=0)

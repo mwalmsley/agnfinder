@@ -54,14 +54,16 @@ def sample_galaxy_batch(galaxy_ids, true_observation, fixed_params, uncertainty,
 
     # now, galaxy_n will always line up with a remanining galaxy
     for galaxy_n, name in tqdm(enumerate(remaining_galaxy_ids), unit=' galaxies saved'):
-        save_file = get_galaxy_save_file(name, save_dir)
+        save_file, chain_n = get_galaxy_save_file_next_chain(name, save_dir)
         f = h5py.File(save_file, mode='w')  # will overwrite
         galaxy_samples = np.expand_dims(samples[:, galaxy_n], axis=1)
-        dset = f.create_dataset('samples', data=galaxy_samples)  # leave the chain dimension as 1 for now
+        # for 0-1 decimals, float16 is more than precise enough and much smaller files
+        dset = f.create_dataset('samples', data=galaxy_samples.astype(np.float16), dtype=np.float16)  # leave the chain dimension as 1 for now
         dset.attrs['free_param_names'] = free_param_names
         dset.attrs['init_method'] = init_method
         dset.attrs['n_burnin'] = n_burnin
         dset.attrs['galaxy_id'] = name
+        f.create_dataset('chain', data=chain_n)
         f.create_dataset('sample_weights', data=sample_weights[:, galaxy_n])
         f.create_dataset('log_evidence', data=log_evidence[galaxy_n])
         f.create_dataset('true_observations', data=true_observation[galaxy_n])
@@ -82,13 +84,17 @@ def sample_galaxy_batch(galaxy_ids, true_observation, fixed_params, uncertainty,
         f.create_dataset('marginals', data=marginals)
 
 
-def get_galaxy_save_file(i, save_dir):
+def get_galaxy_save_file(i, save_dir, chain=0):
+    return os.path.join(save_dir, f'galaxy_{i}_performance_{chain}.h5')
+
+
+def get_galaxy_save_file_next_chain(i, save_dir):
     n = 0
     assert os.path.isdir(save_dir)
     while True:
-        attempted_save_loc = os.path.join(save_dir, f'galaxy_{i}_performance_{n}.h5')
+        attempted_save_loc = get_galaxy_save_file(i, save_dir, chain=n)
         if not os.path.isfile(attempted_save_loc):
-            return attempted_save_loc
+            return attempted_save_loc, n
         n += 1  # until you find one not yet saved
 
 
