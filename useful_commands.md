@@ -62,3 +62,5 @@ cp /scratch/agnfinder/data/CPz_filters/* /home/mike/.conda/envs/agnfinder/lib/py
 scp -r -oProxyJump=mikewalmsley@aquila.star.bris.ac.uk mike@zeus.star.bris.ac.uk:/scratch/agnfinder/results/emulated_sampling/latest_80000_512_optimised results/emulated_sampling/standard_repeats
 
 scp -r -oProxyJump=mikewalmsley@aquila.star.bris.ac.uk mike@zeus.star.bris.ac.uk:/scratch/agnfinder/agnfinder/results/hyperband/agnfinder_4layer_dropout  results/hyperband/latest
+
+scp -r -oProxyJump=mikewalmsley@aquila.star.bris.ac.uk data/photometry_quicksave.parquet mike@zeus.star.bris.ac.uk:/scratch/agnfinder/agnfinder/data/photometry_quicksave.parquet
