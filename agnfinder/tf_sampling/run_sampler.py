@@ -58,7 +58,7 @@ def sample_galaxy_batch(galaxy_ids, true_observation, fixed_params, uncertainty,
         f = h5py.File(save_file, mode='w')  # will overwrite
         galaxy_samples = np.expand_dims(samples[:, galaxy_n], axis=1)
         # for 0-1 decimals, float16 is more than precise enough and much smaller files
-        dset = f.create_dataset('samples', data=galaxy_samples.astype(np.float16), dtype=np.float16)  # leave the chain dimension as 1 for now
+        dset = f.create_dataset('samples', data=galaxy_samples.astype(np.float16), dtype='float16')  # leave the chain dimension as 1 for now
         dset.attrs['free_param_names'] = free_param_names
         dset.attrs['init_method'] = init_method
         dset.attrs['n_burnin'] = n_burnin
