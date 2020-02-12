@@ -161,7 +161,7 @@ def within_percentile_limits(samples, limits=None):
     # good_agn_torus= pcs_10[6] > 0.02
     # good_inclination = pcs_10[7] > 0.02
 
-    return good_agn_extinction & good_tau
+    return ~(good_agn_extinction & good_tau)
 
     # return compare_percentiles_with_limits(valid_pcs, limits)
 
