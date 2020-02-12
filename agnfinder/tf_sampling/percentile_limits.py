@@ -35,7 +35,8 @@ def load_galaxies(galaxy_locs, quantile_spreads=None):  # stripped down version,
                 galaxy = {
                     'true_observations': np.squeeze(f['true_observations'][...]),
                     'true_params': np.squeeze(f['true_params'][...]),
-                    'uncertainty': f['uncertainty'][...]
+                    'uncertainty': f['uncertainty'][...],
+                    'samples': f['samples'][::100]
                 }
 
                 samples = np.squeeze(f['samples'][...])
