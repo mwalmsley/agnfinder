@@ -147,9 +147,17 @@ def percentile_spreads(samples, quantile_width=50):
 def within_percentile_limits(samples, limits=None):
     # if limits is None:
     #     limits = np.array([0.00415039, 0.00977203, 0.00708008, 0.00683642, 0.00488902, 0.00097656, 0.00684875, 0.01074265])  # warning, cube dependent
-    pcs = percentile_spreads(samples, quantile_width=10)
-    valid_pcs = pcs[np.all(pcs < 1., axis=1)]
-    return valid_pcs[:, 4] > 0.003
+
+    pcs_10 = percentile_spreads(samples, quantile_width=10)
+    valid_pcs_10 = pcs_10[np.all(pcs_10 < 1., axis=1)]
+    good_agn_disk = valid_pcs_10[:, 4] > 0.003
+
+    pcs_25 = percentile_spreads(samples, quantile_width=25)
+    valid_pcs_25 = pcs_25[np.all(pcs_25 < 1., axis=1)]
+    good_dust2 = valid_pcs_25[:, 1] > 0.03
+
+    return good_agn_disk & good_dust2
+
     # return compare_percentiles_with_limits(valid_pcs, limits)
 
 def compare_percentiles_with_limits(valid_pcs, limits):
