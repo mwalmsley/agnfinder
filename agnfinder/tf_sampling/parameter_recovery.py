@@ -151,7 +151,7 @@ def within_percentile_limits(samples, limits=None):
     pcs_10 = percentile_spreads(samples, quantile_width=10)  # 1D array of percentile spread by param
     pcs_25 = percentile_spreads(samples, quantile_width=25)
 
-    if pcs_10 > 1. or pcs_25 > 1.:
+    if np.any(pcs_10 > 1.) or np.any(pcs_25 > 1.):  # spread is somehow outside allowed range -> bad sample -> reject
         return False
     # valid_pcs_10 = pcs_10[np.all(pcs_10 < 1., axis=1)]
 
