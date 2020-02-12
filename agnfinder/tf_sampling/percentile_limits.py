@@ -89,13 +89,9 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('--save-dir', dest='save_dir', type=str, default='results/emulated_sampling/latest_80000_512_optimised')
-    parser.add_argument('--min-acceptance', default=0.6, type=float, dest='min_acceptance')
-    parser.add_argument('--max-redshift', type=float, dest='max_redshift', default=4.0)
+    # parser.add_argument('--min-acceptance', default=0.6, type=float, dest='min_acceptance')
+    # parser.add_argument('--max-redshift', type=float, dest='max_redshift', default=4.0)
     args = parser.parse_args()
-
-
-
-    assert 0 < args.q < 100
 
     all_galaxy_locs = glob.glob(args.save_dir + '/galaxy*.h5')  # these must NOT have been run with success checks, or should be filtered to first chain only
     assert all_galaxy_locs
