@@ -147,7 +147,7 @@ def percentile_spreads(samples, quantile_width=50):
 def within_percentile_limits(samples, limits=None):
     # if limits is None:
     #     limits = np.array([0.00415039, 0.00977203, 0.00708008, 0.00683642, 0.00488902, 0.00097656, 0.00684875, 0.01074265])  # warning, cube dependent
-    pcs = percentile_spreads(samples, q=10)
+    pcs = percentile_spreads(samples, quantile_width=10)
     valid_pcs = pcs[np.all(pcs < 1., axis=1)]
     return valid_pcs[:, 4] < 0.004
     # return compare_percentiles_with_limits(valid_pcs, limits)
