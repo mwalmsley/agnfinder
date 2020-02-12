@@ -42,7 +42,7 @@ def is_galaxy_successful(save_dir, galaxy_n):
 def run_succeeded(file_loc):
     # some overlap with parameter_recovery.py
     with h5py.File(file_loc, mode='r') as f:
-        samples = f['samples'][...] # okay to load, will not keep
+        samples = np.squeeze(f['samples'][...]) # okay to load, will not keep
         return parameter_recovery.within_percentile_limits(samples)  # WARNING limits will need updating for new cubes/uncertainties!
 
 
