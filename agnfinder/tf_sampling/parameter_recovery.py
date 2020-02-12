@@ -156,12 +156,12 @@ def within_percentile_limits(samples, limits=None):
 
 
     # good_dust2 = valid_pcs_25[:, 1] > 0.01
-    # good_tau = pcs_25[3] > 0.018
-    good_agn_extinction = pcs_10[5] > 0.005
+    good_tau = pcs_25[3] > 0.005
+    good_agn_extinction = pcs_25[5] > 0.019
     # good_agn_torus= pcs_10[6] > 0.02
-    good_inclination = pcs_10[7] > 0.02
+    # good_inclination = pcs_10[7] > 0.02
 
-    return good_agn_extinction & good_inclination
+    return good_agn_extinction & good_tau
 
     # return compare_percentiles_with_limits(valid_pcs, limits)
 
