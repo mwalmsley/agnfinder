@@ -154,7 +154,7 @@ def within_percentile_limits(samples, limits=None):
 
     pcs_25 = percentile_spreads(samples, quantile_width=25)
     valid_pcs_25 = pcs_25[np.all(pcs_25 < 1., axis=1)]
-    good_dust2 = valid_pcs_25[:, 1] > 0.03
+    good_dust2 = valid_pcs_25[:, 1] > 0.01
 
     return good_agn_disk & good_dust2
 
