@@ -123,7 +123,8 @@ if __name__ == '__main__':
     for n_bad in range(len(params)+1):
         print(f'{n_bad} bad params: ', np.sum( np.sum(bad_params, axis=1) == n_bad)/len(surprise))
 
-    galaxy_is_bad = np.any(surprise < min_surprise, axis=1)
+    # galaxy_is_bad = np.any(surprise < min_surprise, axis=1)
+    galaxy_is_bad = np.sum(bad_params, axis=1) >=7  # i.e. 7 or 8 bad params
     bad_galaxy_indices = np.arange(len(galaxies))[galaxy_is_bad]
     # good_galaxy_indices = np.arange(len(galaxies))[~galaxy_is_bad]
 
