@@ -66,7 +66,7 @@ def get_surprise(galaxy):
 def galaxy_to_row(galaxy, quantile_spreads=None):
 
     if quantile_spreads is None:
-            quantile_spreads = [10, 25, 50, 75, 90, 95]
+            quantile_spreads = [10, 25]
 
     bands = ['u_sloan', 'g_sloan', 'r_sloan', 'i_sloan', 'z_sloan', 'VISTA_H',
         'VISTA_J', 'VISTA_Y']
