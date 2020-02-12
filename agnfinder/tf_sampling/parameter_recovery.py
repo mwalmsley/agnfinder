@@ -115,8 +115,8 @@ def load_samples(save_dir, min_acceptance, max_redshift):
         # print(num_geq_80p, num_geq_80p.shape)
         allowed_acceptance[n] = np.mean(num_geq_80p) > min_acceptance
         samples = f['samples'][...] # okay to load, will not keep
-        # successful_run[n] = within_percentile_limits(samples)
-        successful_run[n] = True  # disable for now
+        successful_run[n] = within_percentile_limits(samples)
+        # successful_run[n] = True  # disable for now
         if 'Redshift' not in params:
             allowed_redshift[n] = f['fixed_params'][0] * 4 < max_redshift  # absolutely must match hypercube physical redshift limit
         else:
@@ -145,11 +145,12 @@ def percentile_spreads(samples, quantile_width=50):
 
 
 def within_percentile_limits(samples, limits=None):
-    if limits is None:
-        limits = np.array([0.00415039, 0.00977203, 0.00708008, 0.00683642, 0.00488902, 0.00097656, 0.00684875, 0.01074265])  # warning, cube dependent
-    pcs = percentile_spreads(samples)
+    # if limits is None:
+    #     limits = np.array([0.00415039, 0.00977203, 0.00708008, 0.00683642, 0.00488902, 0.00097656, 0.00684875, 0.01074265])  # warning, cube dependent
+    pcs = percentile_spreads(samples, q=10)
     valid_pcs = pcs[np.all(pcs < 1., axis=1)]
-    return compare_percentiles_with_limits(valid_pcs, limits)
+    return valid_pcs[:, 4] < 0.004
+    # return compare_percentiles_with_limits(valid_pcs, limits)
 
 def compare_percentiles_with_limits(valid_pcs, limits):
     return np.squeeze(np.sum(valid_pcs < limits, axis=1) < 2.)  # no more than 1 parameter can have less 75%-25% spread than the limits (set to discard 15% of data)
