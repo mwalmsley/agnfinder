@@ -153,28 +153,15 @@ def within_percentile_limits(samples, limits=None):
 
     if np.any(pcs_10 > 1.) or np.any(pcs_25 > 1.):  # spread is somehow outside allowed range -> bad sample -> reject
         return False
-    # valid_pcs_10 = pcs_10[np.all(pcs_10 < 1., axis=1)]
 
-    # valid_pcs_25 = pcs_25[np.all(pcs_25 < 1., axis=1)]
 
-    good_inclination = pcs_10[7] > 0.036
-
-    # good_tau = pcs_25[3] > 0.005
-    # print(good_tau.sum())
-    # return good_tau
-
-    good_agn_torus= pcs_10[6] > 0.02
-
-    return good_agn_torus & good_inclination
-
-    # good_agn_extinction = pcs_10[6] > 0.0000001
-    # if not good_tau:
-    #     print(good_agn_extinction)
-
-    # return good_tau | (~good_tau & good_agn_extinction)
-
-    # good_agn_torus = valid_pcs_10[:, 7] > 0.002
     # good_dust2 = valid_pcs_25[:, 1] > 0.01
+    # good_tau = pcs_25[3] > 0.018
+    good_agn_extinction = pcs_10[5] > 0.005
+    # good_agn_torus= pcs_10[6] > 0.02
+    good_inclination = pcs_10[7] > 0.02
+
+    return good_agn_extinction & good_inclination
 
     # return compare_percentiles_with_limits(valid_pcs, limits)
 
