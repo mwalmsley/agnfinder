@@ -157,13 +157,15 @@ def within_percentile_limits(samples, limits=None):
 
     # valid_pcs_25 = pcs_25[np.all(pcs_25 < 1., axis=1)]
 
-    good_tau = pcs_25[3] > 0.005
+    good_inclination = pcs_10[7] > 0.036
+
+    # good_tau = pcs_25[3] > 0.005
     # print(good_tau.sum())
     # return good_tau
 
-    good_agn_torus= pcs_25[7] > 0.002
+    good_agn_torus= pcs_25[6] > 0.02
 
-    return good_agn_torus & good_tau
+    return good_agn_torus & good_inclination
 
     # good_agn_extinction = pcs_10[6] > 0.0000001
     # if not good_tau:
