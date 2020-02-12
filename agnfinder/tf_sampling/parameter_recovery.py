@@ -157,7 +157,7 @@ def within_percentile_limits(samples, limits=None):
     good_tau = valid_pcs_25[:, 3] > 0.005
     # print(good_tau.sum())
 
-    good_agn_extinction = valid_pcs_10[:, 1] > 0.0000001
+    good_agn_extinction = valid_pcs_10[:, 6] > 0.0000001
     if not good_tau:
         print(good_agn_extinction)
 
