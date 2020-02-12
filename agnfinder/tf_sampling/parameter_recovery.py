@@ -114,7 +114,7 @@ def load_samples(save_dir, min_acceptance, max_redshift):
         num_geq_80p = (galaxy_marginals.transpose() > value_for_80p).sum(axis=0)
         # print(num_geq_80p, num_geq_80p.shape)
         allowed_acceptance[n] = np.mean(num_geq_80p) > min_acceptance
-        samples = f['samples'][...] # okay to load, will not keep
+        samples = np.squeeze(f['samples'][...]) # okay to load, will not keep
         successful_run[n] = within_percentile_limits(samples)
         # successful_run[n] = True  # disable for now
         if 'Redshift' not in params:
@@ -148,16 +148,19 @@ def within_percentile_limits(samples, limits=None):
     # if limits is None:
     #     limits = np.array([0.00415039, 0.00977203, 0.00708008, 0.00683642, 0.00488902, 0.00097656, 0.00684875, 0.01074265])  # warning, cube dependent
 
-    pcs_10 = percentile_spreads(samples, quantile_width=10)
-    valid_pcs_10 = pcs_10[np.all(pcs_10 < 1., axis=1)]
-
+    pcs_10 = percentile_spreads(samples, quantile_width=10)  # 1D array of percentile spread by param
     pcs_25 = percentile_spreads(samples, quantile_width=25)
-    valid_pcs_25 = pcs_25[np.all(pcs_25 < 1., axis=1)]
 
-    good_tau = valid_pcs_25[:, 3] > 0.005
+    if pcs_10 > 1. or pcs_25 > 1.:
+        return False
+    # valid_pcs_10 = pcs_10[np.all(pcs_10 < 1., axis=1)]
+
+    # valid_pcs_25 = pcs_25[np.all(pcs_25 < 1., axis=1)]
+
+    good_tau = pcs_25[3] > 0.005
     # print(good_tau.sum())
 
-    good_agn_extinction = valid_pcs_10[:, 6] > 0.0000001
+    good_agn_extinction = pcs_10[6] > 0.0000001
     if not good_tau:
         print(good_agn_extinction)
 
