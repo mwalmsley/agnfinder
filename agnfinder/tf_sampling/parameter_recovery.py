@@ -163,7 +163,7 @@ def within_percentile_limits(samples, limits=None):
     # print(good_tau.sum())
     # return good_tau
 
-    good_agn_torus= pcs_25[6] > 0.02
+    good_agn_torus= pcs_10[6] > 0.02
 
     return good_agn_torus & good_inclination
 
