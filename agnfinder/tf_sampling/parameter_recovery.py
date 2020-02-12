@@ -115,7 +115,8 @@ def load_samples(save_dir, min_acceptance, max_redshift):
         # print(num_geq_80p, num_geq_80p.shape)
         allowed_acceptance[n] = np.mean(num_geq_80p) > min_acceptance
         samples = f['samples'][...] # okay to load, will not keep
-        successful_run[n] = within_percentile_limits(samples)
+        # successful_run[n] = within_percentile_limits(samples)
+        successful_run[n] = True  # disable for now
         if 'Redshift' not in params:
             allowed_redshift[n] = f['fixed_params'][0] * 4 < max_redshift  # absolutely must match hypercube physical redshift limit
         else:
@@ -134,8 +135,14 @@ def load_samples(save_dir, min_acceptance, max_redshift):
     return params, marginals, true_params
 
 
-def percentile_spreads(samples):
-    return np.percentile(samples, 75, axis=0) - np.percentile(samples, 25, axis=0)
+def percentile_spreads(samples, quantile_width=50):
+    upper_q = int(50+quantile_width/2)
+    lower_q = int(50-quantile_width/2)
+    assert upper_q > lower_q
+    assert upper_q < 100
+    assert lower_q > 0
+    return np.percentile(samples, upper_q, axis=0) - np.percentile(samples, lower_q, axis=0)
+
 
 def within_percentile_limits(samples, limits=None):
     if limits is None:
