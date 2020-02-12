@@ -150,13 +150,20 @@ def within_percentile_limits(samples, limits=None):
 
     pcs_10 = percentile_spreads(samples, quantile_width=10)
     valid_pcs_10 = pcs_10[np.all(pcs_10 < 1., axis=1)]
-    good_agn_disk = valid_pcs_10[:, 4] > 0.003
 
     pcs_25 = percentile_spreads(samples, quantile_width=25)
     valid_pcs_25 = pcs_25[np.all(pcs_25 < 1., axis=1)]
-    good_dust2 = valid_pcs_25[:, 1] > 0.01
 
-    return good_agn_disk & good_dust2
+    good_tau = valid_pcs_25[:, 3] > 0.005
+    print(good_tau.sum())
+
+    good_agn_extinction = valid_pcs_10[:, 1] > 0.0001
+    print(good_agn_extinction.sum())
+
+    return good_tau | (~good_tau & good_agn_extinction)
+
+    # good_agn_torus = valid_pcs_10[:, 7] > 0.002
+    # good_dust2 = valid_pcs_25[:, 1] > 0.01
 
     # return compare_percentiles_with_limits(valid_pcs, limits)
 

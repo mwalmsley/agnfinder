@@ -147,7 +147,7 @@ if __name__ == '__main__':
     clf.fit(X, y)
     fig, ax = plt.subplots(figsize=(16,16))
     _ = plot_tree(clf, filled=True, ax=ax, feature_names=pc_cols)
-    fig.savefig('latest_tree.png')
+    fig.savefig('results/latest_tree.png')
 
 
 
