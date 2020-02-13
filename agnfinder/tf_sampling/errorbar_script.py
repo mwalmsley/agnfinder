@@ -48,7 +48,7 @@ if __name__ == '__main__':
 
     for which_param in range(8):
 
-        ax = all_axes[n]
+        ax = all_axes[which_param]
 
         samples_by_truth = [[] for n in range(len(bin_centers))]
 
