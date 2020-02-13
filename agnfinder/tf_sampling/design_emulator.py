@@ -25,22 +25,22 @@ def main(cube_dir, hyperband_iterations, max_epochs):
 
     tuner = Hyperband(
         build_model,
-        objective='mean_absolute_error',
+        objective='val_mean_absolute_error',
         hyperband_iterations=hyperband_iterations,
         max_epochs=max_epochs,
         directory='results/hyperband',
-        project_name='agnfinder_4layer_dropout'
+        project_name='agnfinder_5layer_dropout'
     )
 
-    early_stopping = keras.callbacks.EarlyStopping()
+    early_stopping = keras.callbacks.EarlyStopping(restore_best_weights=True)
 
-    tuner.search(
-        x,
-        y,
-        callbacks=[early_stopping],
-        validation_data=(val_x, val_y),
-        batch_size=1024
-    )
+    # tuner.search(
+    #     x,
+    #     y,
+    #     callbacks=[early_stopping],
+    #     validation_data=(val_x, val_y),
+    #     batch_size=1024
+    # )
 
     tuner.results_summary()
 
@@ -57,39 +57,39 @@ def build_model(hp):
         input_dim=9,
         units=hp.Int('units1',
                     min_value=128,
-                    max_value=2048,
-                    step=128),
+                    max_value=1024,
+                    step=64),
         activation='relu')
     )
     model.add(layers.Dense(
         units=hp.Int('units2',
                     min_value=128,
-                    max_value=2048,
-                    step=128),
+                    max_value=1024,
+                    step=64),
         activation='relu')
     )
     model.add(layers.Dense(
         units=hp.Int('units3',
                     min_value=128,
-                    max_value=2048,
-                    step=128),
+                    max_value=1024,
+                    step=64),
         activation='relu')
     )
     model.add(layers.Dense(
         units=hp.Int('units4',
                     min_value=128,
-                    max_value=2048,
-                    step=128),
+                    max_value=1024,
+                    step=64),
         activation='relu')
     )
-    # model.add(layers.Dense(
-    #     units=hp.Int('units5',
-    #                 min_value=128,
-    #                 max_value=1024,
-    #                 step=64),
-    #     # 1024,
-    #     activation='relu')
-    # )
+    model.add(layers.Dense(
+        units=hp.Int('units5',
+                    min_value=128,
+                    max_value=1024,
+                    step=64),
+        # 1024,
+        activation='relu')
+    )
     model.add(layers.Dropout(hp.Float(
         'dropout',
         min_value=0.,
@@ -98,7 +98,7 @@ def build_model(hp):
     model.add(layers.Dense(8))  # default
     model.compile(
         optimizer='adam',
-        loss='mean_squared_error',
+        loss='mean_absolute_error',  # changed from mse
         metrics=['mean_absolute_error'])
     return model
 
@@ -108,6 +108,6 @@ if __name__ == '__main__':
     tf.config.optimizer.set_jit(True)  # XLA compilation for keras model
 
     cube_dir = 'data/cubes/latest'
-    hyperband_iterations = 2
-    max_epochs = 5
+    hyperband_iterations = 5
+    max_epochs = 10
     main(cube_dir, hyperband_iterations, max_epochs)
