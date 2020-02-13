@@ -65,12 +65,14 @@ if __name__ == '__main__':
         bounds_by_truth = np.array([get_hpd(x) for x in samples_by_truth])
         medians = np.array([np.median(x) for x in samples_by_truth])
 
-        delta_bounds_by_truth = bounds_by_truth.transpose()
-        delta_bounds_by_truth[1, :] = delta_bounds_by_truth[1, :] - medians
-        delta_bounds_by_truth[0, :] = medians - delta_bounds_by_truth[0, :]
+        # delta_bounds_by_truth = bounds_by_truth.copy().transpose()
+        # delta_bounds_by_truth[1, :] = delta_bounds_by_truth[1, :] - medians
+        # delta_bounds_by_truth[0, :] = medians - delta_bounds_by_truth[0, :]
 
         ax.fill_between(bin_centers, bounds_by_truth[:, 0], bounds_by_truth[:, 1], alpha=0.5)
         ax.plot(bin_centers, bin_centers, linestyle='--', color='k')
+        ax.set_xlabel('Truth')
+        ax.set_ylabel(r'80% credible interval')
 
     fig.tight_layout()
     fig.savefig('results/latest_contours.png')
