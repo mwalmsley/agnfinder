@@ -46,10 +46,12 @@ if __name__ == '__main__':
 
     fig, axes = plt.subplots(nrows=3, ncols=3, figsize=(12, 12))
     all_axes = [ax for row in axes for ax in row]
+    human_names = ['Stellar Mass', 'Dust', 'Age', 'Tau', 'AGN Disk Scale', 'AGN E(B-V)', 'AGN Torus Scale', 'AGN Torus Incl.']  # manual for now
 
     for which_param in range(8):
 
         ax = all_axes[which_param]
+        title = human_names[which_param]
 
         samples_by_truth = [[] for n in range(len(bin_centers))]
 
@@ -71,7 +73,8 @@ if __name__ == '__main__':
         ax.fill_between(bin_centers, bounds_by_truth[:, 0], bounds_by_truth[:, 1], alpha=0.5, label='NN-HMC')
         ax.plot(bin_centers, bin_centers, linestyle='--', color='k')
         ax.set_xlabel('Truth')
-        ax.set_ylabel(r'90% credible interval')  # change manually
+        ax.set_ylabel(r'65% credible interval')  # change manually
+        ax.set_title(title)
         ax.legend()
 
     fig.tight_layout()
