@@ -52,8 +52,8 @@ def tf_model(input_dim=9, output_dim=8):
 
     model.compile(
         optimizer='adam',
-        loss='val_mean_absolute_error',
-        metrics=['val_mean_squared_error'])
+        loss='mean_absolute_error',
+        metrics=['mean_squared_error'])
     return model
 
 
