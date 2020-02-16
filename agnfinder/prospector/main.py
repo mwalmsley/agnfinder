@@ -132,12 +132,15 @@ def mcmc_galaxy(run_params, obs, model, sps, initial_theta=None, test=False):
         niter = 8
         nburn = [16]
     else:
-        # nwalkers = 32  # ndim=8 * walker_factor=4
-        # nwalkers = 128
-        nwalkers = 256
+        nwalkers = 32  # ndim=8 * walker_factor=4, prospector defaults
+        # nwalkers = 16
+        # nwalkers = 256
         # niter = 256
-        niter = 2096  # i.e. iterations of emcee, somewhat like steps
-        nburn = [64, 128]
+        niter = 10000  # i.e. iterations of emcee, somewhat like steps
+        # niter = 2086 * 2
+        nburn = [64, 256]
+
+    logging.info(f'Walkers: {nwalkers}. Iterations: {niter}. Burnin: {nburn}')
 
     run_params["optimize"] = True  # find MLE first
     run_params["emcee"] = True

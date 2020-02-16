@@ -5,6 +5,9 @@
 ping -c 2 -s 999 glamdring.physics.ox.ac.uk
 
 **Sync agnfinder code to Oxford cluster**
+
+rsync -avz /home/walml/anaconda3/envs/agnfinder/lib/python3.7/site-packages/sedpy/data/filters/ mwalmsley@glamdring.physics.ox.ac.uk:/mnt/zfsusers/mwalmsley/miniconda3/envs/agnfinder/lib/python3.7/site-packages/sedpy/data/filters
+
 rsync -avz --exclude 'results' repos/agnfinder mwalmsley@glamdring.physics.ox.ac.uk:repos
 rsync -avz repos/agnfinder/results/checkpoints mwalmsley@glamdring.physics.ox.ac.uk:repos/agnfinder/results
 
@@ -42,9 +45,11 @@ python agnfinder/prospector/main.py --index=0 --galaxy=qso
 python agnfinder/lfi/train.py data/photometry_simulation_100000.hdf5 --test
 
 export REPO=/mnt/zfsusers/mwalmsley/repos/agnfinder
-export PYTHON=/mnt/zfsusers/mwalmsley/envs/agnfitter/bin/python
+export PYTHON=/mnt/zfsusers/mwalmsley/miniconda3/envs/agnfinder/bin/python
 export QUEUE=planet
-export CATALOG=/mnt/zfsusers/mwalmsley/repos/agnfinder/data/cpz_paper_sample_week3.parquet
+export CATALOG=/mnt/zfsusers/mwalmsley/repos/agnfinder/data/cpz_paper_sample_week3_maggies.parquet
+
+addqueue -c "1 hour" -q $QUEUE -n 12 -m 3 $PYTHON $REPO/agnfinder/prospector/main.py cube_test --cube $REPO/data/cubes/latest --save-dir $REPO/results/vanilla_mcmc
 addqueue -c "1 hour" -q $QUEUE -n 12 -m 3 $PYTHON $REPO/agnfinder/simulation_samples.py 10000 --catalog-loc data/cpz_paper_sample_week3.parquet
 
 
@@ -52,6 +57,7 @@ addqueue -c "1 hour" -q $QUEUE -n 12 -m 3 $PYTHON $REPO/agnfinder/simulation_sam
 
 ssh mikewalmsley@aquila.star.bris.ac.uk
 ssh mike@zeus.star.bris.ac.uk
+
 
 
 scp -r -oProxyJump=mikewalmsley@aquila.star.bris.ac.uk mike@zeus.star.bris.ac.uk:/scratch/agnfinder/agnfinder/results/latest_posterior_stripes.png results/...
@@ -64,3 +70,13 @@ scp -r -oProxyJump=mikewalmsley@aquila.star.bris.ac.uk mike@zeus.star.bris.ac.uk
 scp -r -oProxyJump=mikewalmsley@aquila.star.bris.ac.uk mike@zeus.star.bris.ac.uk:/scratch/agnfinder/agnfinder/results/hyperband/agnfinder_4layer_dropout  results/hyperband/latest
 
 scp -r -oProxyJump=mikewalmsley@aquila.star.bris.ac.uk data/photometry_quicksave.parquet mike@zeus.star.bris.ac.uk:/scratch/agnfinder/agnfinder/data/photometry_quicksave.parquet
+
+
+## ARC
+
+ssh -X chri5177@oscgate.arc.ox.ac.uk
+ssh -X arcus-htc
+
+sbatch script.sh
+squeue -A phys-zooniverse
+sacct
