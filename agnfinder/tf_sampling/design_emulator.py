@@ -34,13 +34,13 @@ def main(cube_dir, hyperband_iterations, max_epochs):
 
     early_stopping = keras.callbacks.EarlyStopping(restore_best_weights=True)
 
-    tuner.search(
-        x,
-        y,
-        callbacks=[early_stopping],
-        validation_data=(val_x, val_y),
-        batch_size=1024
-    )
+    # tuner.search(
+    #     x,
+    #     y,
+    #     callbacks=[early_stopping],
+    #     validation_data=(val_x, val_y),
+    #     batch_size=1024
+    # )
 
     tuner.results_summary()
 
