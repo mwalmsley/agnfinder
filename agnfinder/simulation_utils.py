@@ -29,11 +29,6 @@ def get_unit_latin_hypercube(dims, n_samples):
     return pyDOE2.lhs(n=dims, samples=n_samples, criterion='correlation')
 
 
-# def denormalise_hypercube(hcube, limits):
-    # assert hcube.shape[0] == len(limits.keys())
-    # return np.transpose(denormalise_theta(hcube.tranpose(), limits=limits))
-
-
 def denormalise_theta(normalised_theta, limits):
     assert normalised_theta.shape[1] == len(limits.keys())
     # convert hypercube to real parameter space
@@ -46,23 +41,34 @@ def denormalise_theta(normalised_theta, limits):
     return physical_theta
 
 
-# def denormalise_theta(normalised_theta, limits):
-#     # convert arbitrary rows of normalised parameters to real parameter space
-#     # expects normalised_theta to have dim0=which param, dim1=param values
-#     theta = np.zeros_like(normalised_theta)
-#     for n, (key, lims) in enumerate(limits.items()):
-#         theta[n] = denormalise_param(normalised_theta[n], lims, key.startswith('log'))
-#     return theta
+# useful for turning prospector samples into normalised samples
+def normalise_theta(theta, limits):
+    assert theta.shape[1] == len(limits.keys())
+    normalised_theta = theta.copy()
+    for key_n, (key, lims) in enumerate(limits.items()):
+        normalised_theta[:, key_n] = normalise_param(normalised_theta[:, key_n], lims,  key.startswith('log'))
+    return normalised_theta
+
 
 
 def denormalise_param(normalised_param, param_limits, log):
-        physical_range = param_limits[1] - param_limits[0]
-        stretched = normalised_param * physical_range  # full normalised range is always 0->1
-        shifted = stretched + param_limits[0]
-        if log:
-            return 10 ** np.clip(shifted, -10, 20)  # stay within 10^-10 -> 10^20 
-        return shifted
-        
+    physical_range = param_limits[1] - param_limits[0]
+    stretched = normalised_param * physical_range  # full normalised range is always 0->1
+    shifted = stretched + param_limits[0]
+    if log:
+        return 10 ** np.clip(shifted, -10, 20)  # stay within 10^-10 -> 10^20 
+    return shifted
+
+
+def normalise_param(physical_param, param_limits, log):
+    # e.g. 10 ** 8 to 10 ** 12 for mass
+    if log:
+        physical_param = np.log10(physical_param)  # 8 to 12
+    shifted = physical_param - param_limits[0]  # 0 to 4
+    physical_range = param_limits[1] - param_limits[0]  # e.g. 4 for mass
+    squeezed = shifted / physical_range  # 0 to 1
+    return squeezed
+
 
 def sample(theta, n_samples, output_dim, simulator):
     """

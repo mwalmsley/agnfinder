@@ -25,13 +25,9 @@ def build_cpz_obs(filter_selection, galaxy=None):
     """
     obs = {}
     if galaxy is not None:
-        obs["filters"], obs["maggies"], obs['maggies_unc'] = load_photometry.load_maggies_from_galaxy(galaxy, filter_selection)
-    else:
-        # TODO slightly messy two-step process
-        filter_meta = load_photometry.get_filters(selection=filter_selection)
-        obs["filters"] = observate.load_filters([f.bandpass_file for f in filter_meta])
-        obs['maggies'] = np.ones(len(obs['filters']))
-        obs['maggies_unc'] = np.ones(len(obs['filters']))
+        obs["filters"], obs["maggies"], obs['maggies_unc'] = load_photometry.load_galaxy_for_prospector(galaxy, filter_selection)
+    else:  # dummy galaxy
+        obs["filters"], obs["maggies"], obs['maggies_unc'] = load_photometry.load_dummy_galaxy_for_prospector(galaxy, filter_selection)
 
     # Now we need a mask, which says which flux values to consider in the likelihood.
     # IMPORTANT: the mask is *True* for values that you *want* to fit

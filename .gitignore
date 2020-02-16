@@ -121,3 +121,4 @@ report.txt
 .vscode/settings.json
 example_galaxy*
 temp*
+*.npy

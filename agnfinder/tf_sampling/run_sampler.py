@@ -55,33 +55,40 @@ def sample_galaxy_batch(galaxy_ids, true_observation, fixed_params, uncertainty,
     # now, galaxy_n will always line up with a remanining galaxy
     for galaxy_n, name in tqdm(enumerate(remaining_galaxy_ids), unit=' galaxies saved'):
         save_file, chain_n = get_galaxy_save_file_next_chain(name, save_dir)
-        f = h5py.File(save_file, mode='w')  # will overwrite
         galaxy_samples = np.expand_dims(samples[:, galaxy_n], axis=1)
-        # for 0-1 decimals, float16 is more than precise enough and much smaller files
-        dset = f.create_dataset('samples', data=galaxy_samples.astype(np.float16), dtype="f2")  # leave the chain dimension as 1 for now
-        dset.attrs['free_param_names'] = free_param_names
-        dset.attrs['init_method'] = init_method
-        dset.attrs['n_burnin'] = n_burnin
-        dset.attrs['galaxy_id'] = name
-        f.create_dataset('chain', data=chain_n)
-        f.create_dataset('sample_weights', data=sample_weights[:, galaxy_n])
-        f.create_dataset('log_evidence', data=log_evidence[galaxy_n])
-        f.create_dataset('true_observations', data=true_observation[galaxy_n])
-        dset = f.create_dataset('fixed_params', data=fixed_params[galaxy_n])
-        dset.attrs['fixed_param_names'] = fixed_param_names
-        f.create_dataset('uncertainty', data=uncertainty[galaxy_n])
-        for key, data in metadata.items():
-            f.create_dataset(key, data=data)
-        if true_params is not None:
-            f.create_dataset('true_params', data=true_params[galaxy_n])
+        save_galaxy(save_file, galaxy_samples, galaxy_n, free_param_names, init_method, n_burnin, name, chain_n, sample_weights[:, galaxy_n], log_evidence[galaxy_n], true_observation[galaxy_n], fixed_params[galaxy_n], fixed_param_names, uncertainty[galaxy_n], metadata, true_params[galaxy_n])
 
-        marginal_bins = 50
-        dummy_array = np.zeros(42)  # anything
-        _, param_bins = np.histogram(dummy_array, range=(0., 1.), bins=marginal_bins)
-        marginals = np.zeros((true_params.shape[1], marginal_bins))
-        for param_n in range(true_params.shape[1]):
-            marginals[param_n], _ = np.histogram(galaxy_samples[:, :, param_n], density=True, bins=param_bins)
-        f.create_dataset('marginals', data=marginals)
+
+def save_galaxy(save_file, galaxy_samples, galaxy_n, free_param_names, init_method, n_burnin, name, chain_n, sample_weights, log_evidence, true_observation, fixed_params, fixed_param_names, uncertainty, metadata, true_params):
+    f = h5py.File(save_file, mode='w')  # will overwrite
+    # for 0-1 decimals, float16 is more than precise enough and much smaller files
+    dset = f.create_dataset('samples', data=galaxy_samples.astype(np.float16), dtype="f2")  # leave the chain dimension as 1 for now
+    dset.attrs['free_param_names'] = free_param_names
+    dset.attrs['init_method'] = init_method
+    dset.attrs['n_burnin'] = n_burnin
+    dset.attrs['galaxy_id'] = name
+    f.create_dataset('chain', data=chain_n)
+    f.create_dataset('sample_weights', data=sample_weights)
+    f.create_dataset('log_evidence', data=log_evidence)
+    f.create_dataset('true_observations', data=true_observation)
+    dset = f.create_dataset('fixed_params', data=fixed_params)
+    dset.attrs['fixed_param_names'] = fixed_param_names
+    f.create_dataset('uncertainty', data=uncertainty)
+    for key, data in metadata.items():
+        f.create_dataset(key, data=data)
+    if true_params is not None:
+        f.create_dataset('true_params', data=true_params)
+    # add marginals
+    marginal_bins = 50
+    dummy_array = np.zeros(42)  # anything
+    _, param_bins = np.histogram(dummy_array, range=(0., 1.), bins=marginal_bins)
+
+    print(true_params.shape)
+    print(galaxy_samples.shape)
+    marginals = np.zeros((len(true_params), marginal_bins))
+    for param_n in range(len(true_params)):
+        marginals[param_n], _ = np.histogram(galaxy_samples[:, :, param_n], density=True, bins=param_bins)  # galaxy samples is still dim3, confusingly
+    f.create_dataset('marginals', data=marginals)
 
 
 def get_galaxy_save_file(i, save_dir, chain=0):

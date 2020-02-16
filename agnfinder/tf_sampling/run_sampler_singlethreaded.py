@@ -2,7 +2,6 @@ import argparse
 import logging
 import os
 
-import dill
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
@@ -118,7 +117,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
             fixed_params = np.zeros((len(df), 0), dtype=np.float32)  # note the 0 shape
         for n in tqdm(range(len(df))):
             galaxy = df.iloc[n]
-            _, maggies, maggies_unc = load_photometry.load_maggies_from_galaxy(galaxy, filter_selection)
+            maggies, maggies_unc = load_photometry.load_maggies_to_array(galaxy, filter_selection)
             uncertainty[n] = maggies_unc.astype(np.float32)  # trusting the catalog uncertainty, which may be brave
             true_observation[n] = maggies.astype(np.float32)
             if fixed_redshift:
@@ -191,20 +190,8 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
             fixed_params = np.zeros((len(true_params), 0)).astype(np.float32)
         true_observation = deep_emulator.denormalise_photometry(y_test[galaxy_indices]) 
         assert filter_selection == 'euclid'
-        bands = ['u_sloan', 'g_sloan', 'r_sloan', 'i_sloan', 'z_sloan', 'VISTA_H','VISTA_J', 'VISTA_Y']  # euclid bands, hardcoded for now
-        assert true_observation.shape[1] == len(bands)
-        # lowess = sm.nonparametric.lowess
-        error_estimators_loc = 'data/error_estimators.pickle'
-        with open(error_estimators_loc, 'rb') as f:
-            error_estimators = dill.load(f)
-        estimated_uncertainty = np.zeros_like(true_observation).astype(np.float32)
-        for galaxy_i, galaxy in enumerate(true_observation):
-            for band_i, band in enumerate(bands):
-                estimated_uncertainty[galaxy_i, band_i] = error_estimators[band](galaxy[band_i])
-        # add clipping
-        uncertainty = np.min(np.stack([estimated_uncertainty, true_observation * 0.15]), axis=0)  # 1 sigma uncertainty no more than 15%
-        uncertainty = np.max(np.stack([uncertainty, true_observation * 0.001]), axis=0)  # no less than 3%
-#         uncertainty = true_observation * 0.05  # assume 5% uncertainty on all bands for simulated galaxies
+
+        uncertainty = load_photometry.estimate_uncertainty(true_observation)
 
     logging.info('photometry: ')
     logging.info(true_observation)

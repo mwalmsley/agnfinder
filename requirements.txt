@@ -18,7 +18,7 @@ pyfits
 astropy
 dill
 GPy
-scikit-learn==0.20.3
+scikit-learn>=0.22.1
 tqdm
 pyDOE2
 tensorflow>=2.1  # the right tf version is important! 

@@ -49,8 +49,6 @@ def tf_model(input_dim=9, output_dim=8):
         tf.keras.layers.Dense(output_dim)
         ])
 
-
-
     model.compile(
         optimizer='adam',
         loss='mean_absolute_error',

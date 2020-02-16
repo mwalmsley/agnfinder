@@ -10,10 +10,9 @@ from agnfinder.prospector import main, visualise
 from agnfinder import simulation_utils
 
 
-def simulate(n_samples, save_loc, emulate_ssp, noise, redshift_range, filter_selection):
-
-    # a bit hacky - log* keys will be 10 ** within simulator function below
-    free_params = OrderedDict({
+# a bit hacky - log* keys will be 10 ** within simulator function below
+# absolutely do not change these without being very careful, especially redshift
+FREE_PARAMS = OrderedDict({
         'redshift': [0., 4.],  # the order is really important - redshift is 0th theta index if free. See notebooks/understanding_forward_model
         'log_mass': [8, 12], 
         'dust2': [0., 2.], 
@@ -24,15 +23,19 @@ def simulate(n_samples, save_loc, emulate_ssp, noise, redshift_range, filter_sel
         'log_agn_torus_mass': [-7, np.log10(15)],
         'inclination': [0., 90.]  # hopefully this will be last param - we shall see...
     })
-    param_dim = len(free_params.keys())
+
+
+def simulate(n_samples, save_loc, emulate_ssp, noise, redshift_range, filter_selection):
+
+    param_dim = len(FREE_PARAMS.keys())
 
     # unit hypercube, n_samples random-ish points
     hcube = simulation_utils.get_unit_latin_hypercube(param_dim, n_samples)
     # tweak redshift normalised theta to lie within desired range
-    hcube[:, 0] = simulation_utils.shift_redshift_theta(hcube[:, 0], free_params['redshift'], redshift_range)
+    hcube[:, 0] = simulation_utils.shift_redshift_theta(hcube[:, 0], FREE_PARAMS['redshift'], redshift_range)
     # transform random-ish points back to parameter space (including log if needed)
     print(hcube.shape)
-    galaxy_params = simulation_utils.denormalise_theta(hcube, free_params)  
+    galaxy_params = simulation_utils.denormalise_theta(hcube, FREE_PARAMS)  
     
     simulator, phot_wavelengths, output_dim = get_forward_model(emulate_ssp, noise=noise, filter_selection=filter_selection)
 
@@ -48,7 +51,7 @@ def simulate(n_samples, save_loc, emulate_ssp, noise, redshift_range, filter_sel
 
     simulation_utils.save_samples(
         save_loc=save_loc,
-        theta_names=free_params.keys(),
+        theta_names=FREE_PARAMS.keys(),
         theta=galaxy_params,
         normalised_theta=hcube,
         simulator_outputs=photometry,
@@ -123,7 +126,7 @@ if __name__ == '__main__':
     redshift_max_string = '{:.4f}'.format(args.redshift_max).replace('.', 'p')
     save_name = 'photometry_simulation_{}n_z_{}_to_{}.hdf5'.format(args.n_samples, redshift_min_string, redshift_max_string)
     if not os.path.isdir(args.save_dir):
-        os.mkdir(save_dir)
+        os.mkdir(args.save_dir)
     save_loc = os.path.join(args.save_dir, save_name)
 
     simulate(args.n_samples, save_loc, args.emulate_ssp, args.noise, (args.redshift_min, args.redshift_max), args.filters)
