@@ -132,9 +132,9 @@ def mcmc_galaxy(run_params, obs, model, sps, initial_theta=None, test=False):
         niter = 8
         nburn = [16]
     else:
-        nwalkers = 32  # ndim=8 * walker_factor=4
+        # nwalkers = 32  # ndim=8 * walker_factor=4
         # nwalkers = 128
-        # nwalkers = 256
+        nwalkers = 256
         # niter = 256
         niter = 2096  # i.e. iterations of emcee, somewhat like steps
         nburn = [64, 128]
@@ -348,7 +348,7 @@ if __name__ == '__main__':
     Output: samples (.h5py) and corner plot of forward model parameter posteriors for the selected galaxy
 
     Example use:
-    python agnfinder/prospector/main.py passive --cube data/cubes/latest --save-dir results/vanilla_nested
+    python agnfinder/prospector/main.py cube_test --cube data/cubes/latest --save-dir results/vanilla_mcmc
     python agnfinder/prospector/main.py passive --catalog-loc data/uk_ir_selection_577.parquet --save-dir results/vanilla_nested --forest passive
     """
     parser = argparse.ArgumentParser(description='Find AGN!')
