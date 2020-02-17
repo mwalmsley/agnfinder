@@ -191,7 +191,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         true_observation = deep_emulator.denormalise_photometry(y_test[galaxy_indices]) 
         assert filter_selection == 'euclid'
 
-        uncertainty = load_photometry.estimate_uncertainty(true_observation)
+        uncertainty = load_photometry.estimate_maggie_uncertainty(true_observation)
 
     logging.info('photometry: ')
     logging.info(true_observation)
