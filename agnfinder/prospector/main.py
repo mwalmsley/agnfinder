@@ -380,7 +380,7 @@ if __name__ == '__main__':
         format='%(asctime)s %(message)s',
         level=logging.INFO)
 
-    find_ml_estimate = False
+    find_ml_estimate = True  # do both!
     find_mcmc_posterior = True
     find_multinest_posterior = False
     test = False

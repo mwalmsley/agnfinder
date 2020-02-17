@@ -24,13 +24,13 @@ class SamplerHMC(Sampler):
         start_time = datetime.datetime.now()
 
         log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation, self.problem.fixed_params, self.problem.uncertainty)
-        initial_state = self.get_initial_state()
+        initial_state = self.get_initial_state()  # numpy
 
         with np.printoptions(precision=2, suppress=False):
             logging.info('\nInitial state: ')
-            logging.info(initial_state.numpy())
+            logging.info(initial_state)
             logging.info('Median initial state:')
-            logging.info(np.median(initial_state.numpy(), axis=0))
+            logging.info(np.median(initial_state, axis=0))
             if self.problem.true_params is not None:
                 logging.info('True params:')
                 logging.info(self.problem.true_params)
@@ -216,7 +216,7 @@ def optimised_start(forward_model, observations, fixed_params, uncertainty, para
     logging.info('Done {} optimisations over {} steps in {} seconds.'.format(n_chains, steps, elapsed))
     return best_params
 
-def find_best_params(forward_model, observations, fixed_params, uncertainty, param_dim, batch_dim, steps, n_attempts=10):
+def find_best_params(forward_model, observations, fixed_params, uncertainty, param_dim, batch_dim, steps, n_attempts=5):  # maybe 10
     log_prob_fn = get_log_prob_fn(forward_model, observations, fixed_params, uncertainty)
 
 
