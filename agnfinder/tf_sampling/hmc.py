@@ -184,7 +184,8 @@ def hmc(log_prob_fn, initial_state, n_samples=int(10e3), n_burnin=int(1e3)):
             kernel=adaptive_kernel,
             parallel_iterations=1,  # makes no difference at all to performance, when tested - worth checking before final run
             # https://github.com/tensorflow/probability/blob/f90448698cc2a16e20939686ef0d5005aad95f29/tensorflow_probability/python/mcmc/nuts.py#L72
-            trace_fn=lambda _, prev_kernel_results: {'is_accepted': prev_kernel_results.inner_results.is_accepted}
+            trace_fn=lambda _, prev_kernel_results: {'is_accepted': prev_kernel_results.inner_results.is_accepted},
+            num_steps_between_results=5  # thinning factor of 5, to run much longer
         )
 
         samples, trace = chain_output
