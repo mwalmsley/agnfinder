@@ -47,7 +47,14 @@ def get_log_prob_fn(forward_model, true_photometry, fixed_params, uncertainty):
         x_with_fixed_params = tf.concat([fixed_params, x], axis=1)  # will hopefully have no effect if fixed params is dim0?
         expected_photometry = deep_emulator.denormalise_photometry(forward_model(x_with_fixed_params, training=False))  # model expects a batch dimension, which here is the chains
         deviation = tf.abs(expected_photometry - true_photometry)   # make sure you denormalise true observation in the first place, if loading from data(). Should be in maggies.
-        neg_log_prob_by_band = deviation ** 2 / (2*uncertainty**2)
+        variance = uncertainty ** 2
+        # original version
+        # neg_log_prob_by_band = deviation ** 2 / (2*variance)
+        # prospector version
+        # https://github.com/bd-j/prospector/blob/master/prospect/likelihood/likelihood.py#L142
+        neg_log_prob_by_band = 0.5*( (deviation**2/variance) - tf.math.log(2*np.pi*variance) )
+
+
         log_prob = -tf.reduce_sum(input_tensor=neg_log_prob_by_band, axis=1)  # log space: product -> sum
         # log_prob = -tf.reduce_sum(input_tensor=deviation / uncertainty, axis=1)  # very negative = unlikely, near -0 = likely
         x_out_of_bounds = is_out_of_bounds(x)

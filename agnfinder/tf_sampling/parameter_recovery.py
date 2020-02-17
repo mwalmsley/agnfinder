@@ -11,8 +11,8 @@ import h5py
 from tqdm import tqdm
 
 
-def main(save_dir, min_acceptance, max_redshift):
-    params, marginals, true_params, _ = load_samples(save_dir, min_acceptance, max_redshift)  # don#t need samples themselves
+def main(save_dir, use_filter, max_redshift):
+    params, marginals, true_params, _ = load_samples(save_dir, use_filter, max_redshift)  # don#t need samples themselves
     posterior_records, param_bins = get_all_posterior_records(marginals, true_params, n_param_bins=50, n_posterior_bins=50)
     fig, axes = plot_posterior_stripes(posterior_records, param_bins, params)
     return fig, axes
@@ -85,12 +85,12 @@ def get_cmap(hue_val):
 
 
 def rename_params(input_names):
-    model_params = ['redshift', 'mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling', 'inclination']
-    human_names = ['Redshift', 'Stellar Mass', 'Dust', 'Age', 'Tau', 'AGN Disk Scale', 'AGN E(B-V)', 'AGN Torus Scale', 'AGN Torus Incl.']
+    model_params = ['redshift', 'mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling', 'inclination', 'agn_mass', 'agn_torus_mass', 'zred']
+    human_names = ['Redshift', 'Stellar Mass', 'Dust', 'Age', 'Tau', 'AGN Disk Scale', 'AGN E(B-V)', 'AGN Torus Scale', 'AGN Torus Incl.', 'AGN Disk Scale', 'AGN Torus Scale', 'Redshift']
     renamer = dict(zip(model_params, human_names))
     return [renamer[x] for x in input_names]
 
-def load_samples(save_dir, min_acceptance, max_redshift):
+def load_samples(save_dir, use_filter, max_redshift, min_acceptance=0.6):
     galaxy_locs = glob.glob(save_dir + '/*.h5')
     assert galaxy_locs
 
@@ -119,7 +119,10 @@ def load_samples(save_dir, min_acceptance, max_redshift):
         allowed_acceptance[n] = np.mean(num_geq_80p) > min_acceptance
         samples = np.squeeze(f['samples'][...]) # okay to load, will not keep
         all_samples.append(samples[::25])
-        successful_run[n] = within_percentile_limits(samples)
+        if use_filter:
+            successful_run[n] = within_percentile_limits(samples)
+        else:
+            successful_run[n] = True
         
         # successful_run[n] = True  # disable for now
         if 'Redshift' not in params:
@@ -183,11 +186,19 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Find AGN!')
     parser.add_argument('--save-dir', dest='save_dir', type=str)
-    parser.add_argument('--min-acceptance', default=0.6, type=float, dest='min_acceptance')
+    parser.add_argument('--raw', dest='raw', default=False, action='store_true')
+    # parser.add_argument('--min-acceptance', default=0.6, type=float, dest='min_acceptance')
     parser.add_argument('--max-redshift', type=float, dest='max_redshift', default=4.0)
     args = parser.parse_args()
 
-    fig, axes = main(args.save_dir, args.min_acceptance, args.max_redshift)
+    # more convenient to only specify when you *don't* want a filter
+    use_filter = True
+    if args.raw:
+        use_filter = False
+
+
+
+    fig, axes = main(args.save_dir, use_filter, args.max_redshift)
 
     fig.savefig('results/latest_posterior_stripes.png')
     fig.savefig('results/latest_posterior_stripes.pdf')

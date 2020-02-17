@@ -137,6 +137,7 @@ def mcmc_galaxy(run_params, obs, model, sps, initial_theta=None, test=False):
         # nwalkers = 256
         # niter = 256
         niter = 10000  # i.e. iterations of emcee, somewhat like steps
+        # niter = 500  # short, to check everything works
         # niter = 2086 * 2
         nburn = [64, 256]
 
@@ -315,7 +316,7 @@ def main(index, name, catalog_loc, save_dir, forest_class, spectro_class, redshi
         del limits_without_redshift['redshift']
         normalised_samples = simulation_utils.normalise_theta(samples, limits_without_redshift)
         normalised_samples = np.expand_dims(normalised_samples, axis=1)  # add chain dim back in
-        sample_loc = os.path.join(save_dir, '{}_mcmc_samples.h5py'.format(name))
+        sample_loc = os.path.join(save_dir, '{}_mcmc_samples.h5'.format(name))
         save_samples(normalised_samples, model, obs, sps, sample_loc, name, true_theta=true_theta)
         corner_loc = os.path.join(save_dir, '{}_mcmc_corner.png'.format(name))
         save_corner(normalised_samples, model, corner_loc)
@@ -325,7 +326,7 @@ def main(index, name, catalog_loc, save_dir, forest_class, spectro_class, redshi
     if find_multinest_posterior:
         # TODO extend to use pymultinest?
         samples, _ = dynesty_galaxy(run_params, obs, model, sps, test=test)
-        sample_loc = os.path.join(save_dir, '{}_multinest_samples.h5py'.format(name))
+        sample_loc = os.path.join(save_dir, '{}_multinest_samples.h5'.format(name))
         save_samples(samples, model, obs, sps, sample_loc, name, true_theta=true_theta)
         corner_loc = os.path.join(save_dir, '{}_multinest_corner.png'.format(name))
         save_corner(samples[int(len(samples)/2):], model, corner_loc)  # nested sampling has no burn-in phase, early samples are bad

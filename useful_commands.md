@@ -52,6 +52,7 @@ export CATALOG=/mnt/zfsusers/mwalmsley/repos/agnfinder/data/cpz_paper_sample_wee
 addqueue -c "1 hour" -q $QUEUE -n 12 -m 3 $PYTHON $REPO/agnfinder/prospector/main.py cube_test --cube $REPO/data/cubes/latest --save-dir $REPO/results/vanilla_mcmc
 addqueue -c "1 hour" -q $QUEUE -n 12 -m 3 $PYTHON $REPO/agnfinder/simulation_samples.py 10000 --catalog-loc data/cpz_paper_sample_week3.parquet
 
+scp mwalmsley@glamdring.physics.ox.ac.uk:/mnt/zfsusers/mwalmsley/repos/agnfinder/results/latest_posterior_stripes.png results/...
 
 ## Zeus
 
