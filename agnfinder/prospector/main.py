@@ -93,11 +93,12 @@ def fit_galaxy(run_params, obs, model, sps):
     run_params["emcee"] = False
     run_params["optimize"] = True
     run_params["min_method"] = 'lm'
-    run_params["nmin"] = 5
+    run_params["nmin"] = 50
 
     logging.info('Begin minimisation')
     output = fit_model(obs=obs, model=model, sps=sps, lnprobfn=lnprobfn, **run_params)  # careful, modifies model in-place: model['optimization'], model['theta']
     
+    results = output["optimization"][0]
     time_elapsed = output["optimization"][1]
     log_string = "Done optimization in {}s".format(time_elapsed)
     logging.info(log_string)
@@ -105,7 +106,7 @@ def fit_galaxy(run_params, obs, model, sps):
     logging.info('model theta: {}'.format(model.theta))
     best_theta = fitting.get_best_theta(model, output)
 
-    return best_theta, time_elapsed
+    return best_theta, results, time_elapsed
 
 def mcmc_galaxy(run_params, obs, model, sps, initial_theta=None, test=False):
 
@@ -301,7 +302,8 @@ def main(index, name, catalog_loc, save_dir, forest_class, spectro_class, redshi
     logging.info('Beginning inference (not counting model construction) at {}'.format(start_time))
 
     if find_ml_estimate:
-        theta_best, _ = fit_galaxy(run_params, obs, model, sps)
+        theta_best, results, _ = fit_galaxy(run_params, obs, model, sps)
+        assert np.any([r.cost < 10**4 for r in results])  # by eye, anything worse than this is 'no good start found' and should exit
         logging.info(list(zip(model.free_params, theta_best)))
         # TODO save best_theta to json?
         visualise.visualise_obs_and_model(obs, model, theta_best, sps)

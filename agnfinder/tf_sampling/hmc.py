@@ -1,6 +1,7 @@
 import logging
 import datetime
 
+import tqdm
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
@@ -215,26 +216,86 @@ def optimised_start(forward_model, observations, fixed_params, uncertainty, para
     logging.info('Done {} optimisations over {} steps in {} seconds.'.format(n_chains, steps, elapsed))
     return best_params
 
-def find_best_params(forward_model, observations, fixed_params, uncertainty, param_dim, batch_dim, steps):
+def find_best_params(forward_model, observations, fixed_params, uncertainty, param_dim, batch_dim, steps, n_attempts=10):
     log_prob_fn = get_log_prob_fn(forward_model, observations, fixed_params, uncertainty)
-    initial_params = tf.Variable(tf.random.uniform([batch_dim, param_dim], dtype=np.float32), dtype=tf.float32)
-    best_params = find_minima(lambda x: -log_prob_fn(x), initial_params, steps)  # a very important minus sign...
+
+
+    # repeatedly run ADAM
+    all_params = [[] for n in range(batch_dim)]
+    all_costs = [[] for n in range(batch_dim)]
+    for _ in tqdm.tqdm(range(n_attempts)):
+        initial_params = tf.Variable(tf.random.uniform([batch_dim, param_dim], dtype=tf.float32), dtype=tf.float32)
+        initial_params, latest_costs = find_minima(lambda x: -log_prob_fn(x), initial_params, steps)  # a very important minus sign...
+
+        initial_params = initial_params.numpy()
+        latest_costs = latest_costs.numpy()
+        
+        for n in range(batch_dim):
+            all_params[n].append(initial_params[n])
+            all_costs[n].append(latest_costs[n])
+
+
+    lowest_costs_by_galaxy = [np.argmin(x) for x in all_costs]
+    best_params_by_galaxy = [x[cost] for x, cost in zip(all_params, lowest_costs_by_galaxy)]
+    best_params = np.array(best_params_by_galaxy)
+    print(best_params.shape)
+
+        # successful_indices = tf.range(batch_dim)[success]
+        # failed_indices = tf.range(batch_dim)[~success]
+
+        # successful_rows = latest_params[success]
+        # failed_rows = latest_params[~success]  # only for shape
+
+        # new_starts = tf.Variable(tf.random.uniform(tf.shape(failed_rows), dtype=tf.float32))
+
+        # latest_params = tf.dynamic_stitch(
+        #     [successful_indices, failed_indices],
+        #     [successful_rows, new_starts]
+        # )
+
+        # rows = tf.split(latest_params)
+
+        # for row_n, row in enumerate(rows):
+        #     if not success[row_n]:
+        #         latest_params[row_n] = tf.Variable(tf.random.uniform([param_dim], dtype=tf.float32))
+
     return best_params
 
 
 # TODO convert to be tf.function() friendly, creating no ops
 # TODO measure convergence and adjust steps, learning rate accordingly
-def find_minima(func, initial_guess, steps=1000,  optimizer=tf.keras.optimizers.Adam()):
+def find_minima(func, initial_guess, steps=1000,  method=tf.keras.optimizers.Adam(), max_cost=10000):
+
+    # if method == 'bfgs':
+        
+    #     def value_and_gradients_function(x):
+    #         # print(x)
+    #         with tf.GradientTape() as tape:
+    #             func_value = func(x)
+    #             grads = tape.gradient(func_value, [x])[0]
+    #             assert grads is not None
+    #             return (func_value, grads)
+    #     # func_value, gradients = value_and_gradients_function(initial_guess)
+    #     # print(gradients)
+    #     optim_results = tfp.optimizer.bfgs_minimize(
+    #         value_and_gradients_function,
+    #         initial_position=initial_guess,
+    #         tolerance=1e-8
+    #     )
+    #     return optim_results.position
+
     # logging.info('Initial guess neglogprob: {}'.format(['{:4.1f}'.format(x) for x in func(initial_guess)]))
     for _ in range(steps):
         with tf.GradientTape() as tape:
             func_value = func(initial_guess)
             grads = tape.gradient(func_value, [initial_guess])[0]
             grads_and_vars = [(grads, initial_guess)]
-            optimizer.apply_gradients(grads_and_vars)  # inplace
+            method.apply_gradients(grads_and_vars)  # inplace
             tf.compat.v1.assign(initial_guess, tf.clip_by_value(initial_guess, 0.01, 0.99))
     # logging.info('Final neglogprob: {}'.format(['{:4.1f}'.format(x) for x in func(initial_guess)]))
-    return initial_guess
+    # final check
+    # success = func_value < max_cost
+    return initial_guess, func_value
 
 
 def many_random_starts(forward_model, observation, param_dim, n_chains, overproposal_factor=None):
