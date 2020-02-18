@@ -100,7 +100,15 @@ class SamplerHMC(Sampler):
             initial_state = tf.random.uniform(self.problem.true_params.shape, minval=0., maxval=1.)
             # initial_state = many_random_starts(self.problem.forward_model, self.problem.true_observation, self.problem.param_dim, self.n_chains)
         elif self.init_method == 'optimised':
-            initial_state = optimised_start(self.problem.forward_model, self.problem.true_observation, self.problem.fixed_params, self.problem.uncertainty, self.problem.param_dim, self.n_chains, steps=3000)
+            initial_state = optimised_start(
+                self.problem.forward_model,
+                tf.constant(self.problem.true_observation),
+                tf.constant(self.problem.fixed_params),
+                tf.constant(self.problem.uncertainty),
+                tf.constant(self.problem.param_dim),
+                tf.constant(self.n_chains),
+                steps=3000
+            )
         else:
             raise ValueError('Initialisation method {} not recognised'.format(self.init_method))
         return initial_state
@@ -186,7 +194,7 @@ def hmc(log_prob_fn, initial_state, n_samples=int(10e3), n_burnin=int(1e3)):
             parallel_iterations=1,  # makes no difference at all to performance, when tested - worth checking before final run
             # https://github.com/tensorflow/probability/blob/f90448698cc2a16e20939686ef0d5005aad95f29/tensorflow_probability/python/mcmc/nuts.py#L72
             trace_fn=lambda _, prev_kernel_results: {'is_accepted': prev_kernel_results.inner_results.is_accepted},
-            num_steps_between_results=5  # thinning factor of 5, to run much longer
+            # num_steps_between_results=5  # thinning factor of 5, to run much longer
         )
 
         samples, trace = chain_output
@@ -214,7 +222,9 @@ def optimised_start(forward_model, observations, fixed_params, uncertainty, para
     end_time = datetime.datetime.now()
     elapsed = (end_time - start_time).total_seconds()
     logging.info('Done {} optimisations over {} steps in {} seconds.'.format(n_chains, steps, elapsed))
+    # exit()
     return best_params
+
 
 def find_best_params(forward_model, observations, fixed_params, uncertainty, param_dim, batch_dim, steps, n_attempts=5):  # maybe 10
     log_prob_fn = get_log_prob_fn(forward_model, observations, fixed_params, uncertainty)
@@ -225,7 +235,7 @@ def find_best_params(forward_model, observations, fixed_params, uncertainty, par
     all_costs = [[] for n in range(batch_dim)]
     for _ in tqdm.tqdm(range(n_attempts)):
         initial_params = tf.Variable(tf.random.uniform([batch_dim, param_dim], dtype=tf.float32), dtype=tf.float32)
-        initial_params, latest_costs = find_minima(lambda x: -log_prob_fn(x), initial_params, steps)  # a very important minus sign...
+        initial_params, latest_costs = find_minima(lambda x: -log_prob_fn(x), initial_params, steps, param_dim, batch_dim)  # a very important minus sign...
 
         initial_params = initial_params.numpy()
         latest_costs = latest_costs.numpy()
@@ -264,7 +274,7 @@ def find_best_params(forward_model, observations, fixed_params, uncertainty, par
 
 # TODO convert to be tf.function() friendly, creating no ops
 # TODO measure convergence and adjust steps, learning rate accordingly
-def find_minima(func, initial_guess, steps=1000,  method=tf.keras.optimizers.Adam(), max_cost=10000):
+def find_minima(func, initial_guess, steps, param_dim, batch_dim):
 
     # if method == 'bfgs':
         
@@ -285,17 +295,41 @@ def find_minima(func, initial_guess, steps=1000,  method=tf.keras.optimizers.Ada
     #     return optim_results.position
 
     # logging.info('Initial guess neglogprob: {}'.format(['{:4.1f}'.format(x) for x in func(initial_guess)]))
+    func_value = tf.Variable(np.zeros(batch_dim), dtype=tf.float32)  # euclid bands hardcoded
+    grads = tf.Variable(np.zeros([batch_dim, param_dim]), dtype=tf.float32)
+    method = tf.keras.optimizers.Adam()
+
+    initialise_adam_for_tf(func, initial_guess, method)
     for _ in range(steps):
-        with tf.GradientTape() as tape:
-            func_value = func(initial_guess)
-            grads = tape.gradient(func_value, [initial_guess])[0]
-            grads_and_vars = [(grads, initial_guess)]
-            method.apply_gradients(grads_and_vars)  # inplace
-            tf.compat.v1.assign(initial_guess, tf.clip_by_value(initial_guess, 0.01, 0.99))
+        update_initial_guess(func, initial_guess, grads, method)
     # logging.info('Final neglogprob: {}'.format(['{:4.1f}'.format(x) for x in func(initial_guess)]))
     # final check
     # success = func_value < max_cost
+    func_value.assign(func(initial_guess))
     return initial_guess, func_value
+
+@tf.function()
+def update_initial_guess(func, initial_guess, grads, method):
+    with tf.GradientTape(watch_accessed_variables=False) as tape:
+        tape.watch(initial_guess)
+        grads.assign(tape.gradient(func(initial_guess), [initial_guess])[0])
+        # print(tf.shape(grads))
+        # grads_and_vars = [(grads, initial_guess)]
+        # print(tf.shape(grads_and_vars))
+    method.apply_gradients([(grads, initial_guess)])  # inplace
+    # initial_guess = tf.clip_by_value(initial_guess)
+    initial_guess.assign(tf.clip_by_value(initial_guess, 0.01, 0.99))
+        # return initial_guess, func_value
+        # return func_value
+
+def initialise_adam_for_tf(func, initial_guess, method):
+    with tf.GradientTape() as tape:
+        tape.watch(initial_guess)
+        grads = tape.gradient(func(initial_guess), [initial_guess])[0]
+        # print(tf.shape(grads))
+        # grads_and_vars = [(grads, initial_guess)]
+        # print(tf.shape(grads_and_vars))
+    method.apply_gradients([(grads, initial_guess)])  # inplace
 
 
 def many_random_starts(forward_model, observation, param_dim, n_chains, overproposal_factor=None):
