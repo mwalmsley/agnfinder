@@ -133,9 +133,9 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
     else:
         # fake galaxies, drawn from our priors and used as emulator training data
         logging.info('Using fake galaxies, drawn randomly from the hypercube')
-        _, _, x_test, y_test = deep_emulator.data(cube_dir='data/cubes/latest')  # TODO could make as arg
+        # _, _, x_test, y_test = deep_emulator.data(cube_dir='data/cubes/latest')  # TODO could make as arg
         # filter to max redshift .5
-        within_max_z = x_test[:, 0] < .5 / 4.
+        # within_max_z = x_test[:, 0] < .5 / 4.
 
         # even with 100x factor, only 25% of galaxies don't get uncertainty clipped
         # many galaxies probably still unrealistic
@@ -150,11 +150,11 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         # normalised_max_maggies = deep_emulator.normalise_photometry(max_maggies)
         # within_maggie_limit = np.all((y_test < normalised_min_maggies) & (y_test > normalised_max_maggies), axis=1)  # less than, as normalising includes a sign flip
 
-        astro_acceptable = within_max_z
+        # astro_acceptable = within_max_z
         # astro_acceptable = within_maggie_limit
         # astro_acceptable = within_max_z & within_maggie_limit
-        x_test = x_test[astro_acceptable]
-        y_test = y_test[astro_acceptable]
+        # x_test = x_test[astro_acceptable]
+        # y_test = y_test[astro_acceptable]
 
         # filter to subsample with realistic mags
         # # hack this part to speed things up, for now:
