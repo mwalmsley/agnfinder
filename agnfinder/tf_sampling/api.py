@@ -12,7 +12,7 @@ class SamplingProblem():
         assert true_params.ndim == 2
         self.true_observation = true_observation
         self.true_params = true_params
-        self.forward_model = lambda *args, **kwargs: forward_model(*args, **kwargs)
+        self.forward_model = forward_model  # should be a callable
         self.fixed_params = fixed_params
         self.uncertainty = uncertainty
 

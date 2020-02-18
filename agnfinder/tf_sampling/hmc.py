@@ -107,7 +107,7 @@ class SamplerHMC(Sampler):
                 tf.constant(self.problem.uncertainty),
                 tf.constant(self.problem.param_dim),
                 tf.constant(self.n_chains),
-                steps=3000
+                steps=tf.constant(3000)
             )
         else:
             raise ValueError('Initialisation method {} not recognised'.format(self.init_method))
@@ -214,8 +214,7 @@ def record_acceptance(is_accepted):
             logging.critical('Acceptance ratio is low for chain {}: ratio {:.2f}'.format(chain_i, chain_acceptance))
 
 
-def optimised_start(forward_model, observations, fixed_params, uncertainty, param_dim, n_chains, steps, initial_guess=None):
-    assert initial_guess is None  # not yet implemented
+def optimised_start(forward_model, observations, fixed_params, uncertainty, param_dim, n_chains, steps):
     start_time = datetime.datetime.now()
     best_params = find_best_params(forward_model, observations, fixed_params, uncertainty, param_dim, n_chains, steps)
     # chosen_params = tf.reshape(all_best_params, [n_chains, param_dim])
@@ -226,7 +225,7 @@ def optimised_start(forward_model, observations, fixed_params, uncertainty, para
     return best_params
 
 
-def find_best_params(forward_model, observations, fixed_params, uncertainty, param_dim, batch_dim, steps, n_attempts=5):  # maybe 10
+def find_best_params(forward_model, observations, fixed_params, uncertainty, param_dim, batch_dim, steps, n_attempts=15):
     log_prob_fn = get_log_prob_fn(forward_model, observations, fixed_params, uncertainty)
 
 
@@ -308,7 +307,7 @@ def find_minima(func, initial_guess, steps, param_dim, batch_dim):
     func_value.assign(func(initial_guess))
     return initial_guess, func_value
 
-@tf.function()
+@tf.function(experimental_compile=True)
 def update_initial_guess(func, initial_guess, grads, method):
     with tf.GradientTape(watch_accessed_variables=False) as tape:
         tape.watch(initial_guess)
