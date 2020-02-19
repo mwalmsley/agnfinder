@@ -79,7 +79,7 @@ def main():
     trt_model = load_frozen_savedmodel(trt_dir)
 
     batches = 10000
-    batch_size = 10 * 1024  # on laptop: 6us at 32, 1.6us at 512, 1.3us at 512 and FP16
+    batch_size = 1024  # on laptop: 6us at 32, 1.6us at 512, 1.3us at 512 and FP16
 
     benchmark(batches, batch_size, savedmodel)
     
@@ -91,3 +91,5 @@ def main():
 if __name__ == '__main__':
 
     main()
+
+    # need to fix my drivers with fresh install including nvidia-cuda-before I can run this

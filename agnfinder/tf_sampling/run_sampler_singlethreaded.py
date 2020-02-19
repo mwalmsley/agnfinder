@@ -83,8 +83,8 @@ def select_subsample(photometry_df: pd.DataFrame, cube_y: np.array, duplicates=F
 
 def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir, fixed_redshift, filter_selection):
     
-    # emulator = deep_emulator.get_trained_keras_emulator(deep_emulator.tf_model(), checkpoint_loc, new=False)
-    emulator = tensorrt.load_trt_model(checkpoint_loc + '_savedmodel', checkpoint_loc + '_trt')
+    emulator = deep_emulator.get_trained_keras_emulator(deep_emulator.tf_model(), checkpoint_loc, new=False)
+    # emulator = tensorrt.load_trt_model(checkpoint_loc + '_savedmodel', checkpoint_loc + '_trt')
 
     n_photometry = 12
 
