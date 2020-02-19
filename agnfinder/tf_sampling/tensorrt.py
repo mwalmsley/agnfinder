@@ -39,12 +39,12 @@ def create_models(checkpoint_dir, savedmodel_dir, trt_dir, precision_mode):
 
 def load_savedmodel(save_dir):
     return tf.saved_model.load(
-        savedmodel_dir,
+        save_dir,
         tags=[tag_constants.SERVING])
 
 
-def load_trt_model(savedmodel_dir, trt_dir):
-    saved_model_loaded = load_savedmodel(savedmodel_dir)
+def load_frozen_savedmodel(save_dir):
+    saved_model_loaded = load_savedmodel(save_dir)
 
     graph_func = saved_model_loaded.signatures[
         signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY]
@@ -65,22 +65,21 @@ def benchmark(batches, batch_size, inference_func):
     print(f'Done {batches} batches of {batch_size} in {time_elapsed}, {time_per_row}s per row')
 
 
-
-if __name__ == '__main__':
+def main():
 
     checkpoint_dir = 'results/checkpoints/latest'
     savedmodel_dir = 'results/checkpoints/latest_savedmodel'
     trt_dir = 'results/checkpoints/latest_trt'
 
-    # precision_mode = "FP16"
-    precision_mode = "FP32"
+    precision_mode = "FP16"
+    # precision_mode = "FP32"
     create_models(checkpoint_dir, savedmodel_dir, trt_dir, precision_mode)
 
-    savedmodel = load_savedmodel(savedmodel_dir)
-    trt_model = load_trt_model(savedmodel_dir, trt_dir)
+    savedmodel = load_frozen_savedmodel(savedmodel_dir)
+    trt_model = load_frozen_savedmodel(trt_dir)
 
     batches = 10000
-    batch_size = 512  # on laptop: 6us at 32, 1.6us at 512, 1.3us at 512 and FP16
+    batch_size = 10 * 1024  # on laptop: 6us at 32, 1.6us at 512, 1.3us at 512 and FP16
 
     benchmark(batches, batch_size, savedmodel)
     
@@ -88,3 +87,7 @@ if __name__ == '__main__':
     # xla_benchmark(batches, batch_size, savedmodel)
 
     benchmark(batches, batch_size, trt_model)
+
+if __name__ == '__main__':
+
+    main()
