@@ -7,6 +7,7 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 
 from agnfinder.tf_sampling.api import Sampler, SamplingProblem, get_log_prob_fn
+from agnfinder.tf_sampling import initial_starts
 
 
 class SamplerHMC(Sampler):
@@ -95,12 +96,12 @@ class SamplerHMC(Sampler):
             initial_state = tf.constant(self.problem.true_params, dtype=tf.float32)
         elif self.init_method == 'roughly_correct':
             assert self.problem.true_params is not None
-            initial_state = roughly_correct_start(self.problem.true_params, self.n_chains)
+            initial_state = initial_starts.roughly_correct_start(self.problem.true_params, self.n_chains)
         elif self.init_method == 'random':
             initial_state = tf.random.uniform(self.problem.true_params.shape, minval=0., maxval=1.)
             # initial_state = many_random_starts(self.problem.forward_model, self.problem.true_observation, self.problem.param_dim, self.n_chains)
         elif self.init_method == 'optimised':
-            initial_state = optimised_start(
+            initial_state = initial_starts.optimised_start(
                 self.problem.forward_model,
                 tf.constant(self.problem.true_observation),
                 tf.constant(self.problem.fixed_params),
@@ -213,145 +214,3 @@ def record_acceptance(is_accepted):
         elif chain_acceptance < 0.3:
             logging.critical('Acceptance ratio is low for chain {}: ratio {:.2f}'.format(chain_i, chain_acceptance))
 
-
-def optimised_start(forward_model, observations, fixed_params, uncertainty, param_dim, n_chains, steps):
-    start_time = datetime.datetime.now()
-    best_params = find_best_params(forward_model, observations, fixed_params, uncertainty, param_dim, n_chains, steps)
-    # chosen_params = tf.reshape(all_best_params, [n_chains, param_dim])
-    end_time = datetime.datetime.now()
-    elapsed = (end_time - start_time).total_seconds()
-    logging.info('Done {} optimisations over {} steps in {} seconds.'.format(n_chains, steps, elapsed))
-    # exit()
-    return best_params
-
-
-def find_best_params(forward_model, observations, fixed_params, uncertainty, param_dim, batch_dim, steps, n_attempts=15):
-    log_prob_fn = get_log_prob_fn(forward_model, observations, fixed_params, uncertainty)
-
-
-    # repeatedly run ADAM
-    all_params = [[] for n in range(batch_dim)]
-    all_costs = [[] for n in range(batch_dim)]
-    for _ in tqdm.tqdm(range(n_attempts)):
-        initial_params = tf.Variable(tf.random.uniform([batch_dim, param_dim], dtype=tf.float32), dtype=tf.float32)
-        initial_params, latest_costs = find_minima(lambda x: -log_prob_fn(x), initial_params, steps, param_dim, batch_dim)  # a very important minus sign...
-
-        initial_params = initial_params.numpy()
-        latest_costs = latest_costs.numpy()
-        
-        for n in range(batch_dim):
-            all_params[n].append(initial_params[n])
-            all_costs[n].append(latest_costs[n])
-
-
-    lowest_costs_by_galaxy = [np.argmin(x) for x in all_costs]
-    best_params_by_galaxy = [x[cost] for x, cost in zip(all_params, lowest_costs_by_galaxy)]
-    best_params = np.array(best_params_by_galaxy)
-    print(best_params.shape)
-
-        # successful_indices = tf.range(batch_dim)[success]
-        # failed_indices = tf.range(batch_dim)[~success]
-
-        # successful_rows = latest_params[success]
-        # failed_rows = latest_params[~success]  # only for shape
-
-        # new_starts = tf.Variable(tf.random.uniform(tf.shape(failed_rows), dtype=tf.float32))
-
-        # latest_params = tf.dynamic_stitch(
-        #     [successful_indices, failed_indices],
-        #     [successful_rows, new_starts]
-        # )
-
-        # rows = tf.split(latest_params)
-
-        # for row_n, row in enumerate(rows):
-        #     if not success[row_n]:
-        #         latest_params[row_n] = tf.Variable(tf.random.uniform([param_dim], dtype=tf.float32))
-
-    return best_params
-
-
-# TODO convert to be tf.function() friendly, creating no ops
-# TODO measure convergence and adjust steps, learning rate accordingly
-def find_minima(func, initial_guess, steps, param_dim, batch_dim):
-
-    # if method == 'bfgs':
-        
-    #     def value_and_gradients_function(x):
-    #         # print(x)
-    #         with tf.GradientTape() as tape:
-    #             func_value = func(x)
-    #             grads = tape.gradient(func_value, [x])[0]
-    #             assert grads is not None
-    #             return (func_value, grads)
-    #     # func_value, gradients = value_and_gradients_function(initial_guess)
-    #     # print(gradients)
-    #     optim_results = tfp.optimizer.bfgs_minimize(
-    #         value_and_gradients_function,
-    #         initial_position=initial_guess,
-    #         tolerance=1e-8
-    #     )
-    #     return optim_results.position
-
-    # logging.info('Initial guess neglogprob: {}'.format(['{:4.1f}'.format(x) for x in func(initial_guess)]))
-    func_value = tf.Variable(np.zeros(batch_dim), dtype=tf.float32)  # euclid bands hardcoded
-    grads = tf.Variable(np.zeros([batch_dim, param_dim]), dtype=tf.float32)
-    method = tf.keras.optimizers.Adam()
-
-    initialise_adam_for_tf(func, initial_guess, method)
-    for _ in range(steps):
-        update_initial_guess(func, initial_guess, grads, method)
-    # logging.info('Final neglogprob: {}'.format(['{:4.1f}'.format(x) for x in func(initial_guess)]))
-    # final check
-    # success = func_value < max_cost
-    func_value.assign(func(initial_guess))
-    return initial_guess, func_value
-
-@tf.function(experimental_compile=True)
-def update_initial_guess(func, initial_guess, grads, method):
-    with tf.GradientTape(watch_accessed_variables=False) as tape:
-        tape.watch(initial_guess)
-        grads.assign(tape.gradient(func(initial_guess), [initial_guess])[0])
-        # print(tf.shape(grads))
-        # grads_and_vars = [(grads, initial_guess)]
-        # print(tf.shape(grads_and_vars))
-    method.apply_gradients([(grads, initial_guess)])  # inplace
-    # initial_guess = tf.clip_by_value(initial_guess)
-    initial_guess.assign(tf.clip_by_value(initial_guess, 0.01, 0.99))
-        # return initial_guess, func_value
-        # return func_value
-
-def initialise_adam_for_tf(func, initial_guess, method):
-    with tf.GradientTape() as tape:
-        tape.watch(initial_guess)
-        grads = tape.gradient(func(initial_guess), [initial_guess])[0]
-        # print(tf.shape(grads))
-        # grads_and_vars = [(grads, initial_guess)]
-        # print(tf.shape(grads_and_vars))
-    method.apply_gradients([(grads, initial_guess)])  # inplace
-
-
-def many_random_starts(forward_model, observation, param_dim, n_chains, overproposal_factor=None):
-    raise NotImplementedError('Deprecated now that each chain is a galaxy')
-    # if overproposal_factor is None:
-    #     assert n_chains < 100
-    #     overproposal_factor = int(10 - (7 * 0.01 * n_chains))  # down from 10. Customised for laptop memory TODO tweak for Glamdring?
-    # overproposed_initial_state = tf.random.uniform(shape=(n_chains * overproposal_factor, param_dim))
-    # initial_state = keep_top_params(
-    #     overproposed_initial_state,
-    #     forward_model,
-    #     observation,
-    #     n_chains * overproposal_factor,  # specified explicitly but might not need to
-    #     n_chains)
-    # return initial_state
-
-def keep_top_params(all_params, forward_model, true_observation, fixed_params, uncertainty, initial_dim, final_dim):
-    log_prob_fn = get_log_prob_fn(forward_model, true_observation, fixed_params, uncertainty)
-    initial_log_probs = log_prob_fn(all_params)
-    initial_state = tf.gather(all_params, tf.argsort(initial_log_probs, direction='DESCENDING'))[:final_dim]
-    return initial_state
-
-def roughly_correct_start(true_params, n_chains):
-    not_quite_true_params = true_params + np.random.rand(*true_params.shape) * 0.03
-    initial_state = tf.constant(not_quite_true_params, dtype=tf.float32)
-    return initial_state

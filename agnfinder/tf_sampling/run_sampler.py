@@ -8,7 +8,7 @@ import numpy as np
 import h5py
 import tensorflow as tf  # just for eager toggle
 
-from agnfinder.tf_sampling import deep_emulator, api, hmc, nested
+from agnfinder.tf_sampling import deep_emulator, api, hmc, nested, emcee_sampling
 
 # TODO change indices to some kind of unique id, perhaps? will need for real galaxies...
 def sample_galaxy_batch(galaxy_ids, true_observation, fixed_params, uncertainty, true_params, emulator, n_burnin, n_samples, n_chains, init_method, save_dir, free_param_names, fixed_param_names):
@@ -24,9 +24,13 @@ def sample_galaxy_batch(galaxy_ids, true_observation, fixed_params, uncertainty,
     problem = api.SamplingProblem(true_observation, true_params, forward_model=emulator, fixed_params=fixed_params, uncertainty=uncertainty)  # will pass in soon
     
     # HMC/NUTS
-    sampler = hmc.SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
+    # sampler = hmc.SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
+    # OR
     # nested sampling
     # sampler = nested.SamplerNested(problem, n_live=400)
+    # OR
+    # emcee sampling
+    sampler = emcee_sampling.SamplerEmcee(problem, n_burnin, n_samples, n_chains, init_method=init_method)
 
     samples, is_successful, sample_weights, log_evidence, metadata = sampler()
     # metadata MUST be already filtered by is_successful
