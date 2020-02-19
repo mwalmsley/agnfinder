@@ -54,14 +54,16 @@ def load_trt_model(savedmodel_dir, trt_dir):
     return lambda x: frozen_func(x)[0]  # don't return a list
 
 
-def benchmark(batches, batch_size, callable):
+def benchmark(batches, batch_size, inference_func):
     start_time = datetime.datetime.now()
     for _ in range(batches):
         input_data = tf.constant(np.random.rand(batch_size, 9), dtype=tf.float32)
-        _ = trt_model(input_data)
+        _ = inference_func(input_data)
     
     time_elapsed = datetime.datetime.now() - start_time
-    print(f'Done {batches} batches in {time_elapsed}, {time_elapsed.seconds / (batch_size * batches)}s per row')
+    time_per_row = time_elapsed.total_seconds() / (batch_size * batches)
+    print(f'Done {batches} batches of {batch_size} in {time_elapsed}, {time_per_row}s per row')
+
 
 
 if __name__ == '__main__':
@@ -78,8 +80,11 @@ if __name__ == '__main__':
     trt_model = load_trt_model(savedmodel_dir, trt_dir)
 
     batches = 10000
-    batch_size = 32  # on laptop: 6us at 32, 1.6us at 512, 1.3us at 512 and FP16
+    batch_size = 512  # on laptop: 6us at 32, 1.6us at 512, 1.3us at 512 and FP16
 
     benchmark(batches, batch_size, savedmodel)
+    
+    # xla_benchmark = tf.function(benchmark, experimental_compile=True)
+    # xla_benchmark(batches, batch_size, savedmodel)
 
     benchmark(batches, batch_size, trt_model)
