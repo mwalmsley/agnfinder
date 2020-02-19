@@ -1,10 +1,14 @@
 
-# Oxford Cluster
+# Glamdring
 
-**Open Oxford cluster**
 ping -c 2 -s 999 glamdring.physics.ox.ac.uk
+ssh mwalmsley@glamdring.physics.ox.ac.uk
+q
+n
+watch tail -30 /var/logs
 
-**Sync agnfinder code to Oxford cluster**
+
+**Sync agnfinder code to Glamdring**
 
 rsync -avz /home/walml/anaconda3/envs/agnfinder/lib/python3.7/site-packages/sedpy/data/filters/ mwalmsley@glamdring.physics.ox.ac.uk:/mnt/zfsusers/mwalmsley/miniconda3/envs/agnfinder/lib/python3.7/site-packages/sedpy/data/filters
 
@@ -12,27 +16,9 @@ rsync -avz --exclude 'results' repos/agnfinder mwalmsley@glamdring.physics.ox.ac
 rsync -avz repos/agnfinder/results/checkpoints mwalmsley@glamdring.physics.ox.ac.uk:repos/agnfinder/results
 
 
-**sync results from Oxford cluster**
+**sync results from Glamdring**
 rsync -avz mwalmsley@glamdring.physics.ox.ac.uk:repos/agnfinder/results/ /media/mike/internal/agnfinder/results/...
 
-ssh mwalmsley@glamdring.physics.ox.ac.uk
-q
-n
-
-watch tail -30 /var/logs
-
-# UCSC Cluster
-
-vpn.ucsc.edu
-
-ssh mwalmsle@lux.ucsc.edu
-
-srun -N 1 --partition=gpuq  --pty bash -i
-module load python36 (job-free environment only)
-source $tfgpu_env
-
-rsync -avz --exclude 'results' repos/agnfinder mwalmsle@lux.ucsc.edu:repos
-rsync -avz mwalmsle@lux.ucsc.edu:repos/agnfinder/results/lfi/ /media/mike/internal/agnfinder/results/lfi/
 
 # Profiling
 
@@ -81,3 +67,19 @@ ssh -X arcus-htc
 sbatch script.sh
 squeue -A phys-zooniverse
 sacct
+
+
+
+
+# UCSC (deprecated)
+
+vpn.ucsc.edu
+
+ssh mwalmsle@lux.ucsc.edu
+
+srun -N 1 --partition=gpuq  --pty bash -i
+module load python36 (job-free environment only)
+source $tfgpu_env
+
+rsync -avz --exclude 'results' repos/agnfinder mwalmsle@lux.ucsc.edu:repos
+rsync -avz mwalmsle@lux.ucsc.edu:repos/agnfinder/results/lfi/ /media/mike/internal/agnfinder/results/lfi/

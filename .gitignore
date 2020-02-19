@@ -122,3 +122,4 @@ report.txt
 example_galaxy*
 temp*
 *.npy
+tmp*.py

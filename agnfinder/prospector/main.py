@@ -137,7 +137,8 @@ def mcmc_galaxy(run_params, obs, model, sps, initial_theta=None, test=False):
         # nwalkers = 16
         # nwalkers = 256
         # niter = 256
-        niter = 10000  # i.e. iterations of emcee, somewhat like steps
+        # niter = 10000  # i.e. iterations of emcee, somewhat like steps  # 1 hour w/ 32 chains
+        niter = 50000 # long run to check convergence
         # niter = 500  # short, to check everything works
         # niter = 2086 * 2
         nburn = [64, 256]
