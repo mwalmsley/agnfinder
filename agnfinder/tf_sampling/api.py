@@ -20,6 +20,28 @@ class SamplingProblem():
     def param_dim(self):
         return self.true_params.shape[1]  # 0th is batch, 1st is params
 
+    def filter_by_mask(self, mask):  # inplace
+        self.true_observation = tf.boolean_mask(
+            tensor=self.true_observation,
+            mask=mask,
+            axis=0
+        )
+        self.fixed_params = tf.boolean_mask(
+            tensor=self.fixed_params,
+            mask=mask,
+            axis=0
+        )
+        self.uncertainty = tf.boolean_mask(
+            tensor=self.uncertainty,
+            mask=mask,
+            axis=0
+        )
+        self.true_params = tf.boolean_mask(
+            tensor=self.true_params,
+            mask=mask,
+            axis=0
+        )
+
 
 class Sampler():
 

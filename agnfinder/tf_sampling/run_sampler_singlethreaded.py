@@ -11,7 +11,7 @@ from scipy.interpolate import interp1d
 import h5py
 
 from agnfinder.prospector import load_photometry
-from agnfinder.tf_sampling import run_sampler, deep_emulator, parameter_recovery, tensorrt
+from agnfinder.tf_sampling import run_sampler, deep_emulator, parameter_recovery, tensorrt, api
 
 
 # TODO will change to some kind of unique id for each galaxy, rather than the index
@@ -45,12 +45,23 @@ def run_succeeded(file_loc):
         return parameter_recovery.within_percentile_limits(samples)  # WARNING limits will need updating for new cubes/uncertainties!
 
 
-def find_closest_galaxies(input_rows: np.array, candidates: np.array):
+def find_closest_galaxies(input_rows: np.array, candidates: np.array, duplicates: bool):
     pairs = []
+    used_indices = set()
     for n, photometry in tqdm(enumerate(input_rows), total=len(input_rows)):
         error = np.sum((photometry - candidates) ** 2, axis=1)
-        best_index = np.argmin(error) # equivalent to an MLE in discrete space
-        pairs.append(best_index)
+        sorted_indices = np.argsort(error) # equivalent to an MLE in discrete space
+        for index in sorted_indices:
+            if index in used_indices:
+                pass
+            else: # use
+                pairs.append(index)
+                if duplicates is False:  # don't re-use
+                    used_indices.add(index)  
+                break
+        if index == sorted_indices[-1]:
+            raise ValueError('No match found, should be impossible?')
+            
     return pairs
 
 
@@ -68,16 +79,12 @@ def select_subsample(photometry_df: pd.DataFrame, cube_y: np.array, duplicates=F
     for band in bands:
         lower_lim = limits[band][0]
         upper_lim = limits[band][1]
-        df_clipped = photometry_df.query(f'{band} > {lower_lim}').query(f'{band} < {upper_lim}')
+        df_clipped = photometry_df.query(f'{band} > {lower_lim}').query(f'{band} < {upper_lim}').reset_index()  # new index ONLY matches this new df, don't apply to old df
 
     all_photometry = -np.log10([row for _, row in df_clipped[bands].iterrows()])
     
-    pairs = find_closest_galaxies(all_photometry, cube_y)
-    if duplicates:
-        return pairs
-    else:
-        pairs_without_duplicates = np.array(pairs)[~pd.Series(pairs).duplicated()]
-        return pairs_without_duplicates
+    pairs = find_closest_galaxies(all_photometry, cube_y, duplicates=duplicates)
+    return df_clipped, pairs
 
 
 
@@ -161,23 +168,31 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         # filter to subsample with realistic mags
         # # hack this part to speed things up, for now:
 
-        # photometry_df = pd.read_parquet('data/photometry_quicksave.parquet')
-        # pairs = select_subsample(photometry_df, y_test, duplicates=False)
-        # x_test = x_test[pairs]
-        # y_test = y_test[pairs]
-        # np.savetxt('data/cubes/x_test.npy', x_test)
-        # np.savetxt('data/cubes/y_test.npy', y_test)
-        # del x_test
-        # del y_test
-        x_test = np.loadtxt('data/cubes/x_test.npy')
-        y_test = np.loadtxt('data/cubes/y_test.npy')
+        photometry_df = pd.read_parquet('data/photometry_quicksave.parquet')
+        _, pairs = select_subsample(photometry_df, y_test, duplicates=False)
+        x_test = x_test[pairs]
+        y_test = y_test[pairs]
+        np.savetxt('data/cubes/x_test_v2.npy', x_test)
+        np.savetxt('data/cubes/y_test_v2.npy', y_test)
+        exit()
+        del x_test
+        del y_test
+        x_test = np.loadtxt('data/cubes/x_test_v2.npy')
+        y_test = np.loadtxt('data/cubes/x_test_v2.npy')
 
         print(y_test.shape)
 
         x_test = x_test.astype(np.float32)
         y_test = y_test.astype(np.float32)
 
-        galaxy_indices = get_galaxies_to_run(n_chains)
+        # repeat only failures
+        # galaxy_indices = get_galaxies_to_run(n_chains)
+        # names = galaxy_indices
+        # OR
+        # repeat the first galaxy for n_chains
+        galaxy_indices = np.zeros(n_chains, dtype=int)
+        names = np.arange(len(galaxy_indices))
+
         # galaxy_indices = np.arange(n_chains)   # if re-run, is effectively a new chain for an old galaxy
         logging.info(f'Will sample: {galaxy_indices}')
         # exit()
@@ -204,16 +219,21 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
     logging.info('Mean uncertainty by band (decimal):')
     logging.info(np.mean(uncertainty / true_observation, axis=0))
 
-    # exit()
-    
     assert len(fixed_params) == len(true_observation) == len(true_params)
+    assert len(true_observation.shape) == 2
+    assert len(true_params.shape) == 2
+    assert true_params.shape[1] == len(free_param_names)
+    assert fixed_params.shape[1] == len(fixed_param_names)
+    assert len(names) == true_params.shape[0]
+    if true_observation.max() < 1e-3:  # should be denormalised i.e. actual photometry in maggies
+        logging.info('True observation is {}'.format(true_observation))
+        logging.critical('True observation max is {} - make sure it is in maggies, not mags!'.format(true_observation))
+
+    problem = api.SamplingProblem(true_observation, true_params, forward_model=emulator, fixed_params=fixed_params, uncertainty=uncertainty)  # will pass in soon
+
     run_sampler.sample_galaxy_batch(
-        galaxy_indices,
-        true_observation,
-        fixed_params,
-        uncertainty,
-        true_params,
-        emulator,
+        names,
+        problem,
         n_burnin,
         n_samples,
         n_chains,

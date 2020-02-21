@@ -24,7 +24,6 @@ class SamplerHMC(Sampler):
     def sample(self):
         start_time = datetime.datetime.now()
 
-        log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation, self.problem.fixed_params, self.problem.uncertainty)
         initial_state = self.get_initial_state()  # numpy
 
         with np.printoptions(precision=2, suppress=False):
@@ -36,7 +35,8 @@ class SamplerHMC(Sampler):
                 logging.info('True params:')
                 logging.info(self.problem.true_params)
 
-        initial_samples, is_accepted = self.run_hmc(log_prob_fn, initial_state, burnin_only=True)
+        # initial run to check which chains are adapting
+        initial_samples, is_accepted = self.run_hmc(initial_state, thinning=1, burnin_only=True)
 
         logging.debug(is_accepted.numpy().shape)
         logging.debug(is_accepted.numpy())
@@ -54,33 +54,11 @@ class SamplerHMC(Sampler):
             mask=successfully_adapted,
             axis=1
         )
-        self.problem.true_observation = tf.boolean_mask(
-            tensor=self.problem.true_observation,
-            mask=successfully_adapted,
-            axis=0
-        )
-        self.problem.fixed_params = tf.boolean_mask(
-            tensor=self.problem.fixed_params,
-            mask=successfully_adapted,
-            axis=0
-        )
-        self.problem.uncertainty = tf.boolean_mask(
-            tensor=self.problem.uncertainty,
-            mask=successfully_adapted,
-            axis=0
-        )
-        self.problem.true_params = tf.boolean_mask(
-            tensor=self.problem.true_params,
-            mask=successfully_adapted,
-            axis=0
-        )
+        self.problem.filter_by_mask(successfully_adapted)  # inplace
         self.n_chains = tf.reduce_sum(input_tensor=tf.cast(successfully_adapted, tf.int32))
 
-        # get new log_prob_fn
-        log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation, self.problem.fixed_params, self.problem.uncertainty)
-        
         # continue, for real this time
-        final_samples, is_accepted = self.run_hmc(log_prob_fn, initial_samples_filtered[-1], burnin_only=False)
+        final_samples, is_accepted = self.run_hmc(initial_samples_filtered[-1], thinning=10, burnin_only=False)
 
         # TODO am I supposed to be filtering for accepted samples? is_accepted has the same shape as samples, and is binary.
         end_time = datetime.datetime.now()
@@ -101,7 +79,8 @@ class SamplerHMC(Sampler):
             initial_state = tf.random.uniform(self.problem.true_params.shape, minval=0., maxval=1.)
             # initial_state = many_random_starts(self.problem.forward_model, self.problem.true_observation, self.problem.param_dim, self.n_chains)
         elif self.init_method == 'optimised':
-            initial_state = initial_starts.optimised_start(
+            initial_chains = self.n_chains
+            initial_state_unfiltered, is_successful = initial_starts.optimised_start(
                 self.problem.forward_model,
                 tf.constant(self.problem.true_observation),
                 tf.constant(self.problem.fixed_params),
@@ -110,24 +89,36 @@ class SamplerHMC(Sampler):
                 tf.constant(self.n_chains),
                 steps=tf.constant(3000)
             )
+            initial_state = tf.boolean_mask(
+                initial_state_unfiltered,
+                is_successful,
+                axis=0
+            )
+            self.problem.filter_by_mask(is_successful)  # inplace
+            self.n_chains = tf.reduce_sum(input_tensor=tf.cast(is_successful, tf.int32)) # n_chains doesn't do anything at this point, I think
+            logging.info(f'{is_successful.sum()} of {initial_chains} chains successful')
         else:
             raise ValueError('Initialisation method {} not recognised'.format(self.init_method))
         return initial_state
 
-    def run_hmc(self, log_prob_fn, initial_state, burnin_only=False):
+    def run_hmc(self, initial_state, thinning=1, burnin_only=False):
 
         if burnin_only:
-            n_samples = 3000
+            n_samples = 3000  # default adaption burnin, should probably change
+            assert thinning == 1
         else:
             n_samples = self.n_samples
         
+        log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation, self.problem.fixed_params, self.problem.uncertainty)
+
         logging.info('Ready to go - beginning sampling at {}'.format(datetime.datetime.now().ctime()))
         start_time = datetime.datetime.now()
         samples, initial_trace = hmc(
             log_prob_fn=log_prob_fn,
             initial_state=initial_state,
             n_samples=n_samples,  # before stopping and checking that adaption has succeeded
-            n_burnin=self.n_burnin
+            n_burnin=self.n_burnin,
+            thin=thinning
         )
         end_time = datetime.datetime.now()
         elapsed = end_time - start_time
@@ -141,7 +132,7 @@ class SamplerHMC(Sampler):
         return samples, is_accepted
 
 # don't decorate with tf.function
-def hmc(log_prob_fn, initial_state, n_samples=int(10e3), n_burnin=int(1e3)):
+def hmc(log_prob_fn, initial_state, n_samples=int(10e3), n_burnin=int(1e3), thin=1):
 
     assert len(initial_state.shape) == 2  # should be (chain, variables)
 
@@ -195,7 +186,7 @@ def hmc(log_prob_fn, initial_state, n_samples=int(10e3), n_burnin=int(1e3)):
             parallel_iterations=1,  # makes no difference at all to performance, when tested - worth checking before final run
             # https://github.com/tensorflow/probability/blob/f90448698cc2a16e20939686ef0d5005aad95f29/tensorflow_probability/python/mcmc/nuts.py#L72
             trace_fn=lambda _, prev_kernel_results: {'is_accepted': prev_kernel_results.inner_results.is_accepted},
-            # num_steps_between_results=5  # thinning factor of 5, to run much longer
+            num_steps_between_results=thin  # thinning factor, to run much longer with reasonable memory
         )
 
         samples, trace = chain_output

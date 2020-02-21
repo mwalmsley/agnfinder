@@ -8,51 +8,44 @@ import numpy as np
 import h5py
 import tensorflow as tf  # just for eager toggle
 
-from agnfinder.tf_sampling import deep_emulator, api, hmc, nested, emcee_sampling
+from agnfinder.tf_sampling import deep_emulator, hmc, nested, emcee_sampling
 
 # TODO change indices to some kind of unique id, perhaps? will need for real galaxies...
-def sample_galaxy_batch(galaxy_ids, true_observation, fixed_params, uncertainty, true_params, emulator, n_burnin, n_samples, n_chains, init_method, save_dir, free_param_names, fixed_param_names):
-    assert len(true_observation.shape) == 2
-    assert len(true_params.shape) == 2
-    assert true_params.shape[1] == len(free_param_names)
-    assert fixed_params.shape[1] == len(fixed_param_names)
-    assert len(galaxy_ids) == true_params.shape[0]
-    if true_observation.max() < 1e-3:  # should be denormalised i.e. actual photometry in maggies
-        logging.info('True observation is {}'.format(true_observation))
-        logging.critical('True observation max is {} - make sure it is in maggies, not mags!'.format(true_observation))
+def sample_galaxy_batch(galaxy_ids, problem, n_burnin, n_samples, n_chains, init_method, save_dir, free_param_names, fixed_param_names):
 
-    problem = api.SamplingProblem(true_observation, true_params, forward_model=emulator, fixed_params=fixed_params, uncertainty=uncertainty)  # will pass in soon
-    
     # HMC/NUTS
-    # sampler = hmc.SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
+    sampler = hmc.SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
     # OR
     # nested sampling
     # sampler = nested.SamplerNested(problem, n_live=400)
     # OR
     # emcee sampling
-    sampler = emcee_sampling.SamplerEmcee(problem, n_burnin, n_samples, n_chains, init_method=init_method)
+    # sampler = emcee_sampling.SamplerEmcee(problem, n_burnin, n_samples, n_chains, init_method=init_method)
 
     samples, is_successful, sample_weights, log_evidence, metadata = sampler()
     # metadata MUST be already filtered by is_successful
 
     # assert samples.shape[0] == n_samples  # NOT TRUE for nested sampling!
     assert samples.shape[1] == np.sum(is_successful)
-    assert samples.shape[2] == true_params.shape[1]
+    assert samples.shape[2] == problem.true_params.shape[1]
 
     # filter the args to only galaxies which survived
     # samples is already filtered
     # is_accepted is already filtered
     # sample_weights is already filtered
-    true_observation = true_observation[is_successful]
-    true_params = true_params[is_successful]
-    fixed_params = fixed_params[is_successful]
-    uncertainty = uncertainty[is_successful]
+    # true_observation = true_observation[is_successful]
+    # true_params = true_params[is_successful]
+    # fixed_params = fixed_params[is_successful]
+    # uncertainty = uncertainty[is_successful]
     # galaxy_ids are a bit more awkward
+    print(galaxy_ids)
+    print(is_successful)
     ids_were_adapted = dict(zip(galaxy_ids, is_successful))  # dicts are ordered in 3.7+ I think
     remaining_galaxy_ids = [k for k, v in ids_were_adapted.items() if v]
-    discared_galaxy_ids = [k for k, v in ids_were_adapted.items() if not v]
-    if len(discared_galaxy_ids) != 0:
-        logging.warning('Galaxies {} did not adapt and were discarded'.format(discared_galaxy_ids))
+    discarded_galaxy_ids = [k for k, v in ids_were_adapted.items() if not v]
+    print(remaining_galaxy_ids)
+    if len(discarded_galaxy_ids) != 0:
+        logging.warning('Galaxies {} did not adapt and were discarded'.format(discarded_galaxy_ids))
     else:
         logging.info('All galaxies adapted succesfully')
 
@@ -60,7 +53,7 @@ def sample_galaxy_batch(galaxy_ids, true_observation, fixed_params, uncertainty,
     for galaxy_n, name in tqdm(enumerate(remaining_galaxy_ids), unit=' galaxies saved'):
         save_file, chain_n = get_galaxy_save_file_next_chain(name, save_dir)
         galaxy_samples = np.expand_dims(samples[:, galaxy_n], axis=1)
-        save_galaxy(save_file, galaxy_samples, galaxy_n, free_param_names, init_method, n_burnin, name, chain_n, sample_weights[:, galaxy_n], log_evidence[galaxy_n], true_observation[galaxy_n], fixed_params[galaxy_n], fixed_param_names, uncertainty[galaxy_n], metadata, true_params[galaxy_n])
+        save_galaxy(save_file, galaxy_samples, galaxy_n, free_param_names, init_method, n_burnin, name, chain_n, sample_weights[:, galaxy_n], log_evidence[galaxy_n], problem.true_observation[galaxy_n], problem.fixed_params[galaxy_n], fixed_param_names, problem.uncertainty[galaxy_n], metadata, problem.true_params[galaxy_n])
 
 
 def save_galaxy(save_file, galaxy_samples, galaxy_n, free_param_names, init_method, n_burnin, name, chain_n, sample_weights, log_evidence, true_observation, fixed_params, fixed_param_names, uncertainty, metadata, true_params):

@@ -9,13 +9,15 @@ import numpy as np
 from agnfinder.tf_sampling.api import get_log_prob_fn
 
 
-def optimised_start(forward_model, observations, fixed_params, uncertainty, param_dim, n_chains, steps, n_attempts=15):
+def optimised_start(forward_model, observations, fixed_params, uncertainty, param_dim, n_chains, steps, n_attempts=15, max_cost=10**2.5):
     start_time = datetime.datetime.now()
-    best_params = find_best_params(forward_model, observations, fixed_params, uncertainty, param_dim, n_chains, steps, n_attempts)
+    best_params, lowest_costs = find_best_params(forward_model, observations, fixed_params, uncertainty, param_dim, n_chains, steps, n_attempts)
     end_time = datetime.datetime.now()
     elapsed = (end_time - start_time).total_seconds()
+    logging.info(f'costs: {np.log10(lowest_costs)}')
     logging.info('Done {} optimisations over {} steps in {} seconds.'.format(n_chains, steps, elapsed))
-    return best_params
+    is_successful = lowest_costs < max_cost
+    return best_params, is_successful
 
 
 def find_best_params(forward_model, observations, fixed_params, uncertainty, param_dim, batch_dim, steps, n_attempts):
@@ -36,11 +38,12 @@ def find_best_params(forward_model, observations, fixed_params, uncertainty, par
             all_costs[n].append(latest_costs[n])
 
 
-    lowest_costs_by_galaxy = [np.argmin(x) for x in all_costs]
-    best_params_by_galaxy = [x[cost] for x, cost in zip(all_params, lowest_costs_by_galaxy)]
+    best_galaxy_indices = [np.argmin(x) for x in all_costs]
+    best_params_by_galaxy = [x[cost] for x, cost in zip(all_params, best_galaxy_indices)]
     best_params = np.array(best_params_by_galaxy)
+    lowest_costs = np.array([np.min(x) for x in all_costs])
 
-    return best_params
+    return best_params, lowest_costs
 
 
 # TODO convert to be tf.function() friendly, creating no ops

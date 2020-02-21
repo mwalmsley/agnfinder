@@ -35,14 +35,14 @@ class SamplerEmcee(Sampler):
             uncertainty_g = self.problem.uncertainty[galaxy_index]
 
             n_params = self.problem.param_dim
-            nwalkers = 128
+            nwalkers = 256  # 512 on zeus?
 
             true_observation_walkers = tf.constant(np.stack([true_observation_g for _ in range(nwalkers)], axis=0))
             fixed_params_walkers = tf.constant(np.stack([fixed_params_g for _ in range(nwalkers)], axis=0))
             uncertainty_walkers = tf.constant(np.stack([uncertainty_g for _ in range(nwalkers)], axis=0))
 
             # emcee wants initial start *with* a batch dim, where batch=walker rather than batch=galaxy. Can re-use the same code.
-            p0 = initial_starts.optimised_start(
+            p0_unfiltered, is_successful = initial_starts.optimised_start(
                 self.problem.forward_model,
                 true_observation_walkers,
                 fixed_params_walkers,
@@ -52,6 +52,12 @@ class SamplerEmcee(Sampler):
                 steps=3000,
                 n_attempts=5
             )
+
+            logging.info(f'{is_successful.sum()} of {self.n_chains} chains successful')
+
+            p0 = p0_unfiltered[is_successful]
+            self.problem.filter_by_mask(is_successful)  # inplace
+            self.n_chains = tf.reduce_sum(input_tensor=tf.cast(is_successful, tf.int32)) # n_chains doesn't do anything at this point, I think
 
             # emcee log prob must be able to handle variable batch dimension, for walker subsensembles (here, actually a hassle)
             log_prob_fn = get_log_prob_fn_variable_batch(
@@ -72,14 +78,18 @@ class SamplerEmcee(Sampler):
             start_time = datetime.datetime.now()
             logging.info(f'Begin sampling at {start_time}')
 
-            state = sampler.run_mcmc(p0, self.n_burnin)
-            sampler.reset()
+            state = sampler.run_mcmc(p0, self.n_burnin, progress=True)
             logging.info('Burn-in complete')
+            logging.info(f'Acceptance: {sampler.acceptance_fraction.mean()} +/- {2*sampler.acceptance_fraction.std()}')
+            sampler.reset()
 
-            sampler.run_mcmc(state, self.n_samples)
+
+            sampler.run_mcmc(state, self.n_samples, progress=True, thin_by=10)
             time_elapsed = datetime.datetime.now() - start_time
             seconds_per_sample = time_elapsed.seconds / (self.n_samples * nwalkers)
             logging.info(f'emcee sampling complete in {time_elapsed}, {seconds_per_sample}s per sample')
+            acceptance = sampler.acceptance_fraction
+            logging.info(f'Acceptance: {acceptance.mean()} +/- {2*acceptance.std()}')
 
             sample_list.append(sampler.get_chain(flat=True))  # flattened
             is_successful[galaxy_index] = True  # for now
