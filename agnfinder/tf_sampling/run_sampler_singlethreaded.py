@@ -50,10 +50,7 @@ def find_closest_galaxies(input_rows: np.array, candidates: np.array, duplicates
     used_indices = set()
     for n, photometry in tqdm(enumerate(input_rows), total=len(input_rows)):
         error = np.sum((photometry - candidates) ** 2, axis=1)
-        lowest_k_indices = np.argpartition(error, len(input_rows))  # find the lowest (catalog n) rows, don't bother sorting the rest
-        lowest_k = error[lowest_k_indices]
-        sorted_lowest_k_indices = np.argsort(lowest_k) # indices to sort the lowest k rows, *indexed only to the lowest k*
-        sorted_indices = lowest_k_indices[sorted_lowest_k_indices]
+        sorted_indices = np.argsort(error) # equivalent to an MLE in discrete space
         for index in sorted_indices:
             if index in used_indices:
                 pass
@@ -88,7 +85,6 @@ def select_subsample(photometry_df: pd.DataFrame, cube_y: np.array, duplicates=F
     
     pairs = find_closest_galaxies(all_photometry, cube_y, duplicates=duplicates)
     return df_clipped, pairs
-
 
 
 
