@@ -142,7 +142,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
     else:
         # fake galaxies, drawn from our priors and used as emulator training data
         logging.info('Using fake galaxies, drawn randomly from the hypercube')
-        # _, _, x_test, y_test = deep_emulator.data(cube_dir='data/cubes/latest')  # TODO could make as arg
+        _, _, x_test, y_test = deep_emulator.data(cube_dir='data/cubes/latest')  # TODO could make as arg
         # filter to max redshift .5
         # within_max_z = x_test[:, 0] < .5 / 4.
 
