@@ -169,7 +169,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         # # hack this part to speed things up, for now:
 
         photometry_df = pd.read_parquet('data/photometry_quicksave.parquet')
-        _, pairs = select_subsample(photometry_df, y_test, duplicates=False)
+        _, pairs = select_subsample(photometry_df[:100], y_test, duplicates=False)
         x_test = x_test[pairs]
         y_test = y_test[pairs]
         np.savetxt('data/cubes/x_test_v2.npy', x_test)
