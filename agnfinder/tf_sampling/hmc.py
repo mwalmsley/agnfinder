@@ -1,8 +1,10 @@
 import logging
 import datetime
+from typing import List
 
 import tqdm
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 import tensorflow_probability as tfp
 
@@ -59,14 +61,45 @@ class SamplerHMC(Sampler):
 
         # continue, for real this time
         final_samples, is_accepted = self.run_hmc(initial_samples_filtered[-1], thinning=10, burnin_only=False)
+        # problem object is modified inplace to filter out failures
+        # assert samples.shape[0] == n_samples  # NOT TRUE for nested sampling!
+        assert final_samples.shape[1] == np.sum(successfully_adapted)  # auto-numpy cast?
+        assert final_samples.shape[2] == self.problem.true_params.shape[1]
 
         # TODO am I supposed to be filtering for accepted samples? is_accepted has the same shape as samples, and is binary.
         end_time = datetime.datetime.now()
         logging.info('Total time for galaxies: {}s'.format( (end_time - start_time).total_seconds()))
-        metadata = {'is_accepted': is_accepted}
-        sample_weights = np.ones((final_samples.shape[:2]))  # 0 and 1 dimensions
-        log_evidence = np.ones_like(sample_weights)
-        return final_samples, successfully_adapted.numpy(), sample_weights, log_evidence, metadata
+
+        # for convenience, group samples by galaxy
+        unique_ids = pd.unique(self.problem.observation_ids)
+        if len(unique_ids) > 1:
+            partition_key = dict(zip(unique_ids, range(len(unique_ids))))
+            partitions = [partition_key[x] for x in self.problem.observation_ids]
+
+            partitions = [partition_key[x] for x in self.problem.observation_ids]
+            logging.info(f'Partitioning galaxies with {partition_key} with partitions {partitions}')
+            # list of (sample, chain, param) samples, by galaxy
+            # TODO could do this in numpy, as final_samples is already np.array, but whatever
+            samples_by_galaxy_chain_first = tf.dynamic_partition(
+                data=tf.transpose(final_samples, [1, 0, 2]),  # put chain index first temporarily
+                partitions=partitions,
+                num_partitions=len(unique_ids)
+            )
+            # put chain index back in second dim, and finally cast back to numpy
+            samples_by_galaxy = [tf.transpose(x, [1, 0, 2]).numpy() for x in samples_by_galaxy_chain_first]
+        else:  # only one anyway, so just send straight to list
+            logging.warning(f'Only one unique observation found ({unique_ids}) - skipping partitioning')
+            samples_by_galaxy = [final_samples]
+
+        # list of metadata dicts, by galaxy
+        metadata = [{} for n in range(len(samples_by_galaxy))]
+        # metadata = [{'is_accepted': is_accepted[] for n in range(len(is_accepted))}] TODO not quite right, need to use partitions again
+        # list of sample weights (here, all equal) by galaxy
+        sample_weights = [np.ones((x.shape[:2])) for x in samples_by_galaxy]  # 0 and 1 dimensions
+        # list of log evidence (here, not relevant - to remove?), by galaxy
+        log_evidence = [np.ones_like(x) for x in sample_weights]
+        return unique_ids, samples_by_galaxy, sample_weights, log_evidence, metadata
+
 
     def get_initial_state(self):
         if self.init_method == 'correct':

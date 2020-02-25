@@ -7,9 +7,11 @@ from agnfinder.tf_sampling import deep_emulator
 
 class SamplingProblem():
 
-    def __init__(self, true_observation, true_params, forward_model, fixed_params, uncertainty):
+    def __init__(self, observation_ids, true_observation, true_params, forward_model, fixed_params, uncertainty):
+        assert len(observation_ids) == len(true_observation) == len(true_params) == len(fixed_params) == len(uncertainty)
         assert true_observation.ndim == 2
         assert true_params.ndim == 2
+        self.observation_ids = observation_ids
         self.true_observation = true_observation
         self.true_params = true_params
         self.forward_model = forward_model  # should be a callable
@@ -21,6 +23,20 @@ class SamplingProblem():
         return self.true_params.shape[1]  # 0th is batch, 1st is params
 
     def filter_by_mask(self, mask):  # inplace
+        
+        # mask may be a tf tensor
+        if isinstance(mask, np.ndarray):
+            np_mask = mask
+        else:
+            np_mask = mask.numpy()
+        ids_were_adapted = list(zip(self.observation_ids, np_mask))  # don't use dict, galaxy_ids may repeat (many)
+        remaining_ids = [k for k, v in ids_were_adapted if v]
+        discarded_ids = [k for k, v in ids_were_adapted if not v]
+        if len(discarded_ids) != 0:
+            logging.warning('Discarding observations: {} '.format(discarded_ids))
+        self.observation_ids = remaining_ids
+        # now, index of galaxy_ids will match indexes within problem again
+
         self.true_observation = tf.boolean_mask(
             tensor=self.true_observation,
             mask=mask,

@@ -48,7 +48,7 @@ def run_succeeded(file_loc):
 def find_closest_galaxies(input_rows: np.array, candidates: np.array, duplicates: bool):
     pairs = []
     used_indices = set()
-    for n, photometry in tqdm(enumerate(input_rows), total=len(input_rows)):
+    for _, photometry in tqdm(enumerate(input_rows), total=len(input_rows)):
         error = np.sum((photometry - candidates) ** 2, axis=1)
         sorted_indices = np.argsort(error) # equivalent to an MLE in discrete space
         for index in sorted_indices:
@@ -168,17 +168,17 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         # filter to subsample with realistic mags
         # # hack this part to speed things up, for now:
 
-        photometry_df = pd.read_parquet('data/photometry_quicksave.parquet')
-        _, pairs = select_subsample(photometry_df, y_test, duplicates=False)
-        x_test = x_test[pairs]
-        y_test = y_test[pairs]
-        np.savetxt('data/cubes/x_test_v2.npy', x_test)
-        np.savetxt('data/cubes/y_test_v2.npy', y_test)
-        # exit()
-        del x_test
-        del y_test
-        x_test = np.loadtxt('data/cubes/x_test_v2.npy')
-        y_test = np.loadtxt('data/cubes/x_test_v2.npy')
+        # photometry_df = pd.read_parquet('data/photometry_quicksave.parquet')
+        # _, pairs = select_subsample(photometry_df, y_test, duplicates=False)
+        # x_test = x_test[pairs]
+        # y_test = y_test[pairs]
+        # np.savetxt('data/cubes/x_test_v2.npy', x_test)
+        # np.savetxt('data/cubes/y_test_v2.npy', y_test)
+        # # exit()
+        # del x_test
+        # del y_test
+        x_test = np.loadtxt('data/cubes/x_test.npy')
+        y_test = np.loadtxt('data/cubes/y_test.npy')
 
         print(y_test.shape)
 
@@ -186,12 +186,16 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
         y_test = y_test.astype(np.float32)
 
         # repeat only failures
-        # galaxy_indices = get_galaxies_to_run(n_chains)
-        # names = galaxy_indices
+        galaxy_indices = get_galaxies_to_run(n_chains)
+        names = ['galaxy_' + str(i) for i in galaxy_indices]
         # OR
         # repeat the first galaxy for n_chains
-        galaxy_indices = np.zeros(n_chains, dtype=int)
-        names = np.arange(len(galaxy_indices))
+        # galaxy_indices = np.zeros(n_chains, dtype=int)
+        # names = ['galaxy_0' for _ in galaxy_indices]
+        # OR
+        # manual
+        # galaxy_indices = np.zeros(n_chains, dtype=int)  # whatever, will actually be wrong
+        # names = ['galaxy_' + str(np.random.choice([0, 1])) for i in galaxy_indices]
 
         # galaxy_indices = np.arange(n_chains)   # if re-run, is effectively a new chain for an old galaxy
         logging.info(f'Will sample: {galaxy_indices}')
@@ -210,14 +214,14 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
 
         uncertainty = load_photometry.estimate_maggie_uncertainty(true_observation)
 
-    logging.info('photometry: ')
-    logging.info(true_observation)
-    logging.info('Uncertainty: ')
-    logging.info(uncertainty)
-    logging.info('Uncertainty (decimal)')
-    logging.info(uncertainty / true_observation)
-    logging.info('Mean uncertainty by band (decimal):')
-    logging.info(np.mean(uncertainty / true_observation, axis=0))
+    # logging.info('photometry: ')
+    # logging.info(true_observation)
+    # logging.info('Uncertainty: ')
+    # logging.info(uncertainty)
+    # logging.info('Uncertainty (decimal)')
+    # logging.info(uncertainty / true_observation)
+    # logging.info('Mean uncertainty by band (decimal):')
+    # logging.info(np.mean(uncertainty / true_observation, axis=0))
 
     assert len(fixed_params) == len(true_observation) == len(true_params)
     assert len(true_observation.shape) == 2
@@ -225,14 +229,13 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, max_gal
     assert true_params.shape[1] == len(free_param_names)
     assert fixed_params.shape[1] == len(fixed_param_names)
     assert len(names) == true_params.shape[0]
-    if true_observation.max() < 1e-3:  # should be denormalised i.e. actual photometry in maggies
+    if true_observation.max() > 1e-3:  # should be denormalised i.e. actual photometry in maggies
         logging.info('True observation is {}'.format(true_observation))
         logging.critical('True observation max is {} - make sure it is in maggies, not mags!'.format(true_observation))
 
-    problem = api.SamplingProblem(true_observation, true_params, forward_model=emulator, fixed_params=fixed_params, uncertainty=uncertainty)  # will pass in soon
+    problem = api.SamplingProblem(names, true_observation, true_params, forward_model=emulator, fixed_params=fixed_params, uncertainty=uncertainty)  # will pass in soon
 
     run_sampler.sample_galaxy_batch(
-        names,
         problem,
         n_burnin,
         n_samples,
