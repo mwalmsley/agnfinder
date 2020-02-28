@@ -58,6 +58,8 @@ scp -r -oProxyJump=mikewalmsley@aquila.star.bris.ac.uk mike@zeus.star.bris.ac.uk
 
 scp -r -oProxyJump=mikewalmsley@aquila.star.bris.ac.uk data/photometry_quicksave.parquet mike@zeus.star.bris.ac.uk:/scratch/agnfinder/agnfinder/data/photometry_quicksave.parquet
 
+scp -r -oProxyJump=mikewalmsley@aquila.star.bris.ac.uk mike@zeus.star.bris.ac.uk:/scratch/agnfinder/agnfinder/data/cubes/x_test_v2.npy data/cubes/
+scp -r -oProxyJump=mikewalmsley@aquila.star.bris.ac.uk mike@zeus.star.bris.ac.uk:/scratch/agnfinder/agnfinder/data/cubes/y_test_v2.npy data/cubes/
 
 ## ARC
 

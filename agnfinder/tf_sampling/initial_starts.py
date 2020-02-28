@@ -17,7 +17,7 @@ def optimised_start(forward_model, observations, fixed_params, uncertainty, para
     logging.info(f'costs: {np.log10(lowest_costs)}')
     logging.info('Done {} optimisations over {} steps in {} seconds.'.format(n_chains, steps, elapsed))
     is_successful = lowest_costs < max_cost
-    return best_params, is_successful
+    return best_params, lowest_costs, is_successful
 
 
 def find_best_params(forward_model, observations, fixed_params, uncertainty, param_dim, batch_dim, steps, n_attempts):

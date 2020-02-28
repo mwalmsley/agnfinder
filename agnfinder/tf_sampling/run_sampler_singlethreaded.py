@@ -88,10 +88,10 @@ def select_subsample(photometry_df: pd.DataFrame, cube_y: np.array, duplicates=F
 
 
 
-def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, n_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir, fixed_redshift, filter_selection):
+def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, mode, n_galaxies, n_burnin, n_samples, n_repeats, max_chains, init_method, save_dir, fixed_redshift, filter_selection):
     
     emulator = deep_emulator.get_trained_keras_emulator(deep_emulator.tf_model(), checkpoint_loc, new=False)
-    # emulator = tensorrt.load_trt_model(checkpoint_loc + '_savedmodel', checkpoint_loc + '_trt')
+    # emulator = tensorrt.load_trt_model(checkpoint_loc + '_savedmodel', checkpoint_loc + '_trt')  # not really any faster, and can't do HMC
 
     n_photometry = 12
 
@@ -109,35 +109,36 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, n_galax
         os.mkdir(save_dir)
 
     if selected_catalog_loc is not '':
-        # real galaxies, selected from uK_IR sample by highest (?) random forest prob. (`Pr[{class}]_case_III')
-        assert os.path.isfile(selected_catalog_loc)  # TODO generalise?
-        df = pd.read_parquet(selected_catalog_loc)
-        n_galaxies = np.min([len(df), n_chains])
-        df = df.sample(n_galaxies)  # don't reset index, important for labels
-        logging.info(f'Loading {len(df)} galaxies')
-        rf_classes = ['passive', 'starforming', 'starburst', 'agn', 'qso', 'outlier']
-        for c in rf_classes:
-            logging.info('{}: {:.2f}'.format(c, df[f'Pr[{c}]_case_III'].sum()))
-        true_observation = np.zeros((len(df), n_photometry)).astype(np.float32)  # fixed bands
-        uncertainty = np.zeros_like(true_observation).astype(np.float32)
-        if fixed_redshift:
-            fixed_params = np.zeros((len(df), 1), dtype=np.float32)  # will hold redshifts
-        else:
-            fixed_params = np.zeros((len(df), 0), dtype=np.float32)  # note the 0 shape
-        for n in tqdm(range(len(df))):
-            galaxy = df.iloc[n]
-            maggies, maggies_unc = load_photometry.load_maggies_to_array(galaxy, filter_selection)
-            uncertainty[n] = maggies_unc.astype(np.float32)  # trusting the catalog uncertainty, which may be brave
-            true_observation[n] = maggies.astype(np.float32)
-            if fixed_redshift:
-                logging.info('Using fixed spectroscopic redshifts from catalog')
-                # div by 4 to convert to hypercube space
-                # TODO WARNING assumes cube max redshift is 4, absolutely must match cube redshift limits and prior is uniform
-                fixed_params[n] = galaxy['redshift'] / 4. 
-        true_params = np.zeros((len(df), len(free_param_names))).astype(np.float32)  # easier than None as I often use it in asserts or for expected param dim
-        logging.warning(f'Using {len(df)} real galaxies - forcing n_chains from {n_chains} to {len(df)} accordingly')
-        n_chains = len(df)  # overriding whatever the arg was
-        galaxy_indices = df.index  # just in case the df index was not reset to 0...n
+        raise DeprecationWarning('Temporarily not supported - need to redo selection process')
+        # # real galaxies, selected from uK_IR sample by highest (?) random forest prob. (`Pr[{class}]_case_III')
+        # assert os.path.isfile(selected_catalog_loc)  # TODO generalise?
+        # df = pd.read_parquet(selected_catalog_loc)
+        # n_galaxies = np.min([len(df), n_chains])
+        # df = df.sample(n_galaxies)  # don't reset index, important for labels
+        # logging.info(f'Loading {len(df)} galaxies')
+        # rf_classes = ['passive', 'starforming', 'starburst', 'agn', 'qso', 'outlier']
+        # for c in rf_classes:
+        #     logging.info('{}: {:.2f}'.format(c, df[f'Pr[{c}]_case_III'].sum()))
+        # true_observation = np.zeros((len(df), n_photometry)).astype(np.float32)  # fixed bands
+        # uncertainty = np.zeros_like(true_observation).astype(np.float32)
+        # if fixed_redshift:
+        #     fixed_params = np.zeros((len(df), 1), dtype=np.float32)  # will hold redshifts
+        # else:
+        #     fixed_params = np.zeros((len(df), 0), dtype=np.float32)  # note the 0 shape
+        # for n in tqdm(range(len(df))):
+        #     galaxy = df.iloc[n]
+        #     maggies, maggies_unc = load_photometry.load_maggies_to_array(galaxy, filter_selection)
+        #     uncertainty[n] = maggies_unc.astype(np.float32)  # trusting the catalog uncertainty, which may be brave
+        #     true_observation[n] = maggies.astype(np.float32)
+        #     if fixed_redshift:
+        #         logging.info('Using fixed spectroscopic redshifts from catalog')
+        #         # div by 4 to convert to hypercube space
+        #         # TODO WARNING assumes cube max redshift is 4, absolutely must match cube redshift limits and prior is uniform
+        #         fixed_params[n] = galaxy['redshift'] / 4. 
+        # true_params = np.zeros((len(df), len(free_param_names))).astype(np.float32)  # easier than None as I often use it in asserts or for expected param dim
+        # logging.warning(f'Using {len(df)} real galaxies - forcing n_chains from {n_chains} to {len(df)} accordingly')
+        # n_chains = len(df)  # overriding whatever the arg was
+        # chain_indices = df.index  # just in case the df index was not reset to 0...n
 
     else:
         # fake galaxies, drawn from our priors and used as emulator training data
@@ -146,54 +147,32 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, n_galax
         # filter to max redshift .5
         # within_max_z = x_test[:, 0] < .5 / 4.
 
-        # even with 100x factor, only 25% of galaxies don't get uncertainty clipped
-        # many galaxies probably still unrealistic
-        # should make more histograms / read them to find good clips
-        # should maybe have two cubes: low-z cube and any/high-z cube?
-        # photometry on low-z galaxies can be a 'targeted special case' 
-        # already have the code to do it
-        # run zeus tonight?
-        # min_maggies = 10 ** -8
-        # max_maggies = 10 ** -6
-        # normalised_min_maggies = deep_emulator.normalise_photometry(min_maggies)
-        # normalised_max_maggies = deep_emulator.normalise_photometry(max_maggies)
-        # within_maggie_limit = np.all((y_test < normalised_min_maggies) & (y_test > normalised_max_maggies), axis=1)  # less than, as normalising includes a sign flip
-
-        # astro_acceptable = within_max_z
-        # astro_acceptable = within_maggie_limit
-        # astro_acceptable = within_max_z & within_maggie_limit
-        # x_test = x_test[astro_acceptable]
-        # y_test = y_test[astro_acceptable]
-
+        new_subsample = False
         # filter to subsample with realistic mags
-        # # hack this part to speed things up, for now:
-
-        # photometry_df = pd.read_parquet('data/photometry_quicksave.parquet')
-        # _, pairs = select_subsample(photometry_df, y_test, duplicates=False)
-        # x_test = x_test[pairs]
-        # y_test = y_test[pairs]
-        # np.savetxt('data/cubes/x_test_v2.npy', x_test)
-        # np.savetxt('data/cubes/y_test_v2.npy', y_test)
-        # # exit()
-        # del x_test
-        # del y_test
-        x_test = np.loadtxt('data/cubes/x_test_v2.npy')
-        y_test = np.loadtxt('data/cubes/y_test_v2.npy')
-
-        print(y_test.shape)
-
+        if new_subsample:
+            photometry_df = pd.read_parquet('data/photometry_quicksave.parquet')
+            _, pairs = select_subsample(photometry_df, y_test, duplicates=False)
+            x_test = x_test[pairs]
+            y_test = y_test[pairs]
+            np.savetxt('data/cubes/x_test_v2.npy', x_test)
+            np.savetxt('data/cubes/y_test_v2.npy', y_test)
+            del x_test
+            del y_test
+        x_test = np.loadtxt('data/cubes/x_test.npy')
+        y_test = np.loadtxt('data/cubes/y_test.npy')
+        # x_test = np.loadtxt('data/cubes/x_test_v2.npy')
+        # y_test = np.loadtxt('data/cubes/y_test_v2.npy')
         x_test = x_test.astype(np.float32)
         y_test = y_test.astype(np.float32)
+        print(y_test.shape)
 
         # repeat only failures
         chain_indices = get_galaxies_to_run(n_galaxies)
         print(f'indices: {chain_indices}')
-        # repeat to n_chains
-        chains_per_galaxy = 32  # hardcode for now
-        chain_indices = np.tile(chain_indices, chains_per_galaxy)
-        max_index = np.min([len(chain_indices), n_chains])
-        print(f'Max: {max_index}')
-        chain_indices = chain_indices[:max_index]  # max out at 512
+        # OPTIONAL repeat to n_chains (bad idea for emcee)
+        chain_indices = np.tile(chain_indices, n_repeats)
+        max_index = np.min([len(chain_indices), max_chains])
+        chain_indices = chain_indices[:max_index]
         names = ['galaxy_' + str(i) for i in chain_indices]
         # OR
         # repeat the first galaxy for n_chains
@@ -221,15 +200,6 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, n_galax
 
         uncertainty = load_photometry.estimate_maggie_uncertainty(true_observation)
 
-    # logging.info('photometry: ')
-    # logging.info(true_observation)
-    # logging.info('Uncertainty: ')
-    # logging.info(uncertainty)
-    # logging.info('Uncertainty (decimal)')
-    # logging.info(uncertainty / true_observation)
-    # logging.info('Mean uncertainty by band (decimal):')
-    # logging.info(np.mean(uncertainty / true_observation, axis=0))
-
     assert len(fixed_params) == len(true_observation) == len(true_params)
     assert len(true_observation.shape) == 2
     assert len(true_params.shape) == 2
@@ -244,9 +214,9 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, n_galax
 
     run_sampler.sample_galaxy_batch(
         problem,
+        mode,
         n_burnin,
         n_samples,
-        n_chains,
         init_method,
         save_dir,
         free_param_names,
@@ -269,11 +239,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run emulated HMC on many galaxies')
     parser.add_argument('--checkpoint-loc', type=str, dest='checkpoint_loc', default='results/checkpoints/latest')
     parser.add_argument('--output-dir', dest='output_dir', type=str, default='results/emulated_sampling')  # in which save_dir will be created
-    parser.add_argument('--n-galaxies', type=int, default=1, dest='n_galaxies')
-    parser.add_argument('--selected', type=str, default='', dest='selected_catalog_loc')
-    parser.add_argument('--n-burnin', type=int, default=3000, dest='n_burnin')
-    parser.add_argument('--n-samples', type=int, default=80000, dest='n_samples')
-    parser.add_argument('--n-chains', type=int, default=512, dest='n_chains')
+    parser.add_argument('--selected', type=str, default='', dest='selected_catalog_loc', help="Location of photometry catalog to use. If not specified, simulated galaxies will be used.")
+    parser.add_argument('--mode', type=str, default='hmc', dest='mode', help="Sampler to use. One of {'hmc', 'emcee'}. Default: 'hmc'")
+    parser.add_argument('--n-galaxies', type=int, default=1, dest='n_galaxies', help="Number of distinct galaxies to use. Each may be sampled repeatedly via --n-chains")
+    parser.add_argument('--n-burnin', type=int, default=3000, dest='n_burnin', help='Burn-in samples per chain, excluding fixed (3000) burn-in steps to discard bad adapters')
+    parser.add_argument('--n-samples', type=int, default=80000, dest='n_samples', help='Samples per chain')
+    parser.add_argument('--n-repeats', type=int, default=1, dest='n_repeats', help='Repeated sampling attempts per galaxy. Should probably be 1 (repeated runs) for emcee, or 32 (chains) for HMC')
+    parser.add_argument('--max-chains', type=int, default=512, dest='max_chains', help='Max chains to sample (in parallel). Equivalent to GPU batch size. Only relevent for HMC')
     parser.add_argument('--init', type=str, dest='init_method', default='optimised', help='Can be one of: random, roughly_correct, optimised')
     parser.add_argument('--redshift', type=str, dest='redshift_str', default='fixed', help='Can be one of: fixed, free')
     parser.add_argument('--filters', type=str, dest='filters', default='euclid', help='Can be one of: euclid, reliable. Only has an effect on real galaxies.')
@@ -292,10 +264,12 @@ if __name__ == '__main__':
     output_dir = args.output_dir
     assert checkpoint_loc is not None
     assert output_dir is not None
+    mode = args.mode
     n_galaxies = args.n_galaxies
     n_burnin = args.n_burnin
     n_samples = args.n_samples
-    n_chains = args.n_chains
+    n_repeats = args.n_repeats
+    max_chains = args.max_chains
     init_method = args.init_method
     selected_catalog_loc = args.selected_catalog_loc
 
@@ -304,11 +278,8 @@ if __name__ == '__main__':
         save_dir = os.path.join(output_dir, os.path.basename(selected_catalog_loc)).split('.')[0]  # no periods otherwise allowed...
     else:
         logging.info('Using simulated galaxies')
-        save_dir = os.path.join(output_dir, 'latest_{}_{}_{}'.format(n_samples, n_chains, init_method))
+        save_dir = os.path.join(output_dir, 'latest_{}_{}_{}'.format(n_samples, n_repeats, init_method))
         # save_dir = 'results/emulated_sampling/30k_burnin'
 
     logging.info('Galaxies will save to {}'.format(save_dir))
-    record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, n_galaxies, n_burnin, n_samples, n_chains, init_method, save_dir, fixed_redshift, args.filters)
-    # run_sampler.aggregate_performance(save_dir, n_samples, chains_per_galaxy=1)
-    # samples, true_params, true_observations = run_sampler.read_performance(save_dir)
-    # print(samples.shape, true_params.shape, true_observations.shape)
+    record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, mode, n_galaxies, n_burnin, n_samples, n_repeats, max_chains, init_method, save_dir, fixed_redshift, args.filters)

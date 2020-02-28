@@ -14,14 +14,17 @@ from agnfinder.tf_sampling import initial_starts
 
 class SamplerHMC(Sampler):
 
-    def __init__(self, problem: SamplingProblem, n_burnin, n_samples, n_chains, init_method='random'):
+    def __init__(self, problem: SamplingProblem, n_burnin, n_samples, init_method='random'):
         assert tf.executing_eagerly()  # required for sampling
         self.problem = problem
         self.n_burnin = n_burnin
         self.n_samples = n_samples
-        self.n_chains = n_chains
         assert init_method in {'random', 'optimised', 'correct', 'roughly_correct'}
         self.init_method = init_method
+
+    @property
+    def n_chains(self):
+        return len(self.problem.true_observation)
 
     def sample(self):
         start_time = datetime.datetime.now()
@@ -57,7 +60,6 @@ class SamplerHMC(Sampler):
             axis=1
         )
         self.problem.filter_by_mask(successfully_adapted)  # inplace
-        self.n_chains = tf.reduce_sum(input_tensor=tf.cast(successfully_adapted, tf.int32))
 
         # continue, for real this time
         final_samples, is_accepted = self.run_hmc(initial_samples_filtered[-1], thinning=10, burnin_only=False)  # note the thinning
@@ -113,7 +115,7 @@ class SamplerHMC(Sampler):
             # initial_state = many_random_starts(self.problem.forward_model, self.problem.true_observation, self.problem.param_dim, self.n_chains)
         elif self.init_method == 'optimised':
             initial_chains = self.n_chains
-            initial_state_unfiltered, is_successful = initial_starts.optimised_start(
+            initial_state_unfiltered, _, is_successful = initial_starts.optimised_start(
                 self.problem.forward_model,
                 tf.constant(self.problem.true_observation),
                 tf.constant(self.problem.fixed_params),
@@ -128,7 +130,6 @@ class SamplerHMC(Sampler):
                 axis=0
             )
             self.problem.filter_by_mask(is_successful)  # inplace
-            self.n_chains = tf.reduce_sum(input_tensor=tf.cast(is_successful, tf.int32)) # n_chains doesn't do anything at this point, I think
             logging.info(f'{is_successful.sum()} of {initial_chains} chains successful')
         else:
             raise ValueError('Initialisation method {} not recognised'.format(self.init_method))
