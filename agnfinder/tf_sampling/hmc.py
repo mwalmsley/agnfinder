@@ -60,7 +60,7 @@ class SamplerHMC(Sampler):
         self.n_chains = tf.reduce_sum(input_tensor=tf.cast(successfully_adapted, tf.int32))
 
         # continue, for real this time
-        final_samples, is_accepted = self.run_hmc(initial_samples_filtered[-1], thinning=10, burnin_only=False)
+        final_samples, is_accepted = self.run_hmc(initial_samples_filtered[-1], thinning=10, burnin_only=False)  # note the thinning
         # problem object is modified inplace to filter out failures
         # assert samples.shape[0] == n_samples  # NOT TRUE for nested sampling!
         assert final_samples.shape[1] == np.sum(successfully_adapted)  # auto-numpy cast?

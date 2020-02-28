@@ -14,13 +14,13 @@ from agnfinder.tf_sampling import deep_emulator, hmc, nested, emcee_sampling
 def sample_galaxy_batch(problem, n_burnin, n_samples, n_chains, init_method, save_dir, free_param_names, fixed_param_names):
 
     # HMC/NUTS
-    # sampler = hmc.SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
+    sampler = hmc.SamplerHMC(problem, n_burnin, n_samples, n_chains, init_method=init_method)
     # OR
     # nested sampling
     # sampler = nested.SamplerNested(problem, n_live=400)   (outputs need updating for consistency)
     # OR
     # emcee sampling
-    sampler = emcee_sampling.SamplerEmcee(problem, n_burnin, n_samples, n_chains, init_method=init_method)
+    # sampler = emcee_sampling.SamplerEmcee(problem, n_burnin, n_samples, n_chains, init_method=init_method)
 
     successful_ids, samples, sample_weights, log_evidence, metadata = sampler()  # lists, indexed by galaxy
 
