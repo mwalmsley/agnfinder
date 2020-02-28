@@ -157,6 +157,9 @@ def within_percentile_limits(samples, limits=None):
     # if limits is None:
     #     limits = np.array([0.00415039, 0.00977203, 0.00708008, 0.00683642, 0.00488902, 0.00097656, 0.00684875, 0.01074265])  # warning, cube dependent
 
+    if samples.ndim > 2: # flatten the chains
+        samples = samples.reshape(-1, samples.shape[2])
+
     pcs_10 = percentile_spreads(samples, quantile_width=10)  # 1D array of percentile spread by param
     pcs_25 = percentile_spreads(samples, quantile_width=25)
 

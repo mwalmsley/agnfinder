@@ -49,7 +49,7 @@ class SamplerEmcee(Sampler):
             nwalkers = 256  # 512 on zeus?
 
             # emcee wants initial start *with* a batch dim, where batch=walker rather than batch=galaxy. Can re-use the same code.
-            n_parallel_attempts = 100
+            n_parallel_attempts = 100  # similarly to waLkers, coincidentally, but should just be enough that all failing is very rare
             true_observation_attempts = tf.constant(np.stack([true_observation_g for _ in range(n_parallel_attempts)], axis=0))
             fixed_params_attempts = tf.constant(np.stack([fixed_params_g for _ in range(n_parallel_attempts)], axis=0))
             uncertainty_attempts = tf.constant(np.stack([uncertainty_g for _ in range(n_parallel_attempts)], axis=0))
@@ -65,7 +65,14 @@ class SamplerEmcee(Sampler):
             )
             # print('example starts: ', p0_unfiltered[:5])
 
-            logging.info(f'{good_initial_start.sum()} of {n_parallel_attempts} chains successful')
+            n_successful = good_initial_start.sum()
+            logging.info(f'{n_successful} of {n_parallel_attempts} chains successful')  
+            if n_successful < (n_parallel_attempts / 10.):
+                logging.critical('Too few successful optimisations - skipping this galaxy. Perhaps it has parameter values <0.01 or >0.99, which are not allowed to be fit precisely?')
+                sample_list.append(None)  # will filter later (could rewrite this more elegantly...)
+                is_successful_list.append(False)
+                continue  # do NOT sample this galaxy, move on to the next
+
             p0_filtered = p0_unfiltered[good_initial_start]
             neg_log_p = neg_log_p_unfiltered[good_initial_start]
             # print(neg_log_p)
@@ -118,17 +125,14 @@ class SamplerEmcee(Sampler):
             # (already filtered for successful initial condition)
             is_successful_list.append(True)
 
-
-
-
-
         assert len(is_successful_list) == len(sample_list)
         is_successful = np.array(is_successful_list)
         self.problem.filter_by_mask(is_successful)  # inplace
+        successful_samples = [x for n, x in enumerate(sample_list) if is_successful[n]]
 
         # copied from hmc.py
         unique_ids = pd.unique(self.problem.observation_ids)
-        sample_weights = [np.ones((x.shape[:2])) for x in sample_list]  # 0 and 1 dimensions
+        sample_weights = [np.ones((x.shape[:2])) for x in successful_samples]  # 0 and 1 dimensions
         # list of log evidence (here, not relevant - to remove?), by galaxy
         log_evidence = [np.ones_like(x) for x in sample_weights]
-        return unique_ids, sample_list, sample_weights, log_evidence, metadata_list
+        return unique_ids, successful_samples, sample_weights, log_evidence, metadata_list
