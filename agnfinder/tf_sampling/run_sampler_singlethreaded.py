@@ -158,10 +158,8 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, mode, n
             np.savetxt('data/cubes/y_test_v2.npy', y_test)
             del x_test
             del y_test
-        x_test = np.loadtxt('data/cubes/x_test.npy')
-        y_test = np.loadtxt('data/cubes/y_test.npy')
-        # x_test = np.loadtxt('data/cubes/x_test_v2.npy')
-        # y_test = np.loadtxt('data/cubes/y_test_v2.npy')
+        x_test = np.loadtxt('data/cubes/x_test_v2.npy')
+        y_test = np.loadtxt('data/cubes/y_test_v2.npy')
         x_test = x_test.astype(np.float32)
         y_test = y_test.astype(np.float32)
         print(y_test.shape)
