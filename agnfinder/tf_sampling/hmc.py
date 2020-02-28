@@ -62,7 +62,7 @@ class SamplerHMC(Sampler):
         self.problem.filter_by_mask(successfully_adapted)  # inplace
 
         # continue, for real this time
-        final_samples, is_accepted = self.run_hmc(initial_samples_filtered[-1], thinning=10, burnin_only=False)  # note the thinning
+        final_samples, is_accepted = self.run_hmc(initial_samples_filtered[-1], thinning=1, burnin_only=False)  # note the thinning
         # problem object is modified inplace to filter out failures
         # assert samples.shape[0] == n_samples  # NOT TRUE for nested sampling!
         assert final_samples.shape[1] == np.sum(successfully_adapted)  # auto-numpy cast?
