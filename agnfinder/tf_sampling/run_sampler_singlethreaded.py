@@ -190,7 +190,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, n_galax
         print(f'indices: {chain_indices}')
         # repeat to n_chains
         chain_indices = np.tile(chain_indices, n_chains)
-        max_index = np.min(len(chain_indices), 512)
+        max_index = np.min([len(chain_indices), 512])
         print(f'Max: {max_index}')
         chain_indices = chain_indices[:max_index]  # max out at 512
         names = ['galaxy_' + str(i) for i in chain_indices]
