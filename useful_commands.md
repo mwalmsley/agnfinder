@@ -83,3 +83,7 @@ source $tfgpu_env
 
 rsync -avz --exclude 'results' repos/agnfinder mwalmsle@lux.ucsc.edu:repos
 rsync -avz mwalmsle@lux.ucsc.edu:repos/agnfinder/results/lfi/ /media/mike/internal/agnfinder/results/lfi/
+
+
+docker run -u $(id -u):$(id -g) --gpus all -it tensorflow/tensorflow:latest-gpu-py3
+docker run -u $(id -u):$(id -g) --gpus all -it agnfinder:latest
