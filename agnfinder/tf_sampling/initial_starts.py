@@ -16,7 +16,12 @@ def optimised_start(forward_model, observations, fixed_params, uncertainty, para
     elapsed = (end_time - start_time).total_seconds()
     logging.info(f'costs: {np.log10(lowest_costs)}')
     logging.info('Done {} optimisations over {} steps in {} seconds.'.format(n_chains, steps, elapsed))
-    is_successful = lowest_costs < max_cost
+    # require a minimum quality of fit
+    below_max_cost = lowest_costs < max_cost
+    # set any best_params with really extreme values as failures ?
+    # not_extreme_values = np.all(best_params > 0.02, axis=1) & np.all(best_params < 0.98, axis=1)
+    # is_successful = below_max_cost & not_extreme_values
+    is_successful = below_max_cost
     return best_params, lowest_costs, is_successful
 
 

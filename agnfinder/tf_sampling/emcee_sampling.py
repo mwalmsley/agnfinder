@@ -48,35 +48,39 @@ class SamplerEmcee(Sampler):
             # note that --n-chains is actually n-galaxies for emcee, should change
             nwalkers = 256  # 512 on zeus?
 
-            true_observation_walkers = tf.constant(np.stack([true_observation_g for _ in range(nwalkers)], axis=0))
-            fixed_params_walkers = tf.constant(np.stack([fixed_params_g for _ in range(nwalkers)], axis=0))
-            uncertainty_walkers = tf.constant(np.stack([uncertainty_g for _ in range(nwalkers)], axis=0))
-
             # emcee wants initial start *with* a batch dim, where batch=walker rather than batch=galaxy. Can re-use the same code.
-            p0_unfiltered, neg_log_p, good_initial_start = initial_starts.optimised_start(
+            n_parallel_attempts = 100
+            true_observation_attempts = tf.constant(np.stack([true_observation_g for _ in range(n_parallel_attempts)], axis=0))
+            fixed_params_attempts = tf.constant(np.stack([fixed_params_g for _ in range(n_parallel_attempts)], axis=0))
+            uncertainty_attempts = tf.constant(np.stack([uncertainty_g for _ in range(n_parallel_attempts)], axis=0))
+            p0_unfiltered, neg_log_p_unfiltered, good_initial_start = initial_starts.optimised_start(
                 self.problem.forward_model,
-                true_observation_walkers,
-                fixed_params_walkers,
-                uncertainty_walkers,
+                true_observation_attempts,
+                fixed_params_attempts,
+                uncertainty_attempts,
                 self.problem.param_dim,
-                nwalkers,  # separate initial start for every walker
+                n_parallel_attempts,  # separate initial start for every walker
                 steps=3000,
-                n_attempts=10
+                n_attempts=1  # all parallel attempts are for the same problem, so already plenty without needing to retry
             )
+            # print('example starts: ', p0_unfiltered[:5])
 
-            logging.info(f'{good_initial_start.sum()} of {nwalkers} chains successful')
-            # nwalkers_remaining = good_initial_start.sum()
-            # p0 = p0_unfiltered[good_initial_start]
+            logging.info(f'{good_initial_start.sum()} of {n_parallel_attempts} chains successful')
+            p0_filtered = p0_unfiltered[good_initial_start]
+            neg_log_p = neg_log_p_unfiltered[good_initial_start]
+            # print(neg_log_p)
+    
             logging.info(f'Best identified start: {np.min(neg_log_p)}')
             best_p0_index = np.argmin(neg_log_p)
-            best_p0 = p0_unfiltered[best_p0_index]
+            best_p0 = p0_filtered[best_p0_index]
             logging.info(f'Starting walkers in ball around most likely theta: {best_p0}')
             ball_radius = 0.01
             best_p0_repeated = np.stack([best_p0 for _ in range(nwalkers)], axis=0)
-            print(best_p0_repeated.shape)
+            # print(best_p0_repeated.shape)
             p0_ball = best_p0_repeated + np.random.rand(*best_p0_repeated.shape) * ball_radius
-            print(p0_ball.shape)
+            # print(p0_ball.shape)
             logging.info(p0_ball)
+            # exit()
 
             # emcee log prob must be able to handle variable batch dimension, for walker subsensembles (here, actually a hassle)
             log_prob_fn = get_log_prob_fn_variable_batch(
@@ -92,7 +96,7 @@ class SamplerEmcee(Sampler):
                 return result
 
             sampler = emcee.EnsembleSampler(nwalkers, n_params, temp_log_prob_fn, vectorize=True)  # x will be list of position vectors
-            thinning = 10
+            thinning = 1
             
             start_time = datetime.datetime.now()
             logging.info(f'Begin sampling at {start_time}')

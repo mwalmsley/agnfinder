@@ -40,10 +40,10 @@ def is_galaxy_successful(save_dir, galaxy_n):
 
 def run_succeeded(file_loc):
     # some overlap with parameter_recovery.py
-    with h5py.File(file_loc, mode='r') as f:
-        samples = np.squeeze(f['samples'][...]) # okay to load, will not keep
-        return parameter_recovery.within_percentile_limits(samples)  # WARNING limits will need updating for new cubes/uncertainties!
-
+    # with h5py.File(file_loc, mode='r') as f:
+    #     samples = np.squeeze(f['samples'][...]) # okay to load, will not keep
+    #     return parameter_recovery.within_percentile_limits(samples)  # WARNING limits will need updating for new cubes/uncertainties!
+    return True  # for now, never repeat, need to update this
 
 def find_closest_galaxies(input_rows: np.array, candidates: np.array, duplicates: bool):
     pairs = []
@@ -178,8 +178,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, mode, n
         # names = ['galaxy_0' for _ in chain_indices]
         # OR
         # manual
-        # chain_indices = np.zeros(n_chains, dtype=int)  # whatever, will actually be wrong
-        # names = ['galaxy_' + str(np.random.choice([0, 1])) for i in chain_indices]
+        # chain_indices = np.array([0])
 
         # chain_indices = np.arange(n_chains)   # if re-run, is effectively a new chain for an old galaxy
         logging.info(f'Will sample: {chain_indices}')
@@ -207,6 +206,9 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, mode, n
     if true_observation.max() > 1e-3:  # should be denormalised i.e. actual photometry in maggies
         logging.info('True observation is {}'.format(true_observation))
         logging.critical('True observation max is {} - make sure it is in maggies, not mags!'.format(true_observation))
+
+    print(true_params[0])
+    # exit()
 
     problem = api.SamplingProblem(names, true_observation, true_params, forward_model=emulator, fixed_params=fixed_params, uncertainty=uncertainty)  # will pass in soon
 
@@ -276,7 +278,7 @@ if __name__ == '__main__':
         save_dir = os.path.join(output_dir, os.path.basename(selected_catalog_loc)).split('.')[0]  # no periods otherwise allowed...
     else:
         logging.info('Using simulated galaxies')
-        save_dir = os.path.join(output_dir, 'latest_{}_{}_{}'.format(n_samples, n_repeats, init_method))
+        save_dir = os.path.join(output_dir, 'latest_{}_{}_{}_{}_{}'.format(mode, n_burnin, n_samples, n_repeats, init_method))
         # save_dir = 'results/emulated_sampling/30k_burnin'
 
     logging.info('Galaxies will save to {}'.format(save_dir))
