@@ -133,15 +133,15 @@ def mcmc_galaxy(run_params, obs, model, sps, initial_theta=None, test=False):
         niter = 8
         nburn = [16]
     else:
-        nwalkers = 32  # ndim=8 * walker_factor=4, prospector defaults
+        # nwalkers = 32  # ndim=8 * walker_factor=4, prospector defaults
         # nwalkers = 16
-        # nwalkers = 256
+        nwalkers = 256
         # niter = 256
-        # niter = 10000  # i.e. iterations of emcee, somewhat like steps  # 1 hour w/ 32 chains
+        # niter = 10000  # i.e. iterations of emcee, somewhat like steps  # 1 hour w/ 32 chains, x10 for 256 chains
         niter = 50000 # long run to check convergence
         # niter = 500  # short, to check everything works
         # niter = 2086 * 2
-        nburn = [64, 256]
+        nburn = [5000]
 
     logging.info(f'Walkers: {nwalkers}. Iterations: {niter}. Burnin: {nburn}')
 
@@ -213,7 +213,7 @@ def save_samples(samples, model, obs, sps, file_loc, name, true_theta=None):
         init_method='NA',
         n_burnin=0,
         name=name,
-        chain_n=0,
+        attempt_n=0,
         sample_weights=0,
         log_evidence=0,
         true_observation=obs['maggies'],
@@ -258,8 +258,8 @@ def main(index, name, catalog_loc, save_dir, forest_class, spectro_class, redshi
         # load randomly from cube
         # _, _, x_test, y_test = deep_emulator.data(cube_dir=cube_loc)  # TODO apply selection filters
         # OR load from preselected test sample
-        x_test = np.loadtxt('data/cubes/x_test.npy')
-        y_test = np.loadtxt('data/cubes/y_test.npy')
+        x_test = np.loadtxt('data/cubes/x_test_v2.npy')
+        y_test = np.loadtxt('data/cubes/y_test_v2.npy')
 
         assert y_test.shape[1] == 8  # euclid cube
         cube_photometry = deep_emulator.denormalise_photometry(y_test[index])  # other selection params have no effect
@@ -368,6 +368,7 @@ if __name__ == '__main__':
     parser.add_argument('--spectro', type=str, default='any', dest='spectro', help='filter to only galaxies with this spectro. label, before selecting by index')
     parser.add_argument('--profile', default=False, dest='profile', action='store_true')
     parser.add_argument('--emulate-ssp', default=False, dest='emulate_ssp', action='store_true')
+    parser.add_argument('--test', default=False, dest='test', action='store_true')
     args = parser.parse_args()
 
     timestamp = '{:.0f}'.format(time.time())
@@ -384,7 +385,7 @@ if __name__ == '__main__':
     find_ml_estimate = True  # do both!
     find_mcmc_posterior = True
     find_multinest_posterior = False
-    test = False
+    test = args.test
     redshift = 'spectro'  # exception to below, as redshift read from galaxy
     igm_absorbtion = True
 

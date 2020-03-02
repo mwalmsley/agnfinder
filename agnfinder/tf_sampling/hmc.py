@@ -1,7 +1,10 @@
 import logging
 import datetime
 from typing import List
+from sklearn.covariance import ShrunkCovariance
 
+# from scipy import linalg
+from scipy.stats import entropy
 import tqdm
 import numpy as np
 import pandas as pd
@@ -40,32 +43,75 @@ class SamplerHMC(Sampler):
                 logging.info('True params:')
                 logging.info(self.problem.true_params)
 
-        # initial run to check which chains are adapting
-        initial_samples, is_accepted = self.run_hmc(initial_state, thinning=1, burnin_only=True)
+        # initial run to find good MEAN step size, and reject chains which chains are not adapting
+        initial_samples, is_accepted, step_sizes = self.run_hmc(
+            initial_state,
+            thinning=1,
+            burnin_only=True)
 
-        logging.debug(is_accepted.numpy().shape)
-        logging.debug(is_accepted.numpy())
-        # identify which samples aren't adapted
+        # identify which chains have low acceptance
         accepted_per_galaxy = tf.reduce_mean(input_tensor=is_accepted, axis=0)
-        successfully_adapted = accepted_per_galaxy > tf.ones([self.n_chains]) * .6  # min acceptance of 60%
+        good_acceptance = accepted_per_galaxy > tf.ones([self.n_chains]) * .6  # min acceptance of 60%
 
-        for n, adapted in enumerate(successfully_adapted.numpy()):
+        for n, adapted in enumerate(good_acceptance.numpy()):
             if not adapted:
                 logging.warning('Removing galaxy {} due to low acceptance (p={:.2f})'.format(n, accepted_per_galaxy[n]))
 
         # filter samples, true_observation (and true_params) to remove them
         initial_samples_filtered = tf.boolean_mask(
             tensor=initial_samples,
-            mask=successfully_adapted,
+            mask=good_acceptance,
             axis=1
         )
-        self.problem.filter_by_mask(successfully_adapted)  # inplace
+        self.problem.filter_by_mask(good_acceptance)  # inplace
+        # and also filter the step sizes
+        step_sizes = step_sizes[good_acceptance]
+        logging.info(f'Initial burn-in complete. Step sizes: {np.around(step_sizes, 5)}')
 
+        # now do some normal samples at fixed step size, to estimate the std devs (i.e. the diagonal metric)
+        logging.info('Sampling at fixed step size, to estimate diagonal metric')
+        metric_samples, is_accepted, _ = self.run_hmc(initial_samples_filtered[-1], initial_step_sizes=step_sizes, thinning=1, find_metric=True)
+        std_devs = metric_samples.std(axis=0)
+        logging.info(f'Estimated std devs: {np.around(std_devs, 3)}')
+        std_devs = std_devs * np.median(step_sizes) / np.median(std_devs)  # scale to keep the same mean-ish (will burn-in again anyway)
+        std_devs_df = pd.DataFrame(data=std_devs, index=self.problem.observation_ids).reset_index()  # columns are params (int range)
+        std_devs_by_galaxy_df = std_devs_df.groupby('index').agg('mean')
+        std_devs_by_galaxy_lookup = dict(zip(std_devs_by_galaxy_df.index, std_devs_by_galaxy_df.values))
+        per_variable_initial_step_sizes = np.array([std_devs_by_galaxy_lookup[obs_id] for obs_id in self.problem.observation_ids])
+        logging.info(f'Per variable initial step sizes: {np.around(per_variable_initial_step_sizes, 5)}')
+          # scale current step size by std devs (will then adapt, keeping these ratios)
+        # covariances, inv_covariances = get_covariances(metric_samples)  # force symmetric
+        # print('covariance 0')
+        # print(covariances[0])
+        # np.savetxt('covariance_0.npy', covariances[0])
+        # print('covariace 1')
+        # print(covariances[1])
+        # proposal_distributions = get_proposal_distributions(tf.constant(inv_covariances, dtype=tf.float32))
+        # print('proposal shape')/
+        # print(proposal_distributions.sample().shape)
         # continue, for real this time
-        final_samples, is_accepted = self.run_hmc(initial_samples_filtered[-1], thinning=1, burnin_only=False)  # note the thinning
+
+        logging.info('Beginning final production burn-in/sampling')
+        final_samples_metric, is_accepted, final_step_sizes = self.run_hmc(
+            initial_samples_filtered[-1], 
+            initial_step_sizes=per_variable_initial_step_sizes,
+            thinning=1,
+            proposal_distributions=None
+        )  
+        logging.info(f'Final step sizes used: {np.around(final_step_sizes, 5)}')
+        # note the thinning
+        # print('final_samples before matmul')
+        # print(final_samples_metric)
         # problem object is modified inplace to filter out failures
-        # assert samples.shape[0] == n_samples  # NOT TRUE for nested sampling!
-        assert final_samples.shape[1] == np.sum(successfully_adapted)  # auto-numpy cast?
+        # this is in hmc-metric space, still needs to be transformed back to parameter space
+
+        # convert back out of metric space
+        # note the matmul with coveriances, not inverse covariances
+        # modify by column to preserve memory
+        # for chain_n in tqdm.tqdm(range(final_samples_metric.shape[1])):
+            # final_samples_metric[:, chain_n] = np.matmul(final_samples_metric[:, chain_n], np.sqrt(covariances[chain_n]))
+        final_samples = final_samples_metric  # rename
+        assert final_samples.shape[1] == np.sum(good_acceptance)  # auto-numpy cast?
         assert final_samples.shape[2] == self.problem.true_params.shape[1]
 
         # TODO am I supposed to be filtering for accepted samples? is_accepted has the same shape as samples, and is binary.
@@ -82,13 +128,14 @@ class SamplerHMC(Sampler):
             logging.info(f'Partitioning galaxies with {partition_key} with partitions {partitions}')
             # list of (sample, chain, param) samples, by galaxy
             # TODO could do this in numpy, as final_samples is already np.array, but whatever
-            samples_by_galaxy_chain_first = tf.dynamic_partition(
-                data=tf.transpose(final_samples, [1, 0, 2]),  # put chain index first temporarily
-                partitions=partitions,
-                num_partitions=len(unique_ids)
-            )
-            # put chain index back in second dim, and finally cast back to numpy
-            samples_by_galaxy = [tf.transpose(x, [1, 0, 2]).numpy() for x in samples_by_galaxy_chain_first]
+            with tf.device('/CPU:0'):  # hard to fit this in memory on GPU
+                samples_by_galaxy_chain_first = tf.dynamic_partition(
+                    data=tf.transpose(final_samples, [1, 0, 2]),  # put chain index first temporarily
+                    partitions=partitions,
+                    num_partitions=len(unique_ids)
+                )
+                # put chain index back in second dim, and finally cast back to numpy
+                samples_by_galaxy = [tf.transpose(x, [1, 0, 2]).numpy() for x in samples_by_galaxy_chain_first]
         else:  # only one anyway, so just send straight to list
             logging.warning(f'Only one unique observation found ({unique_ids}) - skipping partitioning')
             samples_by_galaxy = [final_samples]
@@ -101,6 +148,7 @@ class SamplerHMC(Sampler):
         # list of log evidence (here, not relevant - to remove?), by galaxy
         log_evidence = [np.ones_like(x) for x in sample_weights]
         return unique_ids, samples_by_galaxy, sample_weights, log_evidence, metadata
+
 
 
     def get_initial_state(self):
@@ -135,24 +183,35 @@ class SamplerHMC(Sampler):
             raise ValueError('Initialisation method {} not recognised'.format(self.init_method))
         return initial_state
 
-    def run_hmc(self, initial_state, thinning=1, burnin_only=False):
+    def run_hmc(self, initial_state, initial_step_sizes=None, thinning=1, proposal_distributions=None, burnin_only=False, find_metric=False):
 
         if burnin_only:
-            n_samples = 3000  # default adaption burnin, should probably change
+            assert proposal_distributions is None
+            # run burn-in, and then a few samples to measure adaption
+            n_burnin = self.n_burnin
+            n_samples = 100  # just enough to measure adaption
             assert thinning == 1
-        else:
+        elif find_metric:
+            assert proposal_distributions is None
+            # with fixed step size (no burn-in), collect samples in euclidean metric
+            n_samples = 500
+            n_burnin = 100  # still apparently needs some burnin??
+        else:  # continue an ongoing run
             n_samples = self.n_samples
+            n_burnin = 100  # to update step size
         
         log_prob_fn = get_log_prob_fn(self.problem.forward_model, self.problem.true_observation, self.problem.fixed_params, self.problem.uncertainty)
 
         logging.info('Ready to go - beginning sampling at {}'.format(datetime.datetime.now().ctime()))
         start_time = datetime.datetime.now()
-        samples, initial_trace = hmc(
+        samples, trace = hmc(
             log_prob_fn=log_prob_fn,
             initial_state=initial_state,
+            initial_step_sizes=initial_step_sizes,
             n_samples=n_samples,  # before stopping and checking that adaption has succeeded
-            n_burnin=self.n_burnin,
-            thin=thinning
+            n_burnin=n_burnin,
+            thin=thinning,
+            proposal_distributions=proposal_distributions
         )
         end_time = datetime.datetime.now()
         elapsed = end_time - start_time
@@ -160,18 +219,59 @@ class SamplerHMC(Sampler):
         ms_per_sample = 1000 * elapsed.total_seconds() / np.prod(samples.shape)  # not counting burn-in as a sample, so really quicker
         logging.info('Sampling {} x {} chains complete in {}, {:.3f} ms per sample'.format(n_samples, self.n_chains, elapsed, ms_per_sample))
         
-        is_accepted = tf.cast(initial_trace['is_accepted'], dtype=tf.float32)
+        is_accepted = tf.cast(trace['is_accepted'], dtype=tf.float32)
         record_acceptance(is_accepted.numpy())
 
-        return samples, is_accepted
+        final_step_sizes = tf.cast(trace['step_size'][-1], dtype=tf.float32)
+
+        return samples, is_accepted, final_step_sizes
+
+
+def get_covariances(samples):
+    estimators = [ShrunkCovariance(assume_centered=False).fit(samples[:, n]) for n in range(samples.shape[1])]  
+    covariances = [x.covariance_ for x in estimators]
+    inv_covariances = [x.precision_ for x in estimators]
+    # by chain (could average across galaxies?)
+    # covariances = [np.maximum(x, x.transpose()) for x in raw_covariances]  # force symmetric, may not be needed
+    # raw_inv_covariances = [linalg.inv(x) for x in raw_covariances]
+    # inv_covariances = [np.maximum(x, x.transpose()) for x in raw_inv_covariances]  # force symmetric, may not be needed
+    return covariances, inv_covariances
+
+
+def get_proposal_distributions(inv_covariance_matrices):
+    # will use one distribution with parameters along batch dim, instead of a list of distributions
+    mu = tf.zeros(len(inv_covariance_matrices[0]))  # length of each cov matrix = num params
+    mus = [mu for _ in inv_covariance_matrices]
+    scale_trils = [tf.linalg.cholesky(tf.cast(x, dtype=tf.float32)) for x in inv_covariance_matrices]
+    return tfp.distributions.MultivariateNormalTriL(
+        loc=mus,
+        scale_tril=scale_trils
+    )
+
+def get_kl_vs_other_chains(chains: np.ndarray, min_p=1e-5):
+    n_chains = chains.shape[1]
+    param_n = 0
+    kl_divs = np.zeros(n_chains) * np.nan
+    for chain_n in range(n_chains):
+        mask = np.ones(n_chains).astype(bool)
+        mask[chain_n] = False
+        this_chain = chains[:, chain_n]
+        other_chains = chains
+        bins = np.linspace(0., 1., 10)
+        other_probs, _ = np.histogram(other_chains[:, :, param_n], density=True, bins=bins)
+        this_probs, _ = np.histogram(this_chain[:, param_n], density=True, bins=bins)
+        allowed_probs = (other_probs > min_p) & (this_probs > min_p)
+        kl_divs[chain_n] = entropy(other_probs[allowed_probs], this_probs[allowed_probs])  # calculates KL of q (second arg) approximating p (first arg)
+    return kl_divs
 
 # don't decorate with tf.function
-def hmc(log_prob_fn, initial_state, n_samples=int(10e3), n_burnin=int(1e3), thin=1):
+def hmc(log_prob_fn, initial_state, initial_step_sizes=None, n_samples=int(10e3), n_burnin=int(1e3), thin=1, proposal_distributions=None):
 
     assert len(initial_state.shape) == 2  # should be (chain, variables)
 
-    initial_step_size = 1.  # starting point, will be updated by step size adaption
-    initial_step_sizes = tf.fill(initial_state.shape, initial_step_size)  # each chain will have own step size
+    if initial_step_sizes is None:
+        initial_step_size = .005 # starting point, will be updated by step size adaption. Roughly, the median per-variable std
+        initial_step_sizes = tf.fill(initial_state.shape, initial_step_size)  # each chain (and variable) will have own step size
     # this is crucial now that each chain is potentially a different observation
 
     # NUTS
@@ -193,7 +293,10 @@ def hmc(log_prob_fn, initial_state, n_samples=int(10e3), n_burnin=int(1e3), thin
     transition_kernel = tfp.mcmc.HamiltonianMonteCarlo(
         target_log_prob_fn=log_prob_fn,
         step_size=initial_step_sizes,
-        num_leapfrog_steps=10
+        # L should be large enough that there isn't high autocorrelation between samples
+        num_leapfrog_steps=100,  # https://stats.stackexchange.com/questions/304942/how-to-set-step-size-in-hamiltonian-monte-carlo
+        state_gradients_are_stopped=True,  # probably not important as we're not doing any optim. with the samples,
+        # proposal_distributions=proposal_distributions
     )
     adaptive_kernel = tfp.mcmc.DualAveragingStepSizeAdaptation(
         transition_kernel,
@@ -219,7 +322,10 @@ def hmc(log_prob_fn, initial_state, n_samples=int(10e3), n_burnin=int(1e3), thin
             kernel=adaptive_kernel,
             parallel_iterations=1,  # makes no difference at all to performance, when tested - worth checking before final run
             # https://github.com/tensorflow/probability/blob/f90448698cc2a16e20939686ef0d5005aad95f29/tensorflow_probability/python/mcmc/nuts.py#L72
-            trace_fn=lambda _, prev_kernel_results: {'is_accepted': prev_kernel_results.inner_results.is_accepted},
+            trace_fn=lambda _, prev_kernel_results: {
+                'is_accepted': prev_kernel_results.inner_results.is_accepted,
+                'step_size': prev_kernel_results.inner_results.accepted_results.step_size
+                },
             num_steps_between_results=thin  # thinning factor, to run much longer with reasonable memory
         )
 

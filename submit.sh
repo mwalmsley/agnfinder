@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# example use: ./repos/agnfinder/submit.sh planet 0 3 1 5
+# example use: ./repos/agnfinder/submit.sh planet 0 3 1 4
 
 REPO=/mnt/zfsusers/mwalmsley/repos/agnfinder
 PYTHON=/mnt/zfsusers/mwalmsley/miniconda3/envs/agnfinder/bin/python
@@ -17,7 +17,7 @@ do
     # if test -f "$FILE"; then
     #     echo "$FILE already exists"
     # else
-    addqueue -c "1 hour production" -q $QUEUE -n $NODES -m $MEMORY $PYTHON $REPO/agnfinder/prospector/main.py subsample --cube "Yes" --save-dir $REPO/results/vanilla_mcmc --index $INDEX
+    addqueue -c "1 hour production" -q $QUEUE -n $NODES -m $MEMORY $PYTHON $REPO/agnfinder/prospector/main.py subsample --cube "Yes" --save-dir $REPO/results/vanilla_emcee --index $INDEX
     # fi
 done
 
