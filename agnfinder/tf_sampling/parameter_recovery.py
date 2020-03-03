@@ -90,7 +90,7 @@ def rename_params(input_names):
     renamer = dict(zip(model_params, human_names))
     return [renamer[x] for x in input_names]
 
-def load_samples(save_dir, use_filter, max_redshift, min_acceptance=0.6):
+def load_samples(save_dir, use_filter, max_redshift, min_acceptance=0.0):
     galaxy_locs = glob.glob(save_dir + '/*.h5')
     assert galaxy_locs
 
