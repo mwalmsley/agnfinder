@@ -137,11 +137,11 @@ def load_samples(save_dir, use_filter, max_redshift, min_acceptance=0.0):
     logging.info('{} galaxies of {} have mean acceptance > {}'.format(allowed_acceptance.sum(), len(allowed_acceptance), min_acceptance))
     logging.info('{} galaxies of {} have redshift > {}'.format(allowed_redshift.sum(), len(allowed_redshift), max_redshift))
     logging.warning('{} galaxies of {} are successful'.format(successful_run.sum(), len(successful_run)))
-    accept = allowed_acceptance & allowed_redshift & successful_run
+    # accept = allowed_acceptance & allowed_redshift & successful_run
     # all_samples = np.array(all_samples)
     # all_samples = np.array(all_samples)[accept]
-    marginals = marginals[accept]
-    true_params = true_params[accept]
+    # marginals = marginals[accept]
+    # true_params = true_params[accept]
     return params, marginals, true_params, all_samples
 
 

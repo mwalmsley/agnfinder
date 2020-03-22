@@ -234,6 +234,9 @@ if __name__ == '__main__':
     python agnfinder/tf_sampling/run_sampler_singlethreaded.py --checkpoint-loc results/checkpoints/latest --output-dir results/emulated_sampling --n-chains 4 --n-samples 100 --n-burnin 100 --init random
     python agnfinder/tf_sampling/run_sampler_singlethreaded.py --checkpoint-loc results/checkpoints/latest --output-dir results/emulated_sampling --selected data/uk_ir_selection_577.parquet
 
+    Final settings for paper:
+    python agnfinder/tf_sampling/run_sampler_singlethreaded.py --mode emcee --n-galaxies 32 --n-samples 10000 --n-burnin 5000 --n-repeats 1
+
     Default burn-in, num samples, and num chains are optimised for an excellent desktop w/ GTX 1070. 
     """
     parser = argparse.ArgumentParser(description='Run emulated HMC on many galaxies')
@@ -241,10 +244,10 @@ if __name__ == '__main__':
     parser.add_argument('--output-dir', dest='output_dir', type=str, default='results/emulated_sampling')  # in which save_dir will be created
     parser.add_argument('--selected', type=str, default='', dest='selected_catalog_loc', help="Location of photometry catalog to use. If not specified, simulated galaxies will be used.")
     parser.add_argument('--mode', type=str, default='hmc', dest='mode', help="Sampler to use. One of {'hmc', 'emcee'}. Default: 'hmc'")
-    parser.add_argument('--n-galaxies', type=int, default=1, dest='n_galaxies', help="Number of distinct galaxies to use. Each may be sampled repeatedly via --n-chains")
-    parser.add_argument('--n-burnin', type=int, default=1000, dest='n_burnin', help='Burn-in samples per chain, excluding fixed (3000) burn-in steps to discard bad adapters')
-    parser.add_argument('--n-samples', type=int, default=12800, dest='n_samples', help='Samples per chain. 12800+ to be safe, 7000 to push it.')
-    parser.add_argument('--n-repeats', type=int, default=32, dest='n_repeats', help='Repeated sampling attempts per galaxy. Should probably be 1 (repeated runs) for emcee, or 32+/24 (chains) for HMC')
+    parser.add_argument('--n-galaxies', type=int, default=32, dest='n_galaxies', help="Number of distinct galaxies to use. Each may be sampled repeatedly via --n-chains")
+    parser.add_argument('--n-burnin', type=int, default=10000, dest='n_burnin', help='Burn-in samples per chain. 10k HMC (split in two), 5k emcee')
+    parser.add_argument('--n-samples', type=int, default=40000, dest='n_samples', help='Samples per chain. 40k HMC, 10k emcee to be safe, 7k to push it.')
+    parser.add_argument('--n-repeats', type=int, default=16, dest='n_repeats', help='Repeated sampling attempts per galaxy. Should probably be 1 (repeated runs) for emcee, or 16 (chains) for HMC')
     parser.add_argument('--max-chains', type=int, default=512, dest='max_chains', help='Max chains to sample (in parallel). Equivalent to GPU batch size. Only relevent for HMC')
     parser.add_argument('--init', type=str, dest='init_method', default='optimised', help='Can be one of: random, roughly_correct, optimised')
     parser.add_argument('--redshift', type=str, dest='redshift_str', default='fixed', help='Can be one of: fixed, free')
