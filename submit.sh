@@ -17,7 +17,7 @@ do
     # if test -f "$FILE"; then
     #     echo "$FILE already exists"
     # else
-    addqueue -c "1 hour production" -q $QUEUE -n $NODES -m $MEMORY $PYTHON $REPO/agnfinder/prospector/main.py subsample --cube "Yes" --save-dir $REPO/results/vanilla_emcee --index $INDEX
+    addqueue -c "5 hour production" -q $QUEUE -n $NODES -m $MEMORY $PYTHON $REPO/agnfinder/prospector/main.py subsample --cube "Yes" --save-dir $REPO/results/vanilla_emcee --index $INDEX
     # fi
 done
 
