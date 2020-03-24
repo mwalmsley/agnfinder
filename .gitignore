@@ -114,3 +114,13 @@ results/*.png
 data/*.png
 *.parquet
 .vscode/*
+*.hdf5
+*.tfrecord
+report.txt
+
+.vscode/settings.json
+example_galaxy*
+temp*
+*.npy
+tmp*.py
+docker/*

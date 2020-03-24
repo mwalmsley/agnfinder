@@ -72,36 +72,28 @@ class QuasarTemplate(InterpolatedTemplate):
         return normalised_interp
 
 
-class TorusTemplate(InterpolatedTemplate):
+class TorusModel():
     # TODO this will no longer be parameter-less (AGN mass scaling happening outside)
     # instead, should take inclination as an arg in eval_template?
     # bit messy with AGN mass externally though?
 
-    def _eval_template(self, wavelengths, long_only=False):
-        fluxes = 10 ** self._interpolated_template(np.log10(wavelengths))  # in angstroms still!
+    def __init__(self, model_loc):
+        self._interpolated_model = self.load_model(model_loc)
+        self.model_loc = model_loc  # not used, but saved just-in-case
+        
+
+    def load_model(self, model_loc):
+        with open(model_loc, 'rb') as f:
+            raw_interpolated_model = dill.load(f)
+        normalised_model = normalise_template(raw_interpolated_model, 0)  # normalise at inclination=0, arbitrarily
+        return normalised_model
+
+
+    def __call__(self, wavelengths, inclination, long_only=False):
+        fluxes = 10 ** self._interpolated_model(np.log10(wavelengths), inclination)  # in angstroms still!
         if long_only:  # add exponential damping after 1 micron
             fluxes *= get_damping_multiplier(wavelengths, 'short')
         return fluxes
-
-
-    def _create_template(self):
-        df = pd.read_csv(self.data_loc)
-        # enforce no flux below 100 angstroms
-        df = df.append({'wavelength': 99.99, 'flux': 1e-15}, ignore_index=True)
-        df = df.append({'wavelength': 1e-2, 'flux': 1e-15}, ignore_index=True)  
-        # enforce no flux above 1e7 angstroms
-        df = df.append({'wavelength': 10000000.1, 'flux': 1e-15}, ignore_index=True)
-        df = df.append({'wavelength': 1e13, 'flux': 1e-15}, ignore_index=True) 
-        # interpolate in log wavelength(A)/log freq(Hz) space
-        df = df.sort_values('wavelength')
-        # print(np.log10(df['wavelength']).min(), np.log10(df['wavelength']).max())
-        interp = interp1d(
-            np.log10(df['wavelength']),  # in angstroms
-            np.log10(df['flux']),
-            kind='linear'
-        )  
-        normalised_interp = normalise_template(interp)
-        return normalised_interp
 
 
 def get_damping_multiplier(wavelengths, damp):
@@ -119,25 +111,29 @@ def get_damping_multiplier(wavelengths, damp):
     return damping_multiplier
 
 
-def normalise_template(interp):
+def normalise_template(interp, *extra_interp_args):
+    # returns callable for normalisflux
+    # normalised such that flux at input wavelengths - flux at all wavelengths ~ 10**21
     log_wavelengths = np.log10(np.logspace(np.log10(1e2), np.log10(1e7), 500000)) # in angstroms
-    total_flux = simps(10 ** interp(log_wavelengths), 10 ** log_wavelengths, dx=1, even='avg')
+    total_flux = simps(10 ** interp(log_wavelengths, *extra_interp_args), 10 ** log_wavelengths, dx=1, even='avg')
     # return normalised flux in log space (remembering that division is subtraction)
     # -21 so that agn mass is similar to galaxy mass (actually not the case? Not sure why -21, perhaps arbitrary)
-    return lambda x: interp(x) - np.log10(total_flux) - 21
+    return lambda x, *args: interp(x, *args) - np.log10(total_flux) - 21
 
 QUASAR_DATA_LOC = 'data/quasar_template_shang.txt'
-TORUS_DATA_LOC = 'data/selected_torus_template.csv'
+# TORUS_DATA_LOC = 'data/selected_torus_template.csv'
 
 INTERPOLATED_QUASAR_LOC = 'data/quasar_template_interpolated.dill'
-INTERPOLATED_TORUS_LOC = 'data/torus_template_interpolated.dill'
+# INTERPOLATED_TORUS_LOC = 'data/torus_template_interpolated.dill'
+TORUS_MODEL_LOC = 'data/torus_model_with_inclination.dill'
 
 if __name__ == '__main__':
 
 
     # always create a fresh template (by providing data_loc)
     quasar = QuasarTemplate(INTERPOLATED_QUASAR_LOC, data_loc=QUASAR_DATA_LOC)
-    torus = TorusTemplate(INTERPOLATED_TORUS_LOC, data_loc=TORUS_DATA_LOC)
+    # torus = TorusTemplate(INTERPOLATED_TORUS_LOC, data_loc=TORUS_DATA_LOC)
+    torus = TorusModel(TORUS_MODEL_LOC)
 
     eval_wavelengths = np.logspace(np.log10(1e2), np.log10(1e8), 500000) # in angstroms
 
@@ -157,8 +153,10 @@ if __name__ == '__main__':
     # TODO need to fix the normalisation to be total flux under the curve, over all wavelengths
     plt.clf()
 
-    plt.loglog(eval_wavelengths, torus(eval_wavelengths), label='Original')
-    plt.loglog(eval_wavelengths, torus(eval_wavelengths, long_only=True), label='Without blue')
+    plt.loglog(eval_wavelengths, torus(eval_wavelengths, inclination=10), label='Original')
+    plt.loglog(eval_wavelengths, torus(eval_wavelengths, inclination=10, long_only=True), label='Without blue')
+    plt.loglog(eval_wavelengths, torus(eval_wavelengths, inclination=45), label='Inc=45')
+    plt.loglog(eval_wavelengths, torus(eval_wavelengths, inclination=90), label='Inc=90')
     plt.xlabel('Wavelength (A)')
     plt.ylabel('Flux (normalised)')
     plt.legend()
@@ -168,7 +166,7 @@ if __name__ == '__main__':
     # TODO need to fix the normalisation to be total flux under the curve, over all wavelengths
     
     quasar_only = quasar(eval_wavelengths, short_only=True)
-    torus_only = torus(eval_wavelengths, long_only=True)
+    torus_only = torus(eval_wavelengths, inclination=80, long_only=True)
     net = quasar_only + torus_only
     plt.loglog(eval_wavelengths, quasar_only, label='Quasar Only')
     plt.loglog(eval_wavelengths, torus_only, label='Torus Only')

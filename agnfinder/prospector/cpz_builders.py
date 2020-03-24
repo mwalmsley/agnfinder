@@ -3,6 +3,7 @@ import os
 
 import numpy as np
 
+from sedpy import observate
 import fsps
 from prospect.utils.obsutils import fix_obs
 from prospect.models.templates import TemplateLibrary
@@ -15,7 +16,7 @@ from agnfinder.prospector import load_photometry
 from agnfinder.fsps_emulation import emulate
 
 
-def build_cpz_obs(galaxy, reliable, **extras):
+def build_cpz_obs(filter_selection, galaxy=None):
     """Build a dictionary of photometry (and eventually spectra?)
     Arguments are hyperparameters that are likely to change over runs
 
@@ -23,8 +24,11 @@ def build_cpz_obs(galaxy, reliable, **extras):
         A dictionary of observational data to use in the fit.
     """
     obs = {}
-    obs["filters"], obs["maggies"], obs['maggies_unc'] = load_photometry.load_maggies_from_galaxy(galaxy, reliable)
-    print(obs['filters'])
+    if galaxy is not None:
+        obs["filters"], obs["maggies"], obs['maggies_unc'] = load_photometry.load_galaxy_for_prospector(galaxy, filter_selection)
+    else:  # dummy galaxy
+        obs["filters"], obs["maggies"], obs['maggies_unc'] = load_photometry.load_dummy_galaxy_for_prospector(galaxy, filter_selection)
+
     # Now we need a mask, which says which flux values to consider in the likelihood.
     # IMPORTANT: the mask is *True* for values that you *want* to fit
     obs["phot_mask"] = np.array([True for _ in obs['filters']])
@@ -48,7 +52,7 @@ def build_cpz_obs(galaxy, reliable, **extras):
     return obs
 
 
-def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn_eb_v=None, agn_torus_mass=None, igm_absorbtion=True,
+def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn_eb_v=None, agn_torus_mass=None, igm_absorbtion=True, inclination=True,
             **extras):
     """Build a prospect.models.SedModel object
     
@@ -99,12 +103,16 @@ def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn
     #                     "init": 1, "units": "Gyr^{-1}",
     #                     "prior": priors.LogUniform(mini=0.1, maxi=30)}
 
+    # my convention: if None, don't model. if value, model as fixed to value. If True, model as free.
+
 
     # Change the model parameter specifications based on some keyword arguments
     if fixed_metallicity is None:
+        logging.info('Using free metallicity')
         model_params['logzsol']['isfree'] = True
     else:
         # make it a fixed parameter
+        logging.info(f'Using fixed metallicity of {fixed_metallicity}')
         model_params["logzsol"]["isfree"] = False
         #And use value supplied by fixed_metallicity keyword
         model_params["logzsol"]['init'] = fixed_metallicity 
@@ -113,12 +121,15 @@ def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn
         # Add dust emission (with fixed dust SED parameters)
         logging.info('Including dust emission fixed parameters')
         model_params.update(TemplateLibrary["dust_emission"])
+    else:
+        logging.warning('Not using dust emission')
+
     if igm_absorbtion:
+        logging.info('Using fixed IGM absorption (0.1 by default)')
         # Add (fixed) IGM absorption parameters: madau attenuation (fixed to 1.)
         model_params.update(TemplateLibrary["igm"])
-
-
-    # my convention: if None, don't model. if value, model as fixed to value. If True, model as free.
+    else:
+        logging.warning('Not using IGM absorbtion')
 
     if redshift is None:
         raise ValueError('Redshift set to None - must be included in model!')
@@ -135,6 +146,9 @@ def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn
 
     if agn_mass is None:
         logging.warning('No AGN mass supplied - AGN not modelled')
+        # finish early
+        model = SedModel(model_params)
+        return model
     elif isinstance(agn_mass, float):
         logging.info('AGN mass will be fixed at {}'.format(agn_mass))
         model_params['agn_mass'] = {'N': 1, 'isfree': False, 'init': agn_mass}  # units? 
@@ -147,24 +161,34 @@ def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn
     else:
         assert agn_mass
 
-        if isinstance(agn_eb_v, float):
-            logging.info('Using fixed agn_eb_v of {}'.format(agn_eb_v))
-            assert agn_mass
-            model_params['agn_eb_v'] = {"N": 1, "isfree": False, "init": agn_eb_v, "units":"", 'prior': priors.TopHat(mini=0., maxi=0.5)}
-        else:
-            logging.info('Using free agn_eb_v')
-            assert agn_mass == True
-            model_params['agn_eb_v'] = {"N": 1, "isfree": True, "init": 0.1, "units":"", 'prior': priors.TopHat(mini=0., maxi=0.5)}
-        
-        if agn_torus_mass is None:
-            logging.warning('Not modelling AGN torus')
-        elif isinstance(agn_torus_mass, float):
-            logging.info('Using fixed obscured torus of {}'.format(agn_torus_mass))
-            model_params['agn_torus_mass'] = {"N": 1, "isfree": False, "init": agn_torus_mass, "units":"", 'prior': priors.LogUniform(mini=1e-7, maxi=15)}
-        else:
-            logging.info('Using free obscured torus')
-            model_params['agn_torus_mass'] = {"N": 1, "isfree": True, "init": .1, "units":"", 'prior': priors.LogUniform(mini=1e-7, maxi=15)}
-        
+    if isinstance(agn_eb_v, float):
+        logging.info('Using fixed agn_eb_v of {}'.format(agn_eb_v))
+        assert agn_mass
+        model_params['agn_eb_v'] = {"N": 1, "isfree": False, "init": agn_eb_v, "units":"", 'prior': priors.TopHat(mini=0., maxi=0.5)}
+    elif agn_mass == True:
+        logging.info('Using free agn_eb_v')
+        model_params['agn_eb_v'] = {"N": 1, "isfree": True, "init": 0.1, "units":"", 'prior': priors.TopHat(mini=0., maxi=0.5)}
+    else:
+        logging.warning('Not modelling AGN disk')
+    
+    if agn_torus_mass is None:
+        logging.warning('Not modelling AGN torus')
+    elif isinstance(agn_torus_mass, float):
+        logging.info('Using fixed obscured torus of {}'.format(agn_torus_mass))
+        model_params['agn_torus_mass'] = {"N": 1, "isfree": False, "init": agn_torus_mass, "units":"", 'prior': priors.LogUniform(mini=1e-7, maxi=15)}
+    else:
+        logging.info('Using free obscured torus')
+        model_params['agn_torus_mass'] = {"N": 1, "isfree": True, "init": .1, "units":"", 'prior': priors.LogUniform(mini=1e-7, maxi=15)}
+    
+    if inclination is None:
+        raise ValueError('No model inclination preference supplied - set float to fix, or set True to leave free, but set something!')
+    elif isinstance(inclination, float):
+        logging.info('Using fixed inclination of {}'.format(inclination))
+        model_params['inclination'] = {"N": 1, "isfree": False, "init": inclination, "units":"", 'prior': priors.TopHat(mini=0., maxi=90.)}
+    else:
+        logging.info('Using free inclination')
+        model_params['inclination'] = {"N": 1, "isfree": True, "init": 60., "units":"", 'prior': priors.TopHat(mini=0., maxi=90.)}
+    
 
     # explicitly no FSPS dusty torus
     # model_params['fagn'] = None
@@ -179,7 +203,7 @@ def build_model(redshift, fixed_metallicity=None, dust=False, agn_mass=None, agn
 def build_sps(zcontinuous=1, **extras):
     """
     :param zcontinuous: 
-        A vlue of 1 insures that we use interpolation between SSPs to 
+        A value of 1 insures that we use interpolation between SSPs to 
         have a continuous metallicity parameter (`logzsol`)
         See python-FSPS documentation for details
     """
@@ -190,11 +214,12 @@ def build_sps(zcontinuous=1, **extras):
             agn_mass=extras['agn_mass'], 
             agn_eb_v=extras['agn_eb_v'],
             agn_torus_mass=extras['agn_torus_mass'],
+            inclination=extras['inclination'],
             emulate_ssp=extras['emulate_ssp']
         )
     else:
         logging.warning('Building standard CSPSpec')
-        sps = CSPSpecBasis(zcontinuous=zcontinuous)
+        sps = CSPSpecBasisNoEm(zcontinuous=zcontinuous)
     return sps
 
 
@@ -212,7 +237,7 @@ class CSPSpecBasisAGN(CSPSpecBasis):
                  vactoair_flag=False, compute_vega_mags=False, emulate_ssp=False, **kwargs):
 
         # super().__init__()
-        
+
         if emulate_ssp:
             logging.warning('Using custom FSPS emulator for SSP')
             self.ssp = CustomSSP()
@@ -229,7 +254,7 @@ class CSPSpecBasisAGN(CSPSpecBasis):
 
         # TODO could wrap these globals entirely within quasar_templates
         self.quasar_template = quasar_templates.QuasarTemplate(template_loc=quasar_templates.INTERPOLATED_QUASAR_LOC)
-        self.torus_template = quasar_templates.TorusTemplate(template_loc=quasar_templates.INTERPOLATED_TORUS_LOC)
+        self.torus_template = quasar_templates.TorusModel(model_loc=quasar_templates.TORUS_MODEL_LOC)
         self.extinction_template = extinction_models.ExtinctionTemplate(template_loc=extinction_models.INTERPOLATED_SMC_EXTINCTION_LOC)
 
         self.galaxy_flux = None
@@ -279,7 +304,7 @@ class CSPSpecBasisAGN(CSPSpecBasis):
         template_quasar_flux = self.quasar_template(wave, short_only=True)  # normalised scale
         quasar_flux = template_quasar_flux * self.params['agn_mass'] * 1e14
 
-        template_torus_flux = self.torus_template(wave, long_only=True)  # normalised scale
+        template_torus_flux = self.torus_template(wave, self.params['inclination'], long_only=True)  # normalised scale
         torus_flux = template_torus_flux * self.params['agn_torus_mass'] * 1e14
 
         # must always be specified, even if None
@@ -294,17 +319,51 @@ class CSPSpecBasisAGN(CSPSpecBasis):
         self.quasar_flux = extincted_quasar_flux + torus_flux
         self.galaxy_flux = stellar_spectrum
 
+        # should be spectrum in Lsun/Hz per solar mass formed, restframe
         return wave, self.galaxy_flux + self.quasar_flux, mass_frac
 
 
     # def get_spectrum(self, outwave=None, filters=None, peraa=False, **params):
-        # """Get a spectrum and SED for the given params.
-        # """
+        # this is the part that does the redshifting and observation, calling .get_galaxy_spectrum midway though
+        # leave it alone!
 
-        # mass_weighted_smspec, mass_weighted_phot, mfrac = super().get_spectrum(outwave=None, filters=None, peraa=False, **params)
+class CSPSpecBasisNoEm(CSPSpecBasis):
+     def get_galaxy_spectrum(self, **params):
+        """Update parameters, then loop over each component getting a spectrum
+        for each and sum with appropriate weights.
+        :param params:
+            A parameter dictionary that gets passed to the ``self.update``
+            method and will generally include physical parameters that control
+            the stellar population and output spectrum or SED.
+        :returns wave:
+            Wavelength in angstroms.
+        :returns spectrum:
+            Spectrum in units of Lsun/Hz/solar masses formed.
+        :returns mass_fraction:
+            Fraction of the formed stellar mass that still exists.
+        """
+        self.update(**params)
+        spectra = []
+        linelum = []
+        mass = np.atleast_1d(self.params['mass']).copy()
+        mfrac = np.zeros_like(mass)
+        # Loop over mass components
+        for i, m in enumerate(mass):
+            self.update_component(i)
+            wave, spec = self.ssp.get_spectrum(tage=self.ssp.params['tage'],
+                                               peraa=False)
+            spectra.append(spec)
+            mfrac[i] = (self.ssp.stellar_mass)
+            # linelum.append(self.ssp.emline_luminosity)
 
-        # reverse the mass-weighting of agn component
+        # Convert normalization units from per stellar mass to per mass formed
+        if np.all(self.params.get('mass_units', 'mformed') == 'mstar'):
+            mass /= mfrac
+        spectrum = np.dot(mass, np.array(spectra)) / mass.sum()
+        # self._line_specific_luminosity = np.dot(mass, np.array(linelum)) / mass.sum()
+        mfrac_sum = np.dot(mass, mfrac) / mass.sum()
 
+        return wave, spectrum, mfrac_sum
 
 # fsps.StellarPopulation
 class CustomSSP():

@@ -22,7 +22,7 @@ if __name__ == '__main__':
     python agnfinder/tf_sampling/deprecated_run_single_complete_example.py --checkpoint-loc results/checkpoints/latest --test-json data/lfi_test_case.json --n-chains 32 --n-samples 1000 --n-burnin 1500
 
     """
-    tf.enable_eager_execution()
+    tf.compat.v1.enable_eager_execution()
 
     logging.getLogger().setLevel(logging.INFO)  # some third party library is mistakenly setting the logging somewhere...
 

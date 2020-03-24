@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     # @tf.function
     def likelihood(x):
-        return tf.squeeze(tf.log(tf.abs(forward_model(x, training=False) - true_observation)))
+        return tf.squeeze(tf.math.log(tf.abs(forward_model(x, training=False) - true_observation)))
 
     # likelihood = tf.function(get_log_prob_fn(forward_model, true_observation, batch_dim=None))
 
@@ -43,7 +43,7 @@ if __name__ == '__main__':
     points, L = nested_sample(likelihood, n_live, n_dims, n_repeats)
     posterior, logw = samples(points, L)
 
-    sess = tf.Session()
+    sess = tf.compat.v1.Session()
     sess.run(tf.compat.v1.global_variables_initializer())
     # likelihoods, samples = sess.run([likelihoods, samples])
     posterior, logw = sess.run([posterior, logw])

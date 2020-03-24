@@ -1,0 +1,9 @@
+.git
+.vscode
+.pytest
+data
+notebooks/*
+results/emulated_sampling
+results/hyperband
+results/vanilla_mcmc
+tests

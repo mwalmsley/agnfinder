@@ -4,7 +4,7 @@ seaborn
 pytest
 numpy
 pyarrow
-datashader
+# datashader
 bokeh
 scipy
 emcee
@@ -18,15 +18,15 @@ pyfits
 astropy
 dill
 GPy
-scikit-learn==0.20.3
+scikit-learn>=0.22.1
 tqdm
 pyDOE2
-tensorflow==1.15  # the right tf version is important! Will now be tf 2.0 by default.
-tensorflow-probability
+tensorflow>=2.1  # the right tf version is important! 
+tensorflow-probability  # TODO so is the right tfp version
 keras
-hyperopt
-hyperas
+keras-tuner  # if you want to hyperparameter search
 arviz
+statsmodels  # for lowess for uncertainty calculations
 
 git+https://github.com/bd-j/sedpy
 git+https://github.com/bd-j/prospector.git
