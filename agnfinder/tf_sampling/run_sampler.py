@@ -75,15 +75,15 @@ def save_galaxy(save_file, galaxy_samples, galaxy_n, free_param_names, init_meth
     f.create_dataset('marginals', data=marginals)
 
 
-def get_galaxy_save_file(i, save_dir, chain=0):
-    return os.path.join(save_dir, f'galaxy_{i}_performance_{chain}.h5')
+def get_galaxy_save_file(name, save_dir, chain=0):
+    return os.path.join(save_dir, f'galaxy_{name}_performance_{chain}.h5')
 
 
-def get_galaxy_save_file_next_attempt(i, save_dir):
+def get_galaxy_save_file_next_attempt(name, save_dir):
     n = 0
     assert os.path.isdir(save_dir)
     while True:
-        attempted_save_loc = get_galaxy_save_file(i, save_dir, chain=n)
+        attempted_save_loc = get_galaxy_save_file(name, save_dir, chain=n)
         if not os.path.isfile(attempted_save_loc):
             return attempted_save_loc, n
         n += 1  # until you find one not yet saved

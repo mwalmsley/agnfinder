@@ -17,18 +17,21 @@ from agnfinder.tf_sampling import run_sampler, deep_emulator, parameter_recovery
 # TODO will change to some kind of unique id for each galaxy, rather than the index
 def get_galaxies_to_run(n_galaxies):
     indices_to_run = []
+    names = []
     i = 0
     while len(indices_to_run) < n_galaxies:
-        if not is_galaxy_successful(save_dir, i):
+        name = 'galaxy_' + str(i)
+        if not is_galaxy_successful(save_dir, name):
             indices_to_run.append(i)
+            names.append(name)
         i += 1
-    return indices_to_run
+    return indices_to_run, names
 
 
-def is_galaxy_successful(save_dir, galaxy_n):
+def is_galaxy_successful(save_dir, name):
     chain_n = 0
     while True:
-        file_loc = run_sampler.get_galaxy_save_file(galaxy_n, save_dir, chain=chain_n)
+        file_loc = run_sampler.get_galaxy_save_file(name, save_dir, chain=chain_n)
         if os.path.isfile(file_loc):  # check if it succeeded
             if run_succeeded(file_loc):
                 return True
@@ -165,13 +168,15 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, mode, n
         print(y_test.shape)
 
         # repeat only failures
-        chain_indices = get_galaxies_to_run(n_galaxies)
+        # need a better way to only handle names at end, without messing up file locs
+        chain_indices, names = get_galaxies_to_run(n_galaxies)
         print(f'indices: {chain_indices}')
         # OPTIONAL repeat to n_chains (bad idea for emcee)
         chain_indices = np.tile(chain_indices, n_repeats)
+        names = np.tile(names, n_repeats)
         max_index = np.min([len(chain_indices), max_chains])
         chain_indices = chain_indices[:max_index]
-        names = ['galaxy_' + str(i) for i in chain_indices]
+        names = names[:max_index]
         # OR
         # repeat the first galaxy for n_chains
         # chain_indices = np.zeros(n_chains, dtype=int)
@@ -236,6 +241,7 @@ if __name__ == '__main__':
 
     Final settings for paper:
     python agnfinder/tf_sampling/run_sampler_singlethreaded.py --mode emcee --n-galaxies 32 --n-samples 10000 --n-burnin 5000 --n-repeats 1
+    python agnfinder/tf_sampling/run_sampler_singlethreaded.py --mode hmc --n-galaxies 16 --n-samples 40000 --n-burnin 10000 --n-repeats 16
 
     Default burn-in, num samples, and num chains are optimised for an excellent desktop w/ GTX 1070. 
     """

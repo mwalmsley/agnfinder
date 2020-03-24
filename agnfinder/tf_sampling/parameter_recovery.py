@@ -90,7 +90,7 @@ def rename_params(input_names):
     renamer = dict(zip(model_params, human_names))
     return [renamer[x] for x in input_names]
 
-def load_samples(save_dir, use_filter, max_redshift, min_acceptance=0.0):
+def load_samples(save_dir, use_filter, max_redshift, min_acceptance=0.0, frac_to_load=25):
     galaxy_locs = glob.glob(save_dir + '/*.h5')
     assert galaxy_locs
 
@@ -117,8 +117,8 @@ def load_samples(save_dir, use_filter, max_redshift, min_acceptance=0.0):
         num_geq_80p = (galaxy_marginals.transpose() > value_for_80p).sum(axis=0)
         # print(num_geq_80p, num_geq_80p.shape)
         allowed_acceptance[n] = np.mean(num_geq_80p) > min_acceptance
-        samples = np.squeeze(f['samples'][...]) # okay to load, will not keep
-        all_samples.append(samples[::25])
+        samples = np.squeeze(f['samples'][...])  # okay to load, will not keep
+        all_samples.append(samples[::frac_to_load])  # only loading 1 in 25 samples!
         if use_filter:
             successful_run[n] = within_percentile_limits(samples)
         else:
