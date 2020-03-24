@@ -135,13 +135,9 @@ def mcmc_galaxy(run_params, obs, model, sps, initial_theta=None, test=False):
     else:
         # BE CAREFUL that these match the suggested values in run_sampler_singlethreaded.py, for a fair comparison
         # nwalkers = 32  # ndim=8 * walker_factor=4, prospector defaults
-        # nwalkers = 16
         nwalkers = 128
-        # niter = 256
-        # niter = 10000  # i.e. iterations of emcee, somewhat like steps  # 1 hour w/ 32 chains, x10 for 256 chains
+         # i.e. iterations of emcee, somewhat like steps  # 1 hour w/ 32 chains, x10 for 256 chains
         niter = 10000 # long run to check convergence
-        # niter = 500  # short, to check everything works
-        # niter = 2086 * 2
         nburn = [5000]
 
     logging.info(f'Walkers: {nwalkers}. Iterations: {niter}. Burnin: {nburn}')
