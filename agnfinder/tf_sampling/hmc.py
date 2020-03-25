@@ -322,10 +322,10 @@ def hmc(log_prob_fn, initial_state, initial_step_sizes=None, n_samples=int(10e3)
     # use softmax to move from constrained hypercube (unit) space to unconstrained space,
     # which is easier to sample near the hypercube boundaries
     # constrain_to_unit_bijector =   # these are default, but let's be explicit
-        transformed_transition_kernel = tfp.mcmc.TransformedTransitionKernel(
-            transition_kernel,
-            bijector # will broadcast elementwise to all chains/params, I think
-        )
+    transformed_transition_kernel = tfp.mcmc.TransformedTransitionKernel(
+        transition_kernel,
+        bijector # will broadcast elementwise to all chains/params, I think
+    )
 
     adaptive_kernel = tfp.mcmc.DualAveragingStepSizeAdaptation(
         transformed_transition_kernel,
