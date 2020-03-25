@@ -56,7 +56,7 @@ def tf_model(input_dim=9, output_dim=8):
     return model
 
 
-def data(cube_dir, photometry_dim=8, theta_dim=9):  # e.g. data/cubes/latest
+def data(cube_dir, rescale, photometry_dim=8, theta_dim=9):  # e.g. data/cubes/latest
     # need to be able to load all cubes into memory at once (though only once, thanks to concatenation instead of loading all and stacking)
     cube_locs = get_cube_locs(cube_dir)
     theta = np.ones((0, theta_dim))
@@ -68,11 +68,16 @@ def data(cube_dir, photometry_dim=8, theta_dim=9):  # e.g. data/cubes/latest
     logging.info('Loaded {} theta, {} photometry'.format(theta.shape, normalised_photometry.shape))
     # shuffles here, which is crucial
     x_train, x_test, y_train, y_test = train_test_split(theta, normalised_photometry, random_state=1, test_size=0.1)
+    if rescale:
+        logging.warning('Rescaling normalised photometry to unit sum')
+        y_train = y_train/y_train.sum(axis=1, keepdims=True)
+        y_test = y_test/y_test.sum(axis=1, keepdims=True)
     return x_train, y_train, x_test, y_test
 
 
+# not yet set up, need to resave tfrecords with rescaling (if needed, leave for now)
 # equivalent to the above, but for out-of-memory size data
-def data_from_tfrecords(tfrecord_dir, batch_size=512):
+def data_from_tfrecords(tfrecord_dir, batch_size=512):  # always rescaled
     train_locs = glob.glob(os.path.join(cube_dir, 'train_*.tfrecord'))
     test_locs = glob.glob(os.path.join(cube_dir, 'test_*.tfrecord'))
     assert train_locs
@@ -115,15 +120,17 @@ def train_on_datasets(model, train_ds, test_ds):
 
 
 def normalise_photometry(photometry):
-    return -1 * np.log10(photometry)
+    neg_log_phot = -1 * np.log10(photometry)
+    return neg_log_phot / np.expand_dims(neg_log_phot.sum(axis=-1), 1)  # assume last axis is event dimension
 
 
-def denormalise_photometry(normed_photometry):
-    return 10 ** (-1 * normed_photometry)
+def denormalise_photometry(normed_photometry, scale):
+    # print(normed_photometry.shape, scale.shape)
+    return 10 ** (-1 * normed_photometry * scale)
 
 
 def train_boosted_trees(cube_dir):
-    x_train, y_train, x_test, y_test = data(cube_dir)
+    x_train, y_train, x_test, y_test = data(cube_dir, rescale=True)
     clf = GradientBoostingRegressor().fit(x_train, y_train)
     print(mean_squared_error(y_test, clf.predict(x_test))) 
 
@@ -134,7 +141,7 @@ def get_trained_keras_emulator(emulator, checkpoint_dir, new=False, cube_dir=Non
         logging.info('Training new emulator')
         if cube_dir is not None:
             assert tfrecord_dir is None
-            emulator = train_on_cubes(emulator, *data(cube_dir))
+            emulator = train_on_cubes(emulator, *data(cube_dir, rescale=True))  # will predict unit sum log flux!
         else:
             assert cube_dir is None
             emulator = train_on_datasets(emulator, *data_from_tfrecords(tfrecord_dir))
@@ -242,7 +249,7 @@ if __name__ == '__main__':
 
     Example use:
 
-        python agnfinder/tf_sampling/deep_emulator.py --checkpoint=results/checkpoints/euclid_test
+        python agnfinder/tf_sampling/deep_emulator.py --checkpoint=results/checkpoints/local_test
     """
     logging.getLogger().setLevel(logging.INFO)
 

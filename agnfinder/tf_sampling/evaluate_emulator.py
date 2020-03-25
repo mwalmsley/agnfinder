@@ -24,14 +24,14 @@ if __name__ == '__main__':
     Check if the emulator is giving photometry similar to the 'true' forward model.
 
     Example use:
-    python agnfinder/tf_sampling/evaluate_emulator.py --checkpoint-loc results/checkpoints/latest-tf
+    python agnfinder/tf_sampling/evaluate_emulator.py --checkpoint results/checkpoints/local_test
     """
     parser = argparse.ArgumentParser(description='Run emulated HMC on many galaxies')
-    parser.add_argument('--checkpoint', type=str, dest='checkpoint_dir', default='results/checkpoints/latest')
+    parser.add_argument('--checkpoint', type=str, dest='checkpoint_dir', default='results/checkpoints/local_test')
     args = parser.parse_args()
 
     checkpoint_dir = args.checkpoint_dir
-    x_train, y_train, x_test, y_test = deep_emulator.data(cube_dir='data/cubes/latest')
+    x_train, y_train, x_test, y_test = deep_emulator.data(cube_dir='data/cubes/latest', rescale=True)
 
     x_train, y_train = x_train[:10000], y_train[:10000]  # for speed
     x_test, y_test = x_test[:10000], y_test[:10000]  # for speed
@@ -45,7 +45,8 @@ if __name__ == '__main__':
 
     print('Explained Var (max 1): {:.5f}'.format(metrics.explained_variance_score(y_test, y_pred)))
 
-    bands = np.arange(y_train.shape[1])
+    # bands = np.arange(y_train.shape[1])
+    bands = ['u_sloan', 'g_sloan', 'r_sloan', 'i_sloan', 'z_sloan', 'VISTA_H','VISTA_J', 'VISTA_Y']
     med_abs_error = np.array([metrics.median_absolute_error(y_test[:, i], y_pred[:, i]) for i in range(len(bands))])
     rel_med_abs_error = med_abs_error / np.median(y_test, axis=0)
     r2 = np.array([metrics.r2_score(y_test[:, i], y_pred[:, i]) for i in range(len(bands))])
@@ -58,11 +59,14 @@ if __name__ == '__main__':
     # overriding above
     x_test = np.loadtxt('data/cubes/x_test_v2.npy')
     y_test = np.loadtxt('data/cubes/y_test_v2.npy')
+    y_test = y_test / y_test.sum(axis=1, keepdims=True)  # normalise targets, will unnorm later
     y_pred = emulator.predict(x_test, use_multiprocessing=True)
 
-    fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(20, 12))
+
+    fig, axes = plt.subplots(nrows=2, ncols=4, figsize=(16, 8))
     all_axes = [ax for row in axes for ax in row]
-    for i in bands:
+    for i, band in enumerate(bands):
+        print(band)
         ax = all_axes[i]
         ax.set_title(i)
 
@@ -71,8 +75,15 @@ if __name__ == '__main__':
         # predicted_log_flux = y_pred[:, i]
 
         # actual flux
-        true_flux = deep_emulator.denormalise_photometry(y_test[:, i])
-        predicted_flux = deep_emulator.denormalise_photometry(y_pred[:, i])
+        # print('scaling')
+        scale = y_test.sum(axis=1, keepdims=True)
+        # print(scale)
+        # print('denorm a')
+        print(y_test[:, i])
+        true_flux = deep_emulator.denormalise_photometry(np.expand_dims(y_test[:, i], axis=1), scale=scale) 
+        # print('denorm b')
+        predicted_flux = deep_emulator.denormalise_photometry(np.expand_dims(y_pred[:, i], axis=1), scale=scale)
+        # exit()
 
         # 0-20%, fairly poor? Could be important since it's flux that ultimately matters
         flux_abs_error = np.abs(true_flux - predicted_flux)
@@ -116,18 +127,21 @@ if __name__ == '__main__':
         # ax.set_ylabel('Flux Fractional Error')
 
 
-        param = x_test[:, 3]
-        ax.scatter(param, fractional_flux_error, alpha=0.3, s=0.1)
-        ax.set_ylim(0., .2)
-        ax.set_xlabel('Param')
-        ax.set_ylabel('Flux Fractional Error')
+        # param = x_test[:, 3]
+        # ax.scatter(param, fractional_flux_error, alpha=0.3, s=0.1)
+        # # ax.set_ylim(0., .2)
+        # ax.set_xlabel('Param')
+        # ax.set_ylabel('Flux Fractional Error')
 
         # mag errors
         # x_max = np.percentile(mags_abs_error, 99.9)
-        # x_max = 0.3
-        # x = np.linspace(0, x_max)
-        # below_x = np.array([np.sum(mags_abs_error < max_error) for max_error in x])
-        # ax.plot(x, below_x)
+        x_max = 0.02
+        x = np.linspace(0, x_max)
+        below_x = np.array([np.sum(mags_abs_error < max_error) for max_error in x])
+        ax.plot(x, below_x)
+        ax.set_title(band)
+        ax.set_xlabel(r'$|\tilde{f}(\theta) - f(\theta)|$ Magnitude')
+        ax.set_ylabel('Galaxies')
 
         # mag error by mag
         # ax.scatter(true_mags, mags_abs_error, alpha=0.3, s=0.1)
