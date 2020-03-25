@@ -251,6 +251,7 @@ def main(index, name, catalog_loc, save_dir, forest_class, spectro_class, redshi
 
     if catalog_loc == '':
         assert args.cube_loc is not ''
+        # cube loc doesn't do anything any more, we just load directly from the test set
 
         # load randomly from cube
         # _, _, x_test, y_test = deep_emulator.data(cube_dir=cube_loc)  # TODO apply selection filters
@@ -259,7 +260,7 @@ def main(index, name, catalog_loc, save_dir, forest_class, spectro_class, redshi
         y_test = np.loadtxt('data/cubes/y_test_v2.npy')
 
         assert y_test.shape[1] == 8  # euclid cube
-        cube_photometry = deep_emulator.denormalise_photometry(y_test[index])  # other selection params have no effect
+        cube_photometry = deep_emulator.denormalise_photometry(y_test[index], scale=1.)  # other selection params have no effect WARNING SCALE
         cube_params = x_test[index]  # only need for redshift
         # pretend cube is catalog photometry
         filters = load_photometry.get_filters('euclid')
@@ -352,7 +353,7 @@ if __name__ == '__main__':
     Output: samples (.h5py) and corner plot of forward model parameter posteriors for the selected galaxy
 
     Example use:
-    python agnfinder/prospector/main.py cube_test --cube data/cubes/latest --save-dir results/vanilla_mcmc
+    python agnfinder/prospector/main.py cube_test --cube data/cubes/latest --save-dir results/vanilla_emcee
     python agnfinder/prospector/main.py passive --catalog-loc data/uk_ir_selection_577.parquet --save-dir results/vanilla_nested --forest passive
     """
     parser = argparse.ArgumentParser(description='Find AGN!')

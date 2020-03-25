@@ -32,14 +32,16 @@ def find_best_params(forward_model, observations, fixed_params, uncertainty, par
     all_params = [[] for n in range(batch_dim)]
     all_costs = [[] for n in range(batch_dim)]
     for _ in tqdm.tqdm(range(n_attempts)):
-        initial_params = tf.Variable(tf.random.uniform([batch_dim, param_dim], dtype=tf.float32), dtype=tf.float32)
-        initial_params, latest_costs = find_minima(lambda x: -log_prob_fn(x), initial_params, steps, param_dim, batch_dim)  # a very important minus sign...
+        initial_params = tf.Variable(tf.random.uniform([batch_dim, param_dim-1], dtype=tf.float32), dtype=tf.float32)  # emulator params
+        scale_guess = tf.reduce_sum(-1 * np.log10(observations), axis=1, keepdims=True)
+        initial_guess = tf.Variable(tf.concat([initial_params, scale_guess], axis=1))
+        initial_guess, latest_costs = find_minima(lambda x: -log_prob_fn(x), initial_guess, steps, param_dim, batch_dim)  # a very important minus sign...
 
-        initial_params = initial_params.numpy()
+        initial_guess = initial_guess.numpy()
         latest_costs = latest_costs.numpy()
         
         for n in range(batch_dim):
-            all_params[n].append(initial_params[n])
+            all_params[n].append(initial_guess[n])
             all_costs[n].append(latest_costs[n])
 
 
@@ -76,31 +78,40 @@ def find_minima(func, initial_guess, steps, param_dim, batch_dim):
     # logging.info('Initial guess neglogprob: {}'.format(['{:4.1f}'.format(x) for x in func(initial_guess)]))
     func_value = tf.Variable(np.zeros(batch_dim), dtype=tf.float32)  # euclid bands hardcoded
     grads = tf.Variable(np.zeros([batch_dim, param_dim]), dtype=tf.float32)
-    method = tf.keras.optimizers.Adam()
+    zeros = tf.constant(np.zeros([batch_dim, 1]), dtype=tf.float32)
+    grads_fixed = tf.Variable(np.zeros([batch_dim, param_dim]), dtype=tf.float32)
+    method = tf.keras.optimizers.Adam(lr=0.001) # explicit default
 
     initialise_adam_for_tf(func, initial_guess, method)
     for _ in range(steps):
-        update_initial_guess(func, initial_guess, grads, method)
+        update_initial_guess(func, initial_guess, grads, zeros, grads_fixed, method)
 
     func_value.assign(func(initial_guess))
     return initial_guess, func_value
 
 @tf.function(experimental_compile=True)
-def update_initial_guess(func, initial_guess, grads, method):
+def update_initial_guess(func, initial_guess, grads, zeros, grads_fixed, method):
     with tf.GradientTape(watch_accessed_variables=False) as tape:
         tape.watch(initial_guess)
         grads.assign(tape.gradient(func(initial_guess), [initial_guess])[0])
+        grads_fixed.assign(tf.concat([grads[:, :-1], zeros], axis=1))
 
-    method.apply_gradients([(grads, initial_guess)])  # inplace
-    initial_guess.assign(tf.clip_by_value(initial_guess, 0.01, 0.99))
-        # return initial_guess, func_value
-        # return func_value
+    method.apply_gradients([(grads_fixed, initial_guess)])  # inplace
+    scale = tf.expand_dims(initial_guess[:, -1], axis=1)
+    params = initial_guess[:, :-1]
+    params = tf.clip_by_value(params, 0.01, 0.99)
+
+    initial_guess.assign(tf.concat([params, scale], axis=1))
+    # return initial_guess, func_value
+    # return func_value
 
 def initialise_adam_for_tf(func, initial_guess, method):
     with tf.GradientTape() as tape:
         tape.watch(initial_guess)
         grads = tape.gradient(func(initial_guess), [initial_guess])[0]
-    method.apply_gradients([(grads, initial_guess)])  # inplace
+        zeros = tf.zeros((len(grads), 1))
+        grads_fixed = tf.concat([grads[:, :-1], zeros], axis=1)
+    method.apply_gradients([(grads_fixed, initial_guess)])  # inplace
 
 
 def many_random_starts(forward_model, observation, param_dim, n_chains, overproposal_factor=None):

@@ -188,7 +188,8 @@ class SamplerHMC(Sampler):
             raise ValueError('Initialisation method {} not recognised'.format(self.init_method))
         return initial_state
 
-    def run_hmc(self, initial_state, initial_step_sizes=None, thinning=1, bijector=tfp.bijectors.Sigmoid(low=0., high=1.), burnin_only=False, find_metric=False):
+# remove tfp.bijectors.Sigmoid(low=0., high=1.)
+    def run_hmc(self, initial_state, initial_step_sizes=None, thinning=1, bijector=tfp.bijectors.Identity(), burnin_only=False, find_metric=False):
 
         if burnin_only:
             # assert proposal_distributions is None
@@ -283,7 +284,7 @@ def chains_pass_quality_check(chains):
     return chain_is_successful
 
 # don't decorate with tf.function
-def hmc(log_prob_fn, initial_state, initial_step_sizes=None, n_samples=int(10e3), n_burnin=int(1e3), thin=1, bijector=tfp.bijectors.Sigmoid(low=0., high=1.)):
+def hmc(log_prob_fn, initial_state, initial_step_sizes=None, n_samples=int(10e3), n_burnin=int(1e3), thin=1, bijector=tfp.bijectors.Identity()):
 
     assert len(initial_state.shape) == 2  # should be (chain, variables)
 
@@ -317,13 +318,14 @@ def hmc(log_prob_fn, initial_state, initial_step_sizes=None, n_samples=int(10e3)
         # proposal_distributions=proposal_distributions
     )
 
+    # scale param is NOT on unit cube, need to turn off softmax for now
     # use softmax to move from constrained hypercube (unit) space to unconstrained space,
     # which is easier to sample near the hypercube boundaries
     # constrain_to_unit_bijector =   # these are default, but let's be explicit
-    transformed_transition_kernel = tfp.mcmc.TransformedTransitionKernel(
-        transition_kernel,
-        bijector # will broadcast elementwise to all chains/params, I think
-    )
+        transformed_transition_kernel = tfp.mcmc.TransformedTransitionKernel(
+            transition_kernel,
+            bijector # will broadcast elementwise to all chains/params, I think
+        )
 
     adaptive_kernel = tfp.mcmc.DualAveragingStepSizeAdaptation(
         transformed_transition_kernel,

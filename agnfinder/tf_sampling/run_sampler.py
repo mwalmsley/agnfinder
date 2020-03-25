@@ -26,6 +26,7 @@ def sample_galaxy_batch(problem, mode, n_burnin, n_samples, init_method, save_di
     successful_ids, samples, sample_weights, log_evidence, metadata = sampler()  # lists, indexed by galaxy
 
     for galaxy_n, name in tqdm(enumerate(successful_ids), unit=' galaxies saved'):
+        assert isinstance(name, str)
         save_file, attempt_n = get_galaxy_save_file_next_attempt(name, save_dir)  # save each run with the same id to a new file
         
         # tediously select the outputs relevent to that particular galaxy
@@ -50,7 +51,7 @@ def save_galaxy(save_file, galaxy_samples, galaxy_n, free_param_names, init_meth
     dset.attrs['free_param_names'] = free_param_names
     dset.attrs['init_method'] = init_method
     dset.attrs['n_burnin'] = n_burnin
-    dset.attrs['galaxy_id'] = name
+    dset.attrs['galaxy_id'] = str(name)
     f.create_dataset('attempt', data=attempt_n)
     f.create_dataset('sample_weights', data=sample_weights)
     f.create_dataset('log_evidence', data=log_evidence)
