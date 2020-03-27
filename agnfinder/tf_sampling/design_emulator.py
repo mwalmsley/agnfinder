@@ -21,7 +21,7 @@ def main(cube_dir, hyperband_iterations, max_epochs):
         raise SystemError('GPU device not found')
     logging.info('Found GPU at: {}'.format(device_name))
 
-    x, y, val_x, val_y = deep_emulator.data(cube_dir)
+    x, y, val_x, val_y = deep_emulator.data(cube_dir, rescale=True)
 
     tuner = Hyperband(
         build_model,
@@ -34,13 +34,13 @@ def main(cube_dir, hyperband_iterations, max_epochs):
 
     early_stopping = keras.callbacks.EarlyStopping(restore_best_weights=True)
 
-    # tuner.search(
-    #     x,
-    #     y,
-    #     callbacks=[early_stopping],
-    #     validation_data=(val_x, val_y),
-    #     batch_size=1024
-    # )
+    tuner.search(
+        x,
+        y,
+        callbacks=[early_stopping],
+        validation_data=(val_x, val_y),
+        batch_size=1024
+    )
 
     tuner.results_summary()
 
