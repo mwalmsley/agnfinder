@@ -109,5 +109,5 @@ if __name__ == '__main__':
 
     cube_dir = 'data/cubes/latest'
     hyperband_iterations = 5
-    max_epochs = 10
+    max_epochs = 15
     main(cube_dir, hyperband_iterations, max_epochs)
