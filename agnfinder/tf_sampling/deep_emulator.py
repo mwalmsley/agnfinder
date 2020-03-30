@@ -40,12 +40,12 @@ def tf_model(input_dim=9, output_dim=8):
 
     # this is a little bit better w/ z1+z4 cubes, 8 params inc redshift
     model = tf.keras.Sequential([
-        tf.keras.layers.Dense(192, input_dim=input_dim, activation='relu'),
-        tf.keras.layers.Dense(640, input_dim=input_dim, activation='relu'),
-        tf.keras.layers.Dense(192, activation='relu'),
-        tf.keras.layers.Dense(192, activation='relu'),
-        tf.keras.layers.Dense(832, activation='relu'),
-        tf.keras.layers.Dropout(0.014),
+        tf.keras.layers.Dense(320, input_dim=input_dim, activation='relu'),
+        tf.keras.layers.Dense(384, input_dim=input_dim, activation='relu'),
+        tf.keras.layers.Dense(384, activation='relu'),
+        tf.keras.layers.Dense(576, activation='relu'),
+        tf.keras.layers.Dense(704, activation='relu'),
+        tf.keras.layers.Dropout(0.004789),
         tf.keras.layers.Dense(output_dim)
         ])
 
