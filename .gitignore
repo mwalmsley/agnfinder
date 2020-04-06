@@ -124,3 +124,4 @@ temp*
 *.npy
 tmp*.py
 docker/*
+*.png

@@ -58,20 +58,14 @@ def simulate(n_samples, save_loc, emulate_ssp, noise, redshift_range, filter_sel
         wavelengths=phot_wavelengths
     )
 
-def get_forward_model(emulate_ssp, noise, filter_selection):
+def get_forward_model(emulate_ssp, noise, filter_selection, redshift=True):  # TODO remove noise arg
     # redshift = 3.  # for fixed redshift
-    redshift = True
+    # redshift = True
     agn_mass = True
     agn_eb_v = True
     agn_torus_mass = True
     igm_absorbtion = True
     inclination = True
-
-    if noise:
-        def get_sigma(x):
-            return x / 20.
-    else:
-        get_sigma = None
 
     _, obs, model, sps = main.construct_problem(
         redshift=redshift,
@@ -86,12 +80,9 @@ def get_forward_model(emulate_ssp, noise, filter_selection):
 
     _ = visualise.calculate_sed(model, model.theta, obs, sps)  # TODO might not be needed for obs phot wavelengths
     phot_wavelengths = obs['phot_wave']  # always the same, as measured in observer frame
-    def forward_model(theta):  # theta must be denormalised!
-        assert theta[1] > 1e7  # check mass is properly large
-        _, model_photometry, _ = visualise.calculate_sed(model, theta, obs, sps)  # via closure
-        if get_sigma is not None:
-            return np.random.normal(loc=model_photometry, scale=get_sigma(model_photometry))
-        return model_photometry
+    print(model)
+
+    forward_model = wrap_fsps_model(model, obs, sps)
 
     if filter_selection == 'euclid':
         output_dim = 8
@@ -99,6 +90,24 @@ def get_forward_model(emulate_ssp, noise, filter_selection):
         output_dim = 12
     # sloppy
     return forward_model, phot_wavelengths, output_dim
+
+
+def wrap_fsps_model(model, obs, sps):
+    def forward_model(theta):  # theta must be denormalised!
+        if theta.ndim > 1:
+            theta = theta.squeeze()
+            assert theta.ndim == 1
+
+        # check mass is properly large
+        if 'zred' in model.free_params:
+            mass_index = 1
+        else:
+            mass_index = 0
+        assert theta[mass_index] > 1e7 
+
+        _, model_photometry, _ = visualise.calculate_sed(model, theta, obs, sps)  # via closure
+        return model_photometry
+    return forward_model
 
 
 if __name__ == '__main__':

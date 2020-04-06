@@ -27,7 +27,7 @@ if __name__ == '__main__':
     python agnfinder/tf_sampling/evaluate_emulator.py --checkpoint results/checkpoints/local_test
     """
     parser = argparse.ArgumentParser(description='Run emulated HMC on many galaxies')
-    parser.add_argument('--checkpoint', type=str, dest='checkpoint_dir', default='results/checkpoints/local_test')
+    parser.add_argument('--checkpoint', type=str, dest='checkpoint_dir', default='results/checkpoints/latest')
     args = parser.parse_args()
 
     checkpoint_dir = args.checkpoint_dir
@@ -57,8 +57,8 @@ if __name__ == '__main__':
 
 
     # overriding above
-    x_test = np.loadtxt('data/cubes/x_test_v2.npy')
-    y_test = np.loadtxt('data/cubes/y_test_v2.npy')
+    x_test = np.loadtxt('data/cubes/x_test_latest.npy')
+    y_test = np.loadtxt('data/cubes/y_test_latest.npy')
     y_test = y_test / y_test.sum(axis=1, keepdims=True)  # normalise targets, will unnorm later
     y_pred = emulator.predict(x_test, use_multiprocessing=True)
 
@@ -127,21 +127,21 @@ if __name__ == '__main__':
         # ax.set_ylabel('Flux Fractional Error')
 
 
-        # param = x_test[:, 3]
-        # ax.scatter(param, fractional_flux_error, alpha=0.3, s=0.1)
-        # # ax.set_ylim(0., .2)
-        # ax.set_xlabel('Param')
-        # ax.set_ylabel('Flux Fractional Error')
+        param = x_test[:, 0]
+        ax.scatter(param, fractional_flux_error, alpha=0.3, s=0.1)
+        ax.set_ylim(0., .004)
+        ax.set_xlabel('Redshift / 4')
+        ax.set_ylabel('Flux Fractional Error')
 
         # mag errors
         # x_max = np.percentile(mags_abs_error, 99.9)
-        x_max = 0.02
-        x = np.linspace(0, x_max)
-        below_x = np.array([np.sum(mags_abs_error < max_error) for max_error in x])
-        ax.plot(x, below_x)
-        ax.set_title(band)
-        ax.set_xlabel(r'$|\tilde{f}(\theta) - f(\theta)|$ Magnitude')
-        ax.set_ylabel('Galaxies')
+        # x_max = 0.005
+        # x = np.linspace(0, x_max)
+        # below_x = np.array([np.sum(mags_abs_error < max_error) for max_error in x])
+        # ax.plot(x, below_x)
+        # ax.set_title(band)
+        # ax.set_xlabel(r'$|\tilde{f}(\theta) - f(\theta)|$ Magnitude')
+        # ax.set_ylabel('Galaxies')
 
         # mag error by mag
         # ax.scatter(true_mags, mags_abs_error, alpha=0.3, s=0.1)
@@ -160,8 +160,9 @@ if __name__ == '__main__':
         # mag error by redshift
         # redshifts = x_test[:, 0]
         # ax.scatter(redshifts, mags_abs_error, alpha=0.3, s=0.1)
-        # ax.set_ylim(0., .2)
-        # ax.set_xlabel('Redshift')
+        # # ax.set_ylim(0., .2)
+        # ax.set_ylim(0., .004)
+        # ax.set_xlabel('Redshift (/4)')
         # ax.set_ylabel('Mag Abs Error')
 
 

@@ -55,33 +55,6 @@ def tf_model(input_dim=9, output_dim=8):
         metrics=['mean_squared_error'])
     return model
 
-"""
-['data/cubes/latest/photometry_simulation_1000000n_z_0p4000_to_0p6000.hdf5',
- 'data/cubes/latest/photometry_simulation_1000000n_z_0p0000_to_0p2000.hdf5',
-  'data/cubes/latest/photometry_simulation_1000000n_z_0p6000_to_0p8000.hdf5',
-   'data/cubes/latest/photometry_simulation_1000000n_z_1p2000_to_1p4000.hdf5',
-    'data/cubes/latest/photometry_simulation_1000000n_z_1p8000_to_2p0000.hdf5',
-     'data/cubes/latest/photometry_simulation_1000000n_z_1p6000_to_1p8000.hdf5',
-      'data/cubes/latest/photometry_simulation_1000n_z_2p4000_to_3p2000.hdf5',
-       'data/cubes/latest/photometry_simulation_1000000n_z_3p8000_to_4p0000.hdf5',
-        'data/cubes/latest/photometry_simulation_1000000n_z_2p8000_to_3p0000.hdf5', 
-        'data/cubes/latest/photometry_simulation_1000000n_z_3p0000_to_3p2000.hdf5',
-         'data/cubes/latest/photometry_simulation_1000n_z_1p6000_to_2p4000.hdf5',
-          'data/cubes/latest/photometry_simulation_1000n_z_0p8000_to_1p6000.hdf5',
-           'data/cubes/latest/photometry_simulation_1000000n_z_3p4000_to_3p6000.hdf5',
-            'data/cubes/latest/photometry_simulation_1000000n_z_2p2000_to_2p4000.hdf5',
-             'data/cubes/latest/photometry_simulation_1000000n_z_3p6000_to_3p8000.hdf5', 
-             'data/cubes/latest/photometry_simulation_1000n_z_0p0000_to_0p8000.hdf5', 
-             'data/cubes/latest/photometry_simulation_1000000n_z_1p4000_to_1p6000.hdf5',
-              'data/cubes/latest/photometry_simulation_1000000n_z_1p0000_to_1p2000.hdf5',
-               'data/cubes/latest/photometry_simulation_1000000n_z_0p2000_to_0p4000.hdf5',
-                'data/cubes/latest/photometry_simulation_1000000n_z_2p4000_to_2p6000.hdf5',
-                 'data/cubes/latest/photometry_simulation_1000000n_z_2p6000_to_2p8000.hdf5',
-                  'data/cubes/latest/photometry_simulation_1000000n_z_0p8000_to_1p0000.hdf5',
-                   'data/cubes/latest/photometry_simulation_1000000n_z_3p2000_to_3p4000.hdf5',
-                    'data/cubes/latest/photometry_simulation_1000n_z_3p2000_to_4p0000.hdf5',
-                     'data/cubes/latest/photometry_simulation_1000000n_z_2p0000_to_2p2000.hdf5']
-"""
 
 def data(cube_dir, rescale, photometry_dim=8, theta_dim=9):  # e.g. data/cubes/latest
     # need to be able to load all cubes into memory at once (though only once, thanks to concatenation instead of loading all and stacking)
