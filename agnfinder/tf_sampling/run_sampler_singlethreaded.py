@@ -154,14 +154,15 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, mode, n
     else:
         # fake galaxies, drawn from our priors and used as emulator training data
         logging.info('Using fake galaxies, drawn randomly from the hypercube')
-        # _, _, x_test, y_test = deep_emulator.data(cube_dir='data/cubes/latest', rescale=False)  # TODO could make as arg
+
         # filter to max redshift .5
         # within_max_z = x_test[:, 0] < .5 / 4.
 
 
-        new_subsample = True
+        new_subsample = True   # TODO could make as arg
         # filter to subsample with realistic mags
         if new_subsample:
+            _, _, x_test, y_test = deep_emulator.data(cube_dir='data/cubes/latest', rescale=False) 
             photometry_df = pd.read_parquet('data/photometry_quicksave.parquet')
             _, pairs = select_subsample(photometry_df, y_test, duplicates=False)
             x_test = x_test[pairs]
