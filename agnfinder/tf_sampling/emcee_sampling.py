@@ -111,17 +111,22 @@ class SamplerEmcee(Sampler):
         return unique_ids, successful_samples, sample_weights, log_evidence, metadata_list
 
 
-def get_initial_starts_ball(x, neg_log_p, nwalkers, ball_min_radius=0.01, ball_max_radius=0.03):
+def get_initial_starts_ball(x, neg_log_p, nwalkers, ball_min_radius=0.01, ball_max_radius=0.03, scale_ball_radius=1.):
     logging.info(f'Best identified start: {np.min(neg_log_p)}')
     best_x_index = np.argmin(neg_log_p)
     best_x = x[best_x_index]
-    with np.printoptions(precision=5):
+    with np.printoptions(precision=3):
         logging.info(f'Starting walkers in ball around most likely theta: {best_x} \n')
+        best_x[:-1] = np.clip(best_x[:-1], 0.005, 0.995)  # do not center ball right at the edge
         best_x_repeated = np.stack([best_x for _ in range(nwalkers)], axis=0)
         step_away = np.random.choice([1., -1.], size=best_x_repeated.shape) * ball_min_radius
         extra_noise =  np.random.choice([1., -1.], size=best_x_repeated.shape) * np.random.rand(*best_x_repeated.shape) * (ball_max_radius - ball_min_radius)
         x_ball = best_x_repeated + step_away + extra_noise
         x_ball[:, :-1] = np.clip(x_ball[:, :-1], 1e-5, 1-1e-5)  # do not clip scale parameter
+        if np.any(x[:, -1] > 10.):
+            logging.warning('x seems to have scale parameter, widening the ball in that dimension')
+            x_ball[:, -1] = x_ball[:, -1].mean() + np.random.choice([1., -1.], size=len(x_ball)) * np.random.rand(len(x_ball)) * scale_ball_radius
+            logging.warning('Scales in ball: {}'.format(x_ball[:, -1]))
         logging.info(x_ball)
     return x_ball
 

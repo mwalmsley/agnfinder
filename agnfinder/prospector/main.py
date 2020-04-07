@@ -132,10 +132,16 @@ def fit_galaxy_manual(model, obs, sps):
     del free_params_no_z['redshift'] # unusually, z is fixed
 
     def forward_model(x):
-        assert len(x) == 8  # no scale (for now)
+        params = x[:-1]
+        scale = x[-1]
+        # params = x  # pass scale by closure, no need to optimise?
+        assert len(params) == 8
         # denormalise params, remembering there's no redshift
-        x_denormed = simulation_utils.denormalise_theta(x.reshape(1, -1), free_params_no_z).squeeze()
-        return fsps_forward_model(x_denormed) 
+        params_denormed = simulation_utils.denormalise_theta(params.reshape(1, -1), free_params_no_z).squeeze()
+        fsps_photometry = fsps_forward_model(params_denormed) 
+        norm_photometry = deep_emulator.normalise_photometry(fsps_photometry.reshape(1, -1))
+        photometry = deep_emulator.denormalise_photometry(norm_photometry, scale)
+        return photometry.squeeze()
 
     def residuals(x):
         predicted_flux = forward_model(x)
@@ -143,15 +149,20 @@ def fit_galaxy_manual(model, obs, sps):
         return np.abs(np.log10(predicted_flux) - np.log10(obs['maggies']))
 
     initial = model.theta.copy()
-    x0 = minimizer.minimizer_ball(initial, 1, model)  # just get one, seems to just pick the init though
-    x0 = np.squeeze(x0)  # x0 must be 1D
-    x0_normed = simulation_utils.normalise_theta(x0.reshape(1, -1), free_params_no_z).squeeze()
+    initial_params = minimizer.minimizer_ball(initial, 1, model)  # just get one, seems to just pick the init though
+    initial_params = np.squeeze(initial_params)  # initial_params must be 1D
+    initial_params_normed = simulation_utils.normalise_theta(initial_params.reshape(1, -1), free_params_no_z).squeeze()
+    initial_scale = -np.log10(obs['maggies']).sum().reshape(1)  # 1D. Should really refactor this...
+    x0 = np.concatenate([initial_params_normed, initial_scale], axis=-1)
 
     logging.info('Begin minimisation')
-    results = optimize.least_squares(residuals, x0_normed, bounds=([0. for _ in x0], [1. for _ in x0]))
+    bounds = ([0. for _ in initial_params] + [0], [1. for _ in initial_params] + [1e4])
+    results = optimize.least_squares(residuals, x0, bounds=bounds)
     best_theta_normed = results.x
     # back to real theta, for consistency
-    best_theta = simulation_utils.denormalise_theta(best_theta_normed.reshape(1, -1), free_params_no_z).squeeze()
+    best_params = simulation_utils.denormalise_theta(best_theta_normed[:-1].reshape(1, -1), free_params_no_z).squeeze()
+    best_scale = best_theta_normed[-1]
+    best_theta = np.concatenate([best_params, best_scale.reshape(1)], axis=-1)
     return best_theta, results
 
 
@@ -173,22 +184,27 @@ def mcmc_galaxy_manual(model, obs, sps, theta):  # requires previous minimisatio
     def forward_model(x, param_dim=8):  # expects batch
         if x.ndim == 1:
             x = x.reshape(1, -1)
-        assert x.shape[1] == param_dim  # no scale (for now)
-        x = np.clip(x, 1e-5, 1-1e-5)  # log prob will make these be rejected, but the forward model failure messes up the shapes
+        params = x[:, :-1]
+        scale = x[:, -1]
+        assert params.shape[1] == param_dim  # no scale (for now)
+        params = np.clip(params, 1e-5, 1-1e-5)  # log prob will make these be rejected, but the forward model failure messes up the shapes
 
         # denormalise params, remembering there's no redshift
-        x_denormed = simulation_utils.denormalise_theta(x, free_params_no_z)
+        params_denormed = simulation_utils.denormalise_theta(params, free_params_no_z)
         # fsps can't handle batch, calculate sequentially
-        predictions = [fsps_forward_model(x_row) for x_row in x_denormed]
-        shapes = [p.shape for p in predictions]
+        fsps_predictions = [fsps_forward_model(x_row) for x_row in params_denormed]
+        shapes = [p.shape for p in fsps_predictions]
         try:
-            return np.stack(predictions, axis=0)
+            fsps_predictions = np.stack(fsps_predictions, axis=0)
         except ValueError:
-            print(x)
+            print(params_denormed)
             print(shapes)
-            print(predictions)
+            print(fsps_predictions)
             raise ValueError
 
+        normalised_predictions = deep_emulator.normalise_photometry(fsps_predictions)
+        predictions = deep_emulator.denormalise_photometry(normalised_predictions, scale.reshape(-1, 1))
+        return predictions
 
 
     def log_prob_fn(x):  # expects variable batch size
@@ -204,21 +220,22 @@ def mcmc_galaxy_manual(model, obs, sps, theta):  # requires previous minimisatio
         variance = uncertainty ** 2
         neg_log_prob_by_band = 0.5*( (deviation**2/variance) - np.log(2*np.pi*variance) )  # natural log, not log10
         log_prob = -neg_log_prob_by_band.sum(axis=1)  # log space: product -> sum
-        x_out_of_bounds = api.is_out_of_bounds_python(x)  # being careful to exclude scale
+        x_out_of_bounds = api.is_out_of_bounds_python(x[:, :-1])  # being careful to exclude scale
         penalty = x_out_of_bounds * 1e10
         log_prob_with_penalty = log_prob - penalty  # no effect if x in bounds, else divide (subtract) a big penalty
         log_prob_with_penalty[log_prob_with_penalty < -1e9] = -np.inf
         return log_prob_with_penalty
 
-    # test (temp)
-    norm_theta = simulation_utils.normalise_theta(theta.reshape(1, -1), free_params_no_z).squeeze()
-    print('norm theta: ', norm_theta)
+    # test only
+    initial_params = theta[:-1]
+    norm_params = simulation_utils.normalise_theta(initial_params.reshape(1, -1), free_params_no_z).squeeze()
+    print('norm theta: ', norm_params)
     # norm_theta = theta
     # log_prob = log_prob_fn(norm_theta.reshape(1, -1))
     # print(log_prob)
 
     logging.info('Begin manual emcee')
-    x0_ball = emcee_sampling.get_initial_starts_ball(norm_theta.reshape(1, -1), neg_log_p=np.ones(1), nwalkers=nwalkers)  # only one found, if it's reliable stick w/ this
+    x0_ball = emcee_sampling.get_initial_starts_ball(theta.reshape(1, -1), neg_log_p=np.ones(1), nwalkers=nwalkers)  # only one found, if it's reliable stick w/ this
     samples, _ = emcee_sampling.run_emcee(nwalkers, x0_ball, n_burnin, n_samples, log_prob_fn)
     return samples
     # return samples.reshape(-1, len(theta))  # flatten for historical checks, for now
@@ -341,7 +358,13 @@ def save_samples(samples, model, obs, sps, file_loc, name, true_theta=None):
 def save_corner(samples, model, file_loc):
     if samples.ndim > 2:
         samples = samples.reshape(-1, samples.shape[2])  # flatten chains
-    figure = corner.corner(samples, labels=model.free_params,
+    if samples.shape[-1] == 8:
+        labels = model.free_params
+    if samples.shape[-1] == 9:
+        labels = list(model.free_params) + ['scale'] 
+    else:
+        labels = None
+    figure = corner.corner(samples, labels=labels,
                         show_titles=True, title_kwargs={"fontsize": 12})
     figure.savefig(file_loc)
 
@@ -376,9 +399,7 @@ def main(index, name, catalog_loc, save_dir, forest_class, spectro_class, redshi
         y_test = np.loadtxt('data/cubes/y_test_latest.npy')
         assert y_test.shape[1] == 8  # euclid cube
 
-
         cube_params = x_test[index]  # only need for redshift
-
 
         galaxy = {}
         galaxy['redshift'] = cube_params[0] * 4.  # denormalised, 4 to scale from hcube. Again, crucial not to change param_lims!
@@ -430,9 +451,9 @@ def main(index, name, catalog_loc, save_dir, forest_class, spectro_class, redshi
         # assert np.any([r.cost < 10**4 for r in results])  # by eye, anything worse than this is 'no good start found' and should exit
         print(results.cost)
         assert results.cost < 1
-        logging.info(list(zip(model.free_params, theta_best)))
+        logging.info(list(zip(model.free_params, theta_best[:-1])))
         # TODO save best_theta to json?
-        visualise.visualise_obs_and_model(obs, model, theta_best, sps)
+        visualise.visualise_obs_and_model(obs, model, theta_best[:-1], sps)
         plt.savefig(os.path.join(save_dir, '{}_ml_estimate.png'.format(name)))
         plt.clf()
     else:
