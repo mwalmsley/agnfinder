@@ -159,19 +159,20 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, mode, n
         # within_max_z = x_test[:, 0] < .5 / 4.
 
 
-        new_subsample = False
+        new_subsample = True
         # filter to subsample with realistic mags
         if new_subsample:
             photometry_df = pd.read_parquet('data/photometry_quicksave.parquet')
             _, pairs = select_subsample(photometry_df, y_test, duplicates=False)
             x_test = x_test[pairs]
             y_test = y_test[pairs]
-            np.savetxt('data/cubes/x_test_v2.npy', x_test)
-            np.savetxt('data/cubes/y_test_v2.npy', y_test)
+            np.savetxt('data/cubes/x_matched_unfiltered.npy', x_test)
+            np.savetxt('data/cubes/y_matched_unfiltered.npy', y_test)
+            exit()
             del x_test
             del y_test
-        x_test = np.loadtxt('data/cubes/x_test_v2.npy')
-        y_test = np.loadtxt('data/cubes/y_test_v2.npy')
+        x_test = np.loadtxt('data/cubes/x_matched_unfiltered.npy')
+        y_test = np.loadtxt('data/cubes/y_matched_unfiltered.npy')
         x_test = x_test.astype(np.float32)
         y_test = y_test.astype(np.float32)
 
@@ -291,7 +292,7 @@ if __name__ == '__main__':
     python agnfinder/tf_sampling/run_sampler_singlethreaded.py --checkpoint-loc results/checkpoints/latest --output-dir results/emulated_sampling --selected data/uk_ir_selection_577.parquet
 
     Final settings for paper:
-    python agnfinder/tf_sampling/run_sampler_singlethreaded.py --mode emcee --n-galaxies 32 --n-samples 20000 --n-burnin 5000 --n-repeats 1
+    python agnfinder/tf_sampling/run_sampler_singlethreaded.py --mode emcee --n-galaxies 8 --n-samples 20000 --n-burnin 5000 --n-repeats 1
     python agnfinder/tf_sampling/run_sampler_singlethreaded.py --mode hmc --n-galaxies 16 --n-samples 40000 --n-burnin 10000 --n-repeats 16
 
     Test settings:
