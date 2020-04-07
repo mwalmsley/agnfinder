@@ -1,7 +1,7 @@
 #!/bin/sh
 
 CUBES=20  # zeus cores
-SAMPLES_PER_CUBE=1000000  # 14 mins for 100k, 140 mins for 1m, etc.
+SAMPLES_PER_CUBE=10000  # 14 mins for 100k, 140 mins for 1m, etc.
 ZMAX=1.  # okay to change this, but never change the 4.0 in simulate_samples.py
 
 ZSTEP=$(echo "scale=4;$ZMAX/$CUBES" | bc)

@@ -24,7 +24,12 @@ def get_all_posterior_records(marginals, true_params, n_param_bins, n_posterior_
     _, param_bins = np.histogram(dummy_array, range=(0., 1.), bins=n_param_bins)
 
     posterior_records = []
-    for param_n in range(true_params.shape[1]):
+    if true_params[:, -1].mean() > 1.:  # is scale param
+        n_params = true_params.shape[1] - 1
+    else:
+        n_params = true_params.shape[1]
+    for param_n in range(n_params):  # now excluding scale
+        print(param_n)
         posterior_record = get_posterior_record(marginals, true_params, param_n, param_bins, n_param_bins, n_posterior_bins)
         posterior_records.append(posterior_record)
     return posterior_records, param_bins
@@ -47,7 +52,7 @@ def get_posterior_record(marginals, true_params, param_n, param_bins, n_param_bi
     # posterior_record = posterior_record / galaxy_counts
     for n in range(len(galaxy_counts)):
         posterior_record[n] = posterior_record[n] / galaxy_counts[n]
-    # print(posterior_record)
+    print(posterior_record)
     # replace any 0's with nans, for clarity
     posterior_record[np.isclose(posterior_record, 0)] = np.nan
     # trim extreme values
@@ -85,8 +90,8 @@ def get_cmap(hue_val):
 
 
 def rename_params(input_names):
-    model_params = ['redshift', 'mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling', 'inclination', 'agn_mass', 'agn_torus_mass', 'zred']
-    human_names = ['Redshift', 'Stellar Mass', 'Dust', 'Age', 'Tau', 'AGN Disk Scale', 'AGN E(B-V)', 'AGN Torus Scale', 'AGN Torus Incl.', 'AGN Disk Scale', 'AGN Torus Scale', 'Redshift']
+    model_params = ['redshift', 'mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling', 'inclination', 'agn_mass', 'agn_torus_mass', 'zred', 'scale']
+    human_names = ['Redshift', 'Stellar Mass', 'Dust', 'Age', 'Tau', 'AGN Disk Scale', 'AGN E(B-V)', 'AGN Torus Scale', 'AGN Torus Incl.', 'AGN Disk Scale', 'AGN Torus Scale', 'Redshift', 'Scale']
     renamer = dict(zip(model_params, human_names))
     return [renamer[x] for x in input_names]
 
@@ -201,9 +206,11 @@ if __name__ == '__main__':
     if args.raw:
         use_filter = False
 
-
-
     fig, axes = main(args.save_dir, use_filter, args.max_redshift)
 
     fig.savefig('results/latest_posterior_stripes.png')
     fig.savefig('results/latest_posterior_stripes.pdf')
+
+    # python agnfinder/tf_sampling/parameter_recovery.py --save-dir results/emulated_sampling/latest_emcee_5000_10000_1_optimised  --raw
+    # python agnfinder/tf_sampling/parameter_recovery.py --save-dir results/emulated_sampling/latest_hmc_10000_40000_16_optimised  --raw
+    # python agnfinder/tf_sampling/parameter_recovery.py --save-dir results/vanilla_emcee  --raw

@@ -9,6 +9,7 @@ import tensorflow as tf  # just for eager toggle
 import statsmodels.api as sm
 from scipy.interpolate import interp1d
 import h5py
+import matplotlib.pyplot as plt
 
 from agnfinder.prospector import load_photometry
 from agnfinder.tf_sampling import run_sampler, deep_emulator, parameter_recovery, tensorrt, api
@@ -90,15 +91,22 @@ def select_subsample(photometry_df: pd.DataFrame, cube_y: np.array, duplicates=F
     return df_clipped, pairs
 
 
+def get_forward_model(emulator):
+    def forward_model(theta):
+        predictions = emulator(theta)  # assumes scale already removed, emulator params only
+        return predictions / tf.reduce_sum(predictions, axis=1, keepdims=True)
+    return forward_model
+
 
 def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, mode, n_galaxies, n_burnin, n_samples, n_repeats, max_chains, init_method, save_dir, fixed_redshift, filter_selection):
     
-    emulator = deep_emulator.get_trained_keras_emulator(deep_emulator.tf_model(), checkpoint_loc, new=False)
+    emulator = deep_emulator.get_trained_keras_emulator(deep_emulator.tf_model(), checkpoint_loc, new=False, cube_dir='data/cubes/latest')
     # emulator = tensorrt.load_trt_model(checkpoint_loc + '_savedmodel', checkpoint_loc + '_trt')  # not really any faster, and can't do HMC
+    forward_model = get_forward_model(emulator)  # enforce unit scale predictions
 
     n_photometry = 12
 
-    always_free_param_names = ['mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling', 'inclination']
+    always_free_param_names = ['mass', 'dust2', 'tage', 'tau', 'agn_disk_scaling', 'agn_eb_v', 'agn_torus_scaling', 'inclination', 'scale']
     if fixed_redshift:
         fixed_param_names = ['redshift']
         free_param_names = always_free_param_names
@@ -146,9 +154,10 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, mode, n
     else:
         # fake galaxies, drawn from our priors and used as emulator training data
         logging.info('Using fake galaxies, drawn randomly from the hypercube')
-        _, _, x_test, y_test = deep_emulator.data(cube_dir='data/cubes/latest')  # TODO could make as arg
+        # _, _, x_test, y_test = deep_emulator.data(cube_dir='data/cubes/latest', rescale=False)  # TODO could make as arg
         # filter to max redshift .5
         # within_max_z = x_test[:, 0] < .5 / 4.
+
 
         new_subsample = False
         # filter to subsample with realistic mags
@@ -165,7 +174,49 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, mode, n
         y_test = np.loadtxt('data/cubes/y_test_v2.npy')
         x_test = x_test.astype(np.float32)
         y_test = y_test.astype(np.float32)
-        print(y_test.shape)
+
+        # make sure galaxies are shuffled
+        # would horribly break naming...
+        # shuffle_indices = np.arange(len(x_test))
+        # np.random.shuffle(shuffle_indices)  # inplace
+        # x_test = x_test[shuffle_indices]
+        # y_test = y_test[shuffle_indices]
+
+        # filter to medium uncertainty
+        all_photometry = deep_emulator.denormalise_photometry(y_test, scale=1.) 
+        all_uncertainty = load_photometry.estimate_maggie_uncertainty(all_photometry)
+        fractional_uncertainty = (all_uncertainty / all_photometry).mean(axis=1)
+        
+        # plt.hist(fractional_uncertainty, bins=50)
+        # plt.show()
+        logging.warning('Keeping fairly uncertain galaxies only')
+        high_unc = (0.05 < fractional_uncertainty) & (fractional_uncertainty < 0.08)  # similar unc's, for debugging for now
+        x_test = x_test[high_unc]
+        y_test = y_test[high_unc]
+
+        # WARNING temporarily restrict to z=1
+        # important to remember that z here is normalised (hence 0.25 = z=1), and to be sure to train emulator on the right z range
+        # _test_v2 extended to all z, but _latest should only include z<1. i.e. values < 0.25
+        # hmc and emcee successes were with low z galaxies, while naive was (too good with) high z galaxies
+        # implying hmc and emcee were trained with z filter->latest-like, while naive was trained without z filter
+        # run hmc twice and verify that it looks just the same, to be sure that really was the sample used successfully
+        # then run emcee naive, stopping to check which z's are loaded - maybe a dum error somewhere. Note that 0.25 * 4 = 1, could be mixing normalised and unnormalised z's with FSPS, and then recording them as normalised
+        # but for fsps to get the right fits, it must be getting z right...?
+        # but I only know that's the right z because of what I wrote?
+        low_z = x_test[:, 0] < 0.25 # about half of galaxies
+        logging.warning(f'Keeping low_z only {low_z.mean()}')
+        x_test = x_test[low_z]
+        y_test = y_test[low_z]
+
+        # np.savetxt('data/cubes/x_test_latest.npy', x_test)
+        # np.savetxt('data/cubes/y_test_latest.npy', y_test)
+        # exit()
+
+
+        # calculate true scale parameter
+        scale = np.expand_dims(y_test.sum(axis=1), 1)
+        # add it to params
+        x_test = np.concatenate([x_test, scale], axis=1)
 
         # repeat only failures
         # need a better way to only handle names at end, without messing up file locs
@@ -179,7 +230,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, mode, n
         names = names[:max_index]
         # OR
         # repeat the first galaxy for n_chains
-        # chain_indices = np.zeros(n_chains, dtype=int)
+        # chain_indices = np.zeros(n_repeats, dtype=int)
         # names = ['galaxy_0' for _ in chain_indices]
         # OR
         # manual
@@ -197,7 +248,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, mode, n
             logging.info('Using variable redshift')
             true_params = x_test[chain_indices]
             fixed_params = np.zeros((len(true_params), 0)).astype(np.float32)
-        true_observation = deep_emulator.denormalise_photometry(y_test[chain_indices]) 
+        true_observation = deep_emulator.denormalise_photometry(y_test[chain_indices], scale=1.) 
         assert filter_selection == 'euclid'
 
         uncertainty = load_photometry.estimate_maggie_uncertainty(true_observation)
@@ -215,7 +266,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, mode, n
     print(true_params[0])
     # exit()
 
-    problem = api.SamplingProblem(names, true_observation, true_params, forward_model=emulator, fixed_params=fixed_params, uncertainty=uncertainty)  # will pass in soon
+    problem = api.SamplingProblem(names, true_observation, true_params, forward_model=forward_model, fixed_params=fixed_params, uncertainty=uncertainty)  # will pass in soon
 
     run_sampler.sample_galaxy_batch(
         problem,
@@ -240,8 +291,12 @@ if __name__ == '__main__':
     python agnfinder/tf_sampling/run_sampler_singlethreaded.py --checkpoint-loc results/checkpoints/latest --output-dir results/emulated_sampling --selected data/uk_ir_selection_577.parquet
 
     Final settings for paper:
-    python agnfinder/tf_sampling/run_sampler_singlethreaded.py --mode emcee --n-galaxies 32 --n-samples 10000 --n-burnin 5000 --n-repeats 1
+    python agnfinder/tf_sampling/run_sampler_singlethreaded.py --mode emcee --n-galaxies 32 --n-samples 20000 --n-burnin 5000 --n-repeats 1
     python agnfinder/tf_sampling/run_sampler_singlethreaded.py --mode hmc --n-galaxies 16 --n-samples 40000 --n-burnin 10000 --n-repeats 16
+
+    Test settings:
+    python agnfinder/tf_sampling/run_sampler_singlethreaded.py --mode hmc --n-galaxies 2 --n-samples 4000 --n-burnin 1000 --n-repeats 2
+    python agnfinder/tf_sampling/run_sampler_singlethreaded.py --mode emcee --n-galaxies 1 --n-samples 400 --n-burnin 100 --n-repeats 1
 
     Default burn-in, num samples, and num chains are optimised for an excellent desktop w/ GTX 1070. 
     """

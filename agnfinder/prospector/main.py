@@ -10,13 +10,15 @@ import numpy as np
 import pandas as pd
 import corner
 import matplotlib.pyplot as plt
+from scipy import optimize
 
 from prospect.fitting import lnprobfn
 from prospect.fitting import fit_model
 
 from agnfinder.prospector import cpz_builders, visualise, fitting, load_photometry
 from agnfinder import columns, simulation_samples, simulation_utils
-from agnfinder.tf_sampling import run_sampler, deep_emulator
+from agnfinder.tf_sampling import run_sampler, deep_emulator, api, emcee_sampling
+from prospect.fitting import minimizer
 
 
 def load_catalog(catalog_loc):
@@ -93,11 +95,19 @@ def fit_galaxy(run_params, obs, model, sps):
     run_params["emcee"] = False
     run_params["optimize"] = True
     run_params["min_method"] = 'lm'
-    run_params["nmin"] = 50
+    run_params["nmin"] = 1
+    run_params['min_opts'] = {
+        # 'xtol': 1e-10,
+        # 'ftol': 1,
+        'verbose': 1
+    }
 
     logging.info('Begin minimisation')
     output = fit_model(obs=obs, model=model, sps=sps, lnprobfn=lnprobfn, **run_params)  # careful, modifies model in-place: model['optimization'], model['theta']
-    
+    # print(output['optimization'])
+    # print([x for x in output['optimization']])
+    # print('cost: ', output['optimization']['cost'])
+
     results = output["optimization"][0]
     time_elapsed = output["optimization"][1]
     log_string = "Done optimization in {}s".format(time_elapsed)
@@ -107,6 +117,129 @@ def fit_galaxy(run_params, obs, model, sps):
     best_theta = fitting.get_best_theta(model, output)
 
     return best_theta, results, time_elapsed
+
+
+def fit_galaxy_manual(model, obs, sps):
+
+    fsps_forward_model = simulation_samples.wrap_fsps_model(model, obs, sps)
+    # for this, I only want the least squares flux deviation
+    # I want to pass in normalised params including redshfit, plus scale,
+    # denormalise them in the forward model step
+    # log-multiply by scale
+    # and denormalise them again once we have the best theta
+
+    free_params_no_z = simulation_samples.FREE_PARAMS
+    del free_params_no_z['redshift'] # unusually, z is fixed
+
+    def forward_model(x):
+        params = x[:-1]
+        scale = x[-1]
+        # params = x  # pass scale by closure, no need to optimise?
+        assert len(params) == 8
+        # denormalise params, remembering there's no redshift
+        params_denormed = simulation_utils.denormalise_theta(params.reshape(1, -1), free_params_no_z).squeeze()
+        fsps_photometry = fsps_forward_model(params_denormed) 
+        norm_photometry = deep_emulator.normalise_photometry(fsps_photometry.reshape(1, -1))
+        photometry = deep_emulator.denormalise_photometry(norm_photometry, scale)
+        return photometry.squeeze()
+
+    def residuals(x):
+        predicted_flux = forward_model(x)
+        # return predicted_flux - obs['maggies']
+        return np.abs(np.log10(predicted_flux) - np.log10(obs['maggies']))
+
+    initial = model.theta.copy()
+    initial_params = minimizer.minimizer_ball(initial, 1, model)  # just get one, seems to just pick the init though
+    initial_params = np.squeeze(initial_params)  # initial_params must be 1D
+    initial_params_normed = simulation_utils.normalise_theta(initial_params.reshape(1, -1), free_params_no_z).squeeze()
+    initial_scale = -np.log10(obs['maggies']).sum().reshape(1)  # 1D. Should really refactor this...
+    x0 = np.concatenate([initial_params_normed, initial_scale], axis=-1)
+
+    logging.info('Begin minimisation')
+    bounds = ([0. for _ in initial_params] + [0], [1. for _ in initial_params] + [1e4])
+    results = optimize.least_squares(residuals, x0, bounds=bounds)
+    best_theta_normed = results.x
+    # back to real theta, for consistency
+    best_params = simulation_utils.denormalise_theta(best_theta_normed[:-1].reshape(1, -1), free_params_no_z).squeeze()
+    best_scale = best_theta_normed[-1]
+    best_theta = np.concatenate([best_params, best_scale.reshape(1)], axis=-1)
+    return best_theta, results
+
+
+def mcmc_galaxy_manual(model, obs, sps, theta):  # requires previous minimisation
+
+    # nwalkers = 32  # for now, 256 on Zeus w/ GPU
+    # n_burnin = 5000
+    # n_samples = 20000  # up from 10k, can cut artifically later
+
+    nwalkers = 32  # for now, 256 on Zeus w/ GPU
+    n_burnin = 5000
+    n_samples = 20000  # up from 10k, can cut artifically later
+
+    fsps_forward_model = simulation_samples.wrap_fsps_model(model, obs, sps)
+    free_params_no_z = simulation_samples.FREE_PARAMS
+    if 'redshift' in free_params_no_z.keys():
+        del free_params_no_z['redshift'] # unusually, z is fixed
+
+    def forward_model(x, param_dim=8):  # expects batch
+        if x.ndim == 1:
+            x = x.reshape(1, -1)
+        params = x[:, :-1]
+        scale = x[:, -1]
+        assert params.shape[1] == param_dim  # no scale (for now)
+        params = np.clip(params, 1e-5, 1-1e-5)  # log prob will make these be rejected, but the forward model failure messes up the shapes
+
+        # denormalise params, remembering there's no redshift
+        params_denormed = simulation_utils.denormalise_theta(params, free_params_no_z)
+        # fsps can't handle batch, calculate sequentially
+        fsps_predictions = [fsps_forward_model(x_row) for x_row in params_denormed]
+        shapes = [p.shape for p in fsps_predictions]
+        try:
+            fsps_predictions = np.stack(fsps_predictions, axis=0)
+        except ValueError:
+            print(params_denormed)
+            print(shapes)
+            print(fsps_predictions)
+            raise ValueError
+
+        normalised_predictions = deep_emulator.normalise_photometry(fsps_predictions)
+        predictions = deep_emulator.denormalise_photometry(normalised_predictions, scale.reshape(-1, 1))
+        return predictions
+
+
+    def log_prob_fn(x):  # expects variable batch size
+        if x.ndim == 1:
+            batch_dim = 1
+        else:
+            batch_dim = x.shape[0]
+        true_flux = np.tile(obs['maggies'].reshape(1, -1), [batch_dim, 1])
+        uncertainty = np.tile(obs['maggies_unc'].reshape(1, -1), [batch_dim, 1])
+        # no scale param
+        predicted_flux = forward_model(x)
+        deviation = np.abs(predicted_flux - true_flux)   # make sure you denormalise true observation in the first place, if loading from data(). Should be in maggies.
+        variance = uncertainty ** 2
+        neg_log_prob_by_band = 0.5*( (deviation**2/variance) - np.log(2*np.pi*variance) )  # natural log, not log10
+        log_prob = -neg_log_prob_by_band.sum(axis=1)  # log space: product -> sum
+        x_out_of_bounds = api.is_out_of_bounds_python(x[:, :-1])  # being careful to exclude scale
+        penalty = x_out_of_bounds * 1e10
+        log_prob_with_penalty = log_prob - penalty  # no effect if x in bounds, else divide (subtract) a big penalty
+        log_prob_with_penalty[log_prob_with_penalty < -1e9] = -np.inf
+        return log_prob_with_penalty
+
+    # test only
+    initial_params = theta[:-1]
+    norm_params = simulation_utils.normalise_theta(initial_params.reshape(1, -1), free_params_no_z).squeeze()
+    print('norm theta: ', norm_params)
+    # norm_theta = theta
+    # log_prob = log_prob_fn(norm_theta.reshape(1, -1))
+    # print(log_prob)
+
+    logging.info('Begin manual emcee')
+    x0_ball = emcee_sampling.get_initial_starts_ball(theta.reshape(1, -1), neg_log_p=np.ones(1), nwalkers=nwalkers)  # only one found, if it's reliable stick w/ this
+    samples, _ = emcee_sampling.run_emcee(nwalkers, x0_ball, n_burnin, n_samples, log_prob_fn)
+    return samples
+    # return samples.reshape(-1, len(theta))  # flatten for historical checks, for now
+
 
 def mcmc_galaxy(run_params, obs, model, sps, initial_theta=None, test=False):
 
@@ -164,7 +297,7 @@ def mcmc_galaxy(run_params, obs, model, sps, initial_theta=None, test=False):
     time_elapsed = output["sampling"][1]
     logging.info('done emcee in {:.1f}s'.format(time_elapsed))
 
-    samples = sampler.flatchain
+    samples = sampler.flatchain  # may change
     # samples = sampler.get_chain(flat=False)
     return samples, time_elapsed
 
@@ -198,7 +331,7 @@ def dynesty_galaxy(run_params, obs, model, sps, test=False):
 def save_samples(samples, model, obs, sps, file_loc, name, true_theta=None):
     if 'zred' in model.fixed_params: # other fixed params irrelevant
         fixed_param_names = ['redshift']
-        fixed_params = [model.params['zred']]
+        fixed_params = [model.params['zred'] / 4.]  # should be div 4, to be normalised consistently w/ other routines
     else:
         fixed_param_names = []
         fixed_params = []
@@ -225,7 +358,13 @@ def save_samples(samples, model, obs, sps, file_loc, name, true_theta=None):
 def save_corner(samples, model, file_loc):
     if samples.ndim > 2:
         samples = samples.reshape(-1, samples.shape[2])  # flatten chains
-    figure = corner.corner(samples, labels=model.free_params,
+    if samples.shape[-1] == 8:
+        labels = model.free_params
+    if samples.shape[-1] == 9:
+        labels = list(model.free_params) + ['scale'] 
+    else:
+        labels = None
+    figure = corner.corner(samples, labels=labels,
                         show_titles=True, title_kwargs={"fontsize": 12})
     figure.savefig(file_loc)
 
@@ -251,29 +390,36 @@ def main(index, name, catalog_loc, save_dir, forest_class, spectro_class, redshi
 
     if catalog_loc == '':
         assert args.cube_loc is not ''
+        # cube loc doesn't do anything any more, we just load directly from the test set
 
         # load randomly from cube
         # _, _, x_test, y_test = deep_emulator.data(cube_dir=cube_loc)  # TODO apply selection filters
         # OR load from preselected test sample
-        x_test = np.loadtxt('data/cubes/x_test_v2.npy')
-        y_test = np.loadtxt('data/cubes/y_test_v2.npy')
-
+        x_test = np.loadtxt('data/cubes/x_test_latest.npy')
+        y_test = np.loadtxt('data/cubes/y_test_latest.npy')
         assert y_test.shape[1] == 8  # euclid cube
-        cube_photometry = deep_emulator.denormalise_photometry(y_test[index])  # other selection params have no effect
+
         cube_params = x_test[index]  # only need for redshift
-        # pretend cube is catalog photometry
-        filters = load_photometry.get_filters('euclid')
+
         galaxy = {}
-        for n, f in enumerate(filters):
-            galaxy[f.maggie_col] = cube_photometry[n]
-        galaxy['redshift'] = cube_params[0] * 4.  # 4 to scale from hcube. Again, crucial not to change param_lims!
+        galaxy['redshift'] = cube_params[0] * 4.  # denormalised, 4 to scale from hcube. Again, crucial not to change param_lims!
         true_theta = cube_params[1:]  # fixed redshift, normalised. Need to denormalise at end, or (better?) normalise samples.
         logging.info(f'True theta: {true_theta}')
-        
+
+        filters = load_photometry.get_filters('euclid')
+
+        cube_photometry = deep_emulator.denormalise_photometry(y_test[index], scale=1.)  # other selection params have no effect WARNING SCALE
+
         # estimate_maggie_unc expects a batch dimension, so temporarily add one
         maggie_uncertainty = np.squeeze(load_photometry.estimate_maggie_uncertainty(np.expand_dims(cube_photometry, axis=0)))
+
+        # make a mock observation
+        observed_photometry = np.random.normal(loc=cube_photometry, scale=maggie_uncertainty)
+        # pretend observed photometry is in catalog
         for n, f in enumerate(filters):
+            galaxy[f.maggie_col] = observed_photometry[n]
             galaxy[f.maggie_error_col] = maggie_uncertainty[n]
+
     else:
         galaxy = load_galaxy(catalog_loc, index, forest_class, spectro_class)
         true_theta = None
@@ -300,22 +446,35 @@ def main(index, name, catalog_loc, save_dir, forest_class, spectro_class, redshi
     logging.info('Beginning inference (not counting model construction) at {}'.format(start_time))
 
     if find_ml_estimate:
-        theta_best, results, _ = fit_galaxy(run_params, obs, model, sps)
-        assert np.any([r.cost < 10**4 for r in results])  # by eye, anything worse than this is 'no good start found' and should exit
-        logging.info(list(zip(model.free_params, theta_best)))
+        theta_best, results = fit_galaxy_manual(model, obs, sps)
+        # theta_best, results, _ = fit_galaxy(run_params, obs, model, sps)
+        # assert np.any([r.cost < 10**4 for r in results])  # by eye, anything worse than this is 'no good start found' and should exit
+        print(results.cost)
+        assert results.cost < 1
+        logging.info(list(zip(model.free_params, theta_best[:-1])))
         # TODO save best_theta to json?
-        visualise.visualise_obs_and_model(obs, model, theta_best, sps)
+        visualise.visualise_obs_and_model(obs, model, theta_best[:-1], sps)
         plt.savefig(os.path.join(save_dir, '{}_ml_estimate.png'.format(name)))
         plt.clf()
     else:
         theta_best = None
 
+    # theta_best = np.array([0.69517508, 0.78529271, 0.02695847, 0.09131194, 0.88317726, 0.4672737, 0.70804482, 0.15671718])
+
     if find_mcmc_posterior:
-        samples, _ = mcmc_galaxy(run_params, obs, model, sps, initial_theta=theta_best, test=test)
-        limits_without_redshift = simulation_samples.FREE_PARAMS.copy()
-        del limits_without_redshift['redshift']
-        normalised_samples = simulation_utils.normalise_theta(samples, limits_without_redshift)
-        normalised_samples = np.expand_dims(normalised_samples, axis=1)  # add chain dim back in
+        assert theta_best is not None
+
+        manual = True
+        if manual:
+            normalised_samples = mcmc_galaxy_manual(model, obs, sps, theta_best)  # normalised params, with chain dimension
+        else:
+            unnormalised_samples = mcmc_galaxy(run_params, obs, model, sps, initial_theta=theta_best, test=test)  # fsps params, with no chain dimension
+            limits_without_redshift = simulation_samples.FREE_PARAMS.copy()
+            if 'redshift' in limits_without_redshift.keys():
+                del limits_without_redshift['redshift']
+            normalised_samples = simulation_utils.normalise_theta(unnormalised_samples, limits_without_redshift)
+            normalised_samples = np.expand_dims(normalised_samples, axis=1)  # add chain dim back in
+
         sample_loc = os.path.join(save_dir, '{}_mcmc_samples.h5'.format(name))
         save_samples(normalised_samples, model, obs, sps, sample_loc, name, true_theta=true_theta)
         corner_loc = os.path.join(save_dir, '{}_mcmc_corner.png'.format(name))
@@ -352,15 +511,15 @@ if __name__ == '__main__':
     Output: samples (.h5py) and corner plot of forward model parameter posteriors for the selected galaxy
 
     Example use:
-    python agnfinder/prospector/main.py cube_test --cube data/cubes/latest --save-dir results/vanilla_mcmc
+    python agnfinder/prospector/main.py galaxy --cube data/cubes/latest --save-dir results/vanilla_emcee
     python agnfinder/prospector/main.py passive --catalog-loc data/uk_ir_selection_577.parquet --save-dir results/vanilla_nested --forest passive
     """
     parser = argparse.ArgumentParser(description='Find AGN!')
-    parser.add_argument('name', type=str, help='name of run')
+    parser.add_argument('--name', type=str, help='name of run', dest='name', default='galaxy')
     parser.add_argument('--catalog', dest='catalog_loc', type=str, default='')
-    parser.add_argument('--cube', dest='cube_loc', type=str, default='')
-    parser.add_argument('--save-dir', dest='save_dir', type=str)
-    parser.add_argument('--index', type=int, default=0, dest='index', help='index of galaxy to fit')
+    parser.add_argument('--cube', dest='cube_loc', type=str, default='data/cubes/latest')
+    parser.add_argument('--save-dir', dest='save_dir', type=str, default='results/vanilla_emcee_local')
+    parser.add_argument('--index', type=int, default=8, dest='index', help='index of galaxy to fit')
     parser.add_argument('--forest', type=str, default=None, dest='forest', help='forest-estimated class of galaxy to fit')
     parser.add_argument('--spectro', type=str, default='any', dest='spectro', help='filter to only galaxies with this spectro. label, before selecting by index')
     parser.add_argument('--profile', default=False, dest='profile', action='store_true')
