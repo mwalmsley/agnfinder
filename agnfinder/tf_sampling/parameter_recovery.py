@@ -211,6 +211,6 @@ if __name__ == '__main__':
     fig.savefig('results/latest_posterior_stripes.png')
     fig.savefig('results/latest_posterior_stripes.pdf')
 
-    # python agnfinder/tf_sampling/parameter_recovery.py --save-dir results/emulated_sampling/latest_emcee_5000_10000_1_optimised  --raw
+    # python agnfinder/tf_sampling/parameter_recovery.py --save-dir results/emulated_sampling/latest_emcee_5000_20000_1_optimised  --raw
     # python agnfinder/tf_sampling/parameter_recovery.py --save-dir results/emulated_sampling/latest_hmc_10000_40000_16_optimised  --raw
     # python agnfinder/tf_sampling/parameter_recovery.py --save-dir results/vanilla_emcee  --raw

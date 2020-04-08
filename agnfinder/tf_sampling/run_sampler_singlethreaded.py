@@ -163,6 +163,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, mode, n
         # filter to subsample with realistic mags
         if new_subsample:
             _, _, x_test, y_test = deep_emulator.data(cube_dir='data/cubes/latest', rescale=False) 
+            assert not np.any(y_test.sum(axis=1) == 1.)  # must not be rescaled
             photometry_df = pd.read_parquet('data/photometry_quicksave.parquet')
             _, pairs = select_subsample(photometry_df, y_test, duplicates=False)
             x_test = x_test[pairs]

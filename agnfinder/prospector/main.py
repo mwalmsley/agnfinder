@@ -139,7 +139,7 @@ def fit_galaxy_manual(model, obs, sps):
         # denormalise params, remembering there's no redshift
         params_denormed = simulation_utils.denormalise_theta(params.reshape(1, -1), free_params_no_z).squeeze()
         fsps_photometry = fsps_forward_model(params_denormed) 
-        norm_photometry = deep_emulator.normalise_photometry(fsps_photometry.reshape(1, -1))
+        norm_photometry = deep_emulator.normalise_photometry(fsps_photometry.reshape(1, -1), rescale=True)
         photometry = deep_emulator.denormalise_photometry(norm_photometry, scale)
         return photometry.squeeze()
 
@@ -186,7 +186,7 @@ def mcmc_galaxy_manual(model, obs, sps, theta):  # requires previous minimisatio
             x = x.reshape(1, -1)
         params = x[:, :-1]
         scale = x[:, -1]
-        assert params.shape[1] == param_dim  # no scale (for now)
+        assert params.shape[1] == param_dim  # remembering scale
         params = np.clip(params, 1e-5, 1-1e-5)  # log prob will make these be rejected, but the forward model failure messes up the shapes
 
         # denormalise params, remembering there's no redshift
@@ -202,7 +202,7 @@ def mcmc_galaxy_manual(model, obs, sps, theta):  # requires previous minimisatio
             print(fsps_predictions)
             raise ValueError
 
-        normalised_predictions = deep_emulator.normalise_photometry(fsps_predictions)
+        normalised_predictions = deep_emulator.normalise_photometry(fsps_predictions, rescale=True)
         predictions = deep_emulator.denormalise_photometry(normalised_predictions, scale.reshape(-1, 1))
         return predictions
 
@@ -403,7 +403,9 @@ def main(index, name, catalog_loc, save_dir, forest_class, spectro_class, redshi
 
         galaxy = {}
         galaxy['redshift'] = cube_params[0] * 4.  # denormalised, 4 to scale from hcube. Again, crucial not to change param_lims!
-        true_theta = cube_params[1:]  # fixed redshift, normalised. Need to denormalise at end, or (better?) normalise samples.
+
+        scale = y_test[index].sum()  # already neglog10 normalised
+        true_theta = np.concatenate(cube_params[1:], scale.reshape(1))  # fixed redshift, normalised, with scale added
         logging.info(f'True theta: {true_theta}')
 
         filters = load_photometry.get_filters('euclid')

@@ -62,17 +62,17 @@ def data(cube_dir, rescale, photometry_dim=8, theta_dim=9):  # e.g. data/cubes/l
     theta = np.ones((0, theta_dim))
     normalised_photometry = np.ones((0, photometry_dim))
     for cube_loc in cube_locs:
-        cube_theta, cube_normalised_photometry = load_cube(cube_loc)
+        cube_theta, cube_normalised_photometry = load_cube(cube_loc, rescale=rescale)
         logging.info(f'Cube {cube_loc} has {cube_theta.shape} theta, {cube_normalised_photometry.shape} photometry ')
         theta = np.concatenate([theta, cube_theta], axis=0)
         normalised_photometry = np.concatenate([normalised_photometry, cube_normalised_photometry], axis=0)
     logging.info('Loaded {} theta, {} photometry'.format(theta.shape, normalised_photometry.shape))
     # shuffles here, which is crucial
     x_train, x_test, y_train, y_test = train_test_split(theta, normalised_photometry, random_state=1, test_size=0.1)
-    if rescale:
-        logging.warning('Rescaling normalised photometry to unit sum')
-        y_train = y_train/y_train.sum(axis=1, keepdims=True)
-        y_test = y_test/y_test.sum(axis=1, keepdims=True)
+    # if rescale:
+    #     logging.warning('Rescaling normalised photometry to unit sum')
+    #     y_train = y_train/y_train.sum(axis=1, keepdims=True)
+    #     y_test = y_test/y_test.sum(axis=1, keepdims=True)
     return x_train, y_train, x_test, y_test
 
 
@@ -120,9 +120,11 @@ def train_on_datasets(model, train_ds, test_ds):
     return model
 
 
-def normalise_photometry(photometry):
+def normalise_photometry(photometry, rescale):
     neg_log_phot = -1 * np.log10(photometry)
-    return neg_log_phot / np.expand_dims(neg_log_phot.sum(axis=-1), 1)  # assume last axis is event dimension
+    if rescale:
+        return neg_log_phot / np.expand_dims(neg_log_phot.sum(axis=-1), 1)  # assume last axis is event dimension
+    return neg_log_phot
 
 
 def denormalise_photometry(normed_photometry, scale):
@@ -162,16 +164,17 @@ def get_cube_locs(cube_dir):
 
 
 def cubes_to_tfrecords(cube_dir, tfrecord_dir):
-    cube_locs = get_cube_locs(cube_dir)
-    for cube_loc in tqdm.tqdm(cube_locs, unit=' cubes saved to tfrecord'):
-        logging.debug('Loading and saving cube {}'.format(cube_loc))
-        theta, norm_photometry = load_cube(cube_loc)
-        ds = tf.data.Dataset.from_tensor_slices((theta, norm_photometry))
-        serialized_ds = ds.map(tf_serialize_example)
-        tfrecord_loc = cube_loc.rstrip('.hdf5') + '.tfrecord'
-        writer = tf.data.experimental.TFRecordWriter(tfrecord_loc)
-        writer.write(serialized_ds)
-    logging.info('Saved cubes in {} as tfrecords to {}'.format(cube_dir, tfrecord_dir))
+    raise NotImplementedError
+    # cube_locs = get_cube_locs(cube_dir)
+    # for cube_loc in tqdm.tqdm(cube_locs, unit=' cubes saved to tfrecord'):
+    #     logging.debug('Loading and saving cube {}'.format(cube_loc))
+    #     theta, norm_photometry = load_cube(cube_loc)
+    #     ds = tf.data.Dataset.from_tensor_slices((theta, norm_photometry))
+    #     serialized_ds = ds.map(tf_serialize_example)
+    #     tfrecord_loc = cube_loc.rstrip('.hdf5') + '.tfrecord'
+    #     writer = tf.data.experimental.TFRecordWriter(tfrecord_loc)
+    #     writer.write(serialized_ds)
+    # logging.info('Saved cubes in {} as tfrecords to {}'.format(cube_dir, tfrecord_dir))
 
 
     # now write as fixed train/test records
@@ -232,11 +235,11 @@ def tf_serialize_example(theta, norm_photometry):
     return tf.reshape(tf_string, ()) # The result is a scalar
 
 
-def load_cube(loc):
+def load_cube(loc, rescale):
     with h5py.File(loc, 'r') as f:
         theta = f['samples']['normalised_theta'][...]
         # very important to remember to also do this to real data!
-        norm_photometry = normalise_photometry(f['samples']['simulated_y'][...])
+        norm_photometry = normalise_photometry(f['samples']['simulated_y'][...], rescale=rescale) 
     # theta as features, normalised_photometry as labels
     return theta, norm_photometry
 
