@@ -159,7 +159,7 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, mode, n
         # within_max_z = x_test[:, 0] < .5 / 4.
 
 
-        new_subsample = True   # TODO could make as arg
+        new_subsample = False   # Only do this on Zeus, takes ~8h
         # filter to subsample with realistic mags
         if new_subsample:
             _, _, x_test, y_test = deep_emulator.data(cube_dir='data/cubes/latest', rescale=False) 
@@ -171,8 +171,6 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, mode, n
             np.savetxt('data/cubes/x_matched_unfiltered.npy', x_test)
             np.savetxt('data/cubes/y_matched_unfiltered.npy', y_test)
             exit()
-            del x_test
-            del y_test
         x_test = np.loadtxt('data/cubes/x_matched_unfiltered.npy')
         y_test = np.loadtxt('data/cubes/y_matched_unfiltered.npy')
         x_test = x_test.astype(np.float32)
@@ -193,28 +191,16 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, mode, n
         # plt.hist(fractional_uncertainty, bins=50)
         # plt.show()
         logging.warning('Keeping fairly uncertain galaxies only')
-        high_unc = (0.05 < fractional_uncertainty) & (fractional_uncertainty < 0.08)  # similar unc's, for debugging for now
+        # high_unc = (0.05 < fractional_uncertainty) & (fractional_uncertainty < 0.08)  # similar unc's, for debugging for now
+        high_unc = 0.05 < fractional_uncertainty  # new for paper (final, hopefully)
         x_test = x_test[high_unc]
         y_test = y_test[high_unc]
 
-        # WARNING temporarily restrict to z=1
+        # WARNING temporarily restrict to z=1 - now disabled for paper
         # important to remember that z here is normalised (hence 0.25 = z=1), and to be sure to train emulator on the right z range
-        # _test_v2 extended to all z, but _latest should only include z<1. i.e. values < 0.25
-        # hmc and emcee successes were with low z galaxies, while naive was (too good with) high z galaxies
-        # implying hmc and emcee were trained with z filter->latest-like, while naive was trained without z filter
-        # run hmc twice and verify that it looks just the same, to be sure that really was the sample used successfully
-        # then run emcee naive, stopping to check which z's are loaded - maybe a dum error somewhere. Note that 0.25 * 4 = 1, could be mixing normalised and unnormalised z's with FSPS, and then recording them as normalised
-        # but for fsps to get the right fits, it must be getting z right...?
-        # but I only know that's the right z because of what I wrote?
-        low_z = x_test[:, 0] < 0.25 # about half of galaxies
-        logging.warning(f'Keeping low_z only {low_z.mean()}')
-        x_test = x_test[low_z]
-        y_test = y_test[low_z]
-
-        # np.savetxt('data/cubes/x_test_latest.npy', x_test)
-        # np.savetxt('data/cubes/y_test_latest.npy', y_test)
-        # exit()
-
+        # logging.warning(f'Keeping low_z only {low_z.mean()}')
+        # x_test = x_test[low_z]
+        # y_test = y_test[low_z]
 
         # calculate true scale parameter
         scale = np.expand_dims(y_test.sum(axis=1), 1)
@@ -251,10 +237,12 @@ def record_performance_on_galaxies(checkpoint_loc, selected_catalog_loc, mode, n
             logging.info('Using variable redshift')
             true_params = x_test[chain_indices]
             fixed_params = np.zeros((len(true_params), 0)).astype(np.float32)
-        true_observation = deep_emulator.denormalise_photometry(y_test[chain_indices], scale=1.) 
+        true_galaxy = deep_emulator.denormalise_photometry(y_test[chain_indices], scale=1.) 
         assert filter_selection == 'euclid'
 
-        uncertainty = load_photometry.estimate_maggie_uncertainty(true_observation)
+        uncertainty = load_photometry.estimate_maggie_uncertainty(true_galaxy)
+        # make fake observation with that uncertainty
+        true_observation = np.random.normal(loc=true_galaxy, scale=uncertainty).astype(np.float32)
 
     assert len(fixed_params) == len(true_observation) == len(true_params)
     assert len(true_observation.shape) == 2
@@ -294,8 +282,8 @@ if __name__ == '__main__':
     python agnfinder/tf_sampling/run_sampler_singlethreaded.py --checkpoint-loc results/checkpoints/latest --output-dir results/emulated_sampling --selected data/uk_ir_selection_577.parquet
 
     Final settings for paper:
-    python agnfinder/tf_sampling/run_sampler_singlethreaded.py --mode emcee --n-galaxies 8 --n-samples 20000 --n-burnin 5000 --n-repeats 1
-    python agnfinder/tf_sampling/run_sampler_singlethreaded.py --mode hmc --n-galaxies 16 --n-samples 40000 --n-burnin 10000 --n-repeats 16
+    python agnfinder/tf_sampling/run_sampler_singlethreaded.py --mode emcee --n-galaxies 8 --n-samples 10000 --n-burnin 5000 --n-repeats 1
+    python agnfinder/tf_sampling/run_sampler_singlethreaded.py --mode hmc --n-galaxies 16 --n-samples 40000 --n-burnin 10000 --n-repeats 8
 
     Test settings:
     python agnfinder/tf_sampling/run_sampler_singlethreaded.py --mode hmc --n-galaxies 2 --n-samples 4000 --n-burnin 1000 --n-repeats 2
@@ -311,8 +299,8 @@ if __name__ == '__main__':
     parser.add_argument('--n-galaxies', type=int, default=32, dest='n_galaxies', help="Number of distinct galaxies to use. Each may be sampled repeatedly via --n-chains")
     parser.add_argument('--n-burnin', type=int, default=10000, dest='n_burnin', help='Burn-in samples per chain. 10k HMC (split in two), 5k emcee')
     parser.add_argument('--n-samples', type=int, default=40000, dest='n_samples', help='Samples per chain. 40k HMC, 10k emcee to be safe, 7k to push it.')
-    parser.add_argument('--n-repeats', type=int, default=16, dest='n_repeats', help='Repeated sampling attempts per galaxy. Should probably be 1 (repeated runs) for emcee, or 16 (chains) for HMC')
-    parser.add_argument('--max-chains', type=int, default=512, dest='max_chains', help='Max chains to sample (in parallel). Equivalent to GPU batch size. Only relevent for HMC')
+    parser.add_argument('--n-repeats', type=int, default=8, dest='n_repeats', help='Repeated sampling attempts per galaxy. Should probably be 1 (repeated runs) for emcee, or 16 (chains) for HMC')
+    parser.add_argument('--max-chains', type=int, default=128, dest='max_chains', help='Max chains to sample (in parallel). Equivalent to GPU batch size. Only relevent for HMC')
     parser.add_argument('--init', type=str, dest='init_method', default='optimised', help='Can be one of: random, roughly_correct, optimised')
     parser.add_argument('--redshift', type=str, dest='redshift_str', default='fixed', help='Can be one of: fixed, free')
     parser.add_argument('--filters', type=str, dest='filters', default='euclid', help='Can be one of: euclid, reliable. Only has an effect on real galaxies.')

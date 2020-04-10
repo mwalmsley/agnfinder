@@ -48,6 +48,7 @@ class SamplerHMC(Sampler):
             initial_state,
             thinning=1,
             burnin_only=True)
+        assert not np.any(np.isnan(initial_samples))
 
         # identify which chains have low acceptance
         accepted_per_galaxy = tf.reduce_mean(input_tensor=is_accepted, axis=0)
