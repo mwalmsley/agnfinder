@@ -168,13 +168,9 @@ def fit_galaxy_manual(model, obs, sps):
 
 def mcmc_galaxy_manual(model, obs, sps, theta):  # requires previous minimisation
 
-    # nwalkers = 32  # for now, 256 on Zeus w/ GPU
-    # n_burnin = 5000
-    # n_samples = 20000  # up from 10k, can cut artifically later
-
     nwalkers = 32  # for now, 256 on Zeus w/ GPU
     n_burnin = 5000
-    n_samples = 20000  # up from 10k, can cut artifically later
+    n_samples = 10000  # up from 10k, can cut artifically later
 
     fsps_forward_model = simulation_samples.wrap_fsps_model(model, obs, sps)
     free_params_no_z = simulation_samples.FREE_PARAMS
@@ -405,7 +401,7 @@ def main(index, name, catalog_loc, save_dir, forest_class, spectro_class, redshi
         galaxy['redshift'] = cube_params[0] * 4.  # denormalised, 4 to scale from hcube. Again, crucial not to change param_lims!
 
         scale = y_test[index].sum()  # already neglog10 normalised
-        true_theta = np.concatenate(cube_params[1:], scale.reshape(1))  # fixed redshift, normalised, with scale added
+        true_theta = np.concatenate([cube_params[1:], scale.reshape(1)])  # fixed redshift, normalised, with scale added
         logging.info(f'True theta: {true_theta}')
 
         filters = load_photometry.get_filters('euclid')

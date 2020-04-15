@@ -11,8 +11,8 @@ import h5py
 from tqdm import tqdm
 
 
-def main(save_dir, use_filter, max_redshift):
-    params, marginals, true_params, _ = load_samples(save_dir, use_filter, max_redshift)  # don#t need samples themselves
+def main(save_dir, use_filter, max_redshift, frac_to_load=25):
+    params, marginals, true_params, _ = load_samples(save_dir, use_filter, max_redshift, frac_to_load)  # don#t need samples themselves
     posterior_records, param_bins = get_all_posterior_records(marginals, true_params, n_param_bins=50, n_posterior_bins=50)
     fig, axes = plot_posterior_stripes(posterior_records, param_bins, params)
     return fig, axes
@@ -199,6 +199,7 @@ if __name__ == '__main__':
     parser.add_argument('--raw', dest='raw', default=False, action='store_true')
     # parser.add_argument('--min-acceptance', default=0.6, type=float, dest='min_acceptance')
     parser.add_argument('--max-redshift', type=float, dest='max_redshift', default=4.0)
+    parser.add_argument('--frac', type=int, dest='frac_to_load', default=25)
     args = parser.parse_args()
 
     # more convenient to only specify when you *don't* want a filter
@@ -206,11 +207,11 @@ if __name__ == '__main__':
     if args.raw:
         use_filter = False
 
-    fig, axes = main(args.save_dir, use_filter, args.max_redshift)
+    fig, axes = main(args.save_dir, use_filter, args.max_redshift, args.frac_to_load)
 
     fig.savefig('results/latest_posterior_stripes.png')
     fig.savefig('results/latest_posterior_stripes.pdf')
 
     # python agnfinder/tf_sampling/parameter_recovery.py --save-dir results/emulated_sampling/latest_emcee_5000_20000_1_optimised  --raw
-    # python agnfinder/tf_sampling/parameter_recovery.py --save-dir results/emulated_sampling/latest_hmc_10000_40000_16_optimised  --raw
+    # python agnfinder/tf_sampling/parameter_recovery.py --save-dir results/emulated_sampling/latest_hmc_10000_40000_8_optimised  --raw
     # python agnfinder/tf_sampling/parameter_recovery.py --save-dir results/vanilla_emcee  --raw

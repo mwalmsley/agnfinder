@@ -13,12 +13,18 @@ MEMORY=$5  # per node!
 for INDEX in $(eval echo {$START..$END});
 do
     echo "Sampling galaxy $INDEX"
-    FILE=${REPO}/results/emulated_sampling/galaxy_${INDEX}_performance.h5
-    # if test -f "$FILE"; then
-    #     echo "$FILE already exists"
-    # else
-    addqueue -c "5 hour production" -q $QUEUE -n $NODES -m $MEMORY $PYTHON $REPO/agnfinder/prospector/main.py --name galaxy --cube "Yes" --save-dir $REPO/results/vanilla_emcee --index $INDEX
-    # fi
+    # only used to check if file already exists
+    FILE=${REPO}/results/vanilla_emcee/galaxy_${INDEX}_*.h5
+    # https://stackoverflow.com/questions/6363441/check-if-a-file-exists-with-wildcard-in-shell-script
+    for f in $FILE; do
+        if [ -e "$f" ]; then
+            echo "$f already exists, skipping"
+        else
+            echo "$f not found, beginning sampling"
+            addqueue -c "5 hour final sample" -q $QUEUE -n $NODES -m $MEMORY $PYTHON $REPO/agnfinder/prospector/main.py --name galaxy --cube "Yes" --save-dir $REPO/results/vanilla_emcee --index $INDEX
+        fi
+        break
+    done
 done
 
 # no point using less than 4gb memory on planet queue
