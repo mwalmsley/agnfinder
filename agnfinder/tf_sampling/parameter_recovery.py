@@ -10,11 +10,12 @@ from matplotlib import cm
 import h5py
 from tqdm import tqdm
 
+from agnfinder.tf_sampling import run_sampler
 
 def main(save_dir, use_filter, max_redshift, frac_to_load=25):
     params, marginals, true_params, _ = load_samples(save_dir, use_filter, max_redshift, frac_to_load)  # don#t need samples themselves
-    posterior_records, param_bins = get_all_posterior_records(marginals, true_params, n_param_bins=50, n_posterior_bins=50)
-    fig, axes = plot_posterior_stripes(posterior_records, param_bins, params)
+    posterior_records, param_bins, scale_bins = get_all_posterior_records(marginals, true_params, n_param_bins=50, n_posterior_bins=50)
+    fig, axes = plot_posterior_stripes(posterior_records, param_bins, scale_bins, params)
     return fig, axes
 
 
@@ -22,17 +23,22 @@ def get_all_posterior_records(marginals, true_params, n_param_bins, n_posterior_
     # with a made up array, get the bins to use
     dummy_array = np.zeros(42)  # anything
     _, param_bins = np.histogram(dummy_array, range=(0., 1.), bins=n_param_bins)
+    _, scale_bins = np.histogram(dummy_array, range=(60., 67.), bins=n_param_bins)  # sloppy duplication from run_sampler.py
 
     posterior_records = []
-    if true_params[:, -1].mean() > 1.:  # is scale param
-        n_params = true_params.shape[1] - 1
-    else:
-        n_params = true_params.shape[1]
-    for param_n in range(n_params):  # now excluding scale
+    # if true_params[:, -1].mean() > 1.:  # is scale param
+    #     n_params = true_params.shape[1] - 1
+    # else:
+    n_params = true_params.shape[1]
+    for param_n in range(n_params):
         print(param_n)
-        posterior_record = get_posterior_record(marginals, true_params, param_n, param_bins, n_param_bins, n_posterior_bins)
+        bins = param_bins
+        if param_n == n_params - 1:
+            print('Using scale bins')
+            bins = scale_bins
+        posterior_record = get_posterior_record(marginals, true_params, param_n, bins, n_param_bins, n_posterior_bins)
         posterior_records.append(posterior_record)
-    return posterior_records, param_bins
+    return posterior_records, param_bins, scale_bins
 
 
 def get_posterior_record(marginals, true_params, param_n, param_bins, n_param_bins, n_posterior_bins):
@@ -52,7 +58,7 @@ def get_posterior_record(marginals, true_params, param_n, param_bins, n_param_bi
     # posterior_record = posterior_record / galaxy_counts
     for n in range(len(galaxy_counts)):
         posterior_record[n] = posterior_record[n] / galaxy_counts[n]
-    print(posterior_record)
+    # print(posterior_record)
     # replace any 0's with nans, for clarity
     posterior_record[np.isclose(posterior_record, 0)] = np.nan
     # trim extreme values
@@ -61,14 +67,18 @@ def get_posterior_record(marginals, true_params, param_n, param_bins, n_param_bi
     return posterior_record
 
 
-def plot_posterior_stripes(posterior_records, param_bins, params):
+def plot_posterior_stripes(posterior_records, param_bins, scale_bins, params):
     fig, axes = plt.subplots(nrows=3, ncols=3, figsize=(12, 12))
     all_axes = [ax for col in axes for ax in col]
     sns.set_context('notebook')
     sns.set_style('white')
     for param_n, record in enumerate(posterior_records):
         ax = all_axes[param_n]
-        ax.pcolormesh(param_bins, param_bins, np.transpose(record), cmap='Blues')  
+        if param_n == len(posterior_records) - 1:
+            print(scale_bins)
+            ax.pcolormesh(scale_bins, scale_bins, np.transpose(record), cmap='Blues')  
+        else:
+            ax.pcolormesh(param_bins, param_bins, np.transpose(record), cmap='Blues')  
         ax.grid(False)
         # ax.plot([0., 50.], [0., 50.], 'k--', alpha=0.3)
         ax.set_title('{}'.format(params[param_n]), fontsize=22)
@@ -102,7 +112,11 @@ def load_samples(save_dir, use_filter, max_redshift, min_acceptance=0.0, frac_to
     # open one file to work out the format of the data
     for n, galaxy_loc in tqdm(enumerate(galaxy_locs), unit=' galaxies loaded'):
         f = h5py.File(galaxy_locs[0], mode='r')
-        params = f['samples'].attrs['free_param_names']
+        params = list(f['samples'].attrs['free_param_names'])
+        # print(params)
+        # print('Free params: ', params)
+        if 'scale' not in params:
+            params.append('scale')
         # don't care about fixed params
     params = rename_params(params)
 
@@ -114,16 +128,21 @@ def load_samples(save_dir, use_filter, max_redshift, min_acceptance=0.0, frac_to
     successful_run = np.zeros(len(galaxy_locs), dtype=bool)
     for n, galaxy_loc in tqdm(enumerate(galaxy_locs), unit=' galaxies loaded'):
         f = h5py.File(galaxy_loc, mode='r')
-        galaxy_marginals = f['marginals'][...]
+
         galaxy_true_params = f['true_params'][...]
         # is_accepted = f['is_accepted'][...].mean()
         # accept[n] = is_accepted >= args.min_acceptance
-        value_for_80p = np.quantile(galaxy_marginals, .8, axis=1)
-        num_geq_80p = (galaxy_marginals.transpose() > value_for_80p).sum(axis=0)
-        # print(num_geq_80p, num_geq_80p.shape)
-        allowed_acceptance[n] = np.mean(num_geq_80p) > min_acceptance
+
         samples = np.squeeze(f['samples'][...])  # okay to load, will not keep
-        all_samples.append(samples[::frac_to_load])  # only loading 1 in 25 samples!
+
+        # galaxy_marginals = f['marginals'][...]
+        galaxy_marginals = run_sampler.get_marginals(galaxy_true_params, samples)
+        # value_for_80p = np.quantile(galaxy_marginals, .8, axis=1)
+        # num_geq_80p = (galaxy_marginals.transpose() > value_for_80p).sum(axis=0)
+        # # print(num_geq_80p, num_geq_80p.shape)
+        # allowed_acceptance[n] = np.mean(num_geq_80p) > min_acceptance
+
+        all_samples.append(samples[::frac_to_load])  # only loading 1 in frac_to_load samples!
         if use_filter:
             successful_run[n] = within_percentile_limits(samples)
         else:
@@ -147,6 +166,7 @@ def load_samples(save_dir, use_filter, max_redshift, min_acceptance=0.0, frac_to
     # all_samples = np.array(all_samples)[accept]
     # marginals = marginals[accept]
     # true_params = true_params[accept]
+    # print(marginals[0], true_params[0])
     return params, marginals, true_params, all_samples
 
 

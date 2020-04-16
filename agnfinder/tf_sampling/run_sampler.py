@@ -44,6 +44,9 @@ def sample_galaxy_batch(problem, mode, n_burnin, n_samples, init_method, save_di
 
 
 def save_galaxy(save_file, galaxy_samples, galaxy_n, free_param_names, init_method, n_burnin, name, attempt_n, sample_weights, log_evidence, true_observation, fixed_params, fixed_param_names, uncertainty, metadata, true_params):
+    print(true_params.shape)
+    print(galaxy_samples.shape)
+    
     f = h5py.File(save_file, mode='w')  # will overwrite
     # for 0-1 decimals, float16 is more than precise enough and much smaller files
     # scaleoffset=5 means keep only the first 5 decimal places (plenty on 0-1 interval) to save space
@@ -63,17 +66,28 @@ def save_galaxy(save_file, galaxy_samples, galaxy_n, free_param_names, init_meth
         f.create_dataset(key, data=data)
     if true_params is not None:
         f.create_dataset('true_params', data=true_params)
-    # add marginals
-    marginal_bins = 50
-    dummy_array = np.zeros(42)  # anything
-    _, param_bins = np.histogram(dummy_array, range=(0., 1.), bins=marginal_bins)
 
-    print(true_params.shape)
-    print(galaxy_samples.shape)
-    marginals = np.zeros((len(true_params), marginal_bins))
-    for param_n in range(len(true_params)):
-        marginals[param_n], _ = np.histogram(galaxy_samples[:, :, param_n], density=True, bins=param_bins)  # galaxy samples is still dim3, confusingly
+    # add marginals
+
+    marginals = get_marginals(true_params, galaxy_samples)  # galaxy samples is still dim3, confusingly
     f.create_dataset('marginals', data=marginals)
+
+def get_marginals(true_params, galaxy_samples, n_bins=50):
+    dummy_array = np.zeros(42)  # anything
+
+    _, param_bins = np.histogram(dummy_array, range=(0., 1.), bins=n_bins)  # this will give nans for scale parameter as it is > 1 
+    _, scale_bins = np.histogram(dummy_array, range=(60., 67.), bins=n_bins)  # this will give nans for scale parameter as it is > 1 
+
+    marginals = np.zeros((len(true_params), n_bins))
+    for param_n in range(len(true_params)):
+        param_samples = galaxy_samples[:, :, param_n]
+        # print(param_samples.min(), param_samples.max())
+        if np.any(param_samples > 40):
+            print('Using scale bins for param n {}'.format(param_n))
+            marginals[param_n], _ = np.histogram(param_samples, density=True, bins=scale_bins)  # galaxy samples is still dim3, confusingly
+        else:
+            marginals[param_n], _ = np.histogram(param_samples, density=True, bins=param_bins)  # galaxy samples is still dim3, confusingly
+    return marginals
 
 
 def get_galaxy_save_file(name, save_dir, chain=0):
